@@ -1,0 +1,16 @@
+version: "3"
+
+tasks:
+  default:
+    desc: build
+    cmds:
+      - echo "Building topf..."
+      - "go build -o bin/topf ./cmd/topf"
+
+
+  clean:
+    desc: Clean build artifacts and caches
+    cmds:
+      - echo "Cleaning..."
+      - rm -rf bin
+

@@ -1,0 +1,233 @@
+# Postfinance golangci-lint configuration
+#
+# This configuration enforces strict code quality standards with a focus on:
+# - Code maintainability (complexity limits, function length)
+# - Code style consistency (formatting, imports)
+# - Security best practices (via gosec)
+# - Common Go coding mistakes
+#
+# The settings are intentionally strict to ensure high-quality, maintainable code.
+#
+# You can disable a check with: //nolint:gocyclo // why did you disable the check
+#
+# And you can disable a security issue with: // #nosec G307
+#
+# !!! Disabling checks should be well-justified. !!!
+#
+version: "2"
+run:
+  # The mode used to evaluate relative paths.
+  # It's used by exclusions, Go plugins, and some linters.
+  # The value can be:
+  # - `gomod`: the paths will be relative to the directory of the `go.mod` file.
+  # - `gitroot`: the paths will be relative to the git root (the parent directory of `.git`).
+  # - `cfg`: the paths will be relative to the configuration file.
+  # - `wd` (NOT recommended): the paths will be relative to the place where golangci-lint is run.
+  # Default: cfg
+  relative-path-mode: gomod
+  # Include test files or not.
+  # Default: true
+  tests: false
+linters:
+  # Default set of linters.
+  # The value can be: `standard`, `all`, `none`, or `fast`.
+  # Default: standard
+  default: none
+  enable:
+  - asasalint # checks for pass []any as any in variadic func(...any)
+  - asciicheck # checks that your code does not contain non-ASCII identifiers
+  - bidichk # checks for dangerous unicode character sequences
+  - bodyclose # checks whether HTTP response body is closed successfully
+  - canonicalheader # checks whether net/http.Header uses canonical header
+  - copyloopvar # detects places where loop variables are copied (Go 1.22+)
+  - cyclop # checks function and package cyclomatic complexity
+  - dogsled # checks assignments with too many blank identifiers
+  - dupl # tool for code clone detection
+  - durationcheck # checks for two durations multiplied together
+  - errcheck # checking for unchecked errors
+  - errorlint # finds problems with error wrapping scheme (Go 1.13+)
+  - exhaustive # checks exhaustiveness of enum switch statements
+  - exptostd # detects replaceable x/exp functions
+  - fatcontext # detects nested contexts in loops
+  - funlen # detects long functions
+  - gocheckcompilerdirectives # validates go compiler directive comments
+  - gochecknoglobals # checks for global variables
+  - gochecknoinits # checks for init functions
+  - gochecksumtype # checks exhaustiveness on Go "sum types"
+  - gocognit # computes cognitive complexity
+  - goconst # finds repeated strings
+  - gocritic # checks for bugs, performance and style issues
+  - goprintffuncname # verifies printf-like function names
+  - gosec # inspects for security issues
+  - govet # reports suspicious constructs
+  - iface # checks interface misuse
+  - ineffassign # detects unused assignments
+  - intrange # suggests integer ranges in loops
+  - loggercheck # verifies logger key-value pairs
+  - makezero # finds slice declarations with non-zero length
+  - misspell # finds misspelled words in comments
+  - nakedret # detects naked returns
+  - nestif # reports deeply nested if statements
+  - nilerr # finds nil error returns
+  - nilnesserr # checks error nil comparisons
+  - nilnil # detects invalid nil returns
+  - nolintlint # validates nolint directives
+  - nosprintfhostport # checks URL host+port misuse
+  - perfsprint # suggests faster alternatives to fmt.Sprintf
+  - prealloc # finds potentially preallocated slices
+  - protogetter # enforces proto field getters
+  - recvcheck # checks receiver consistency
+  - revive # modern replacement for golint
+  - rowserrcheck # verifies rows.Err checking
+  - sloglint # enforces consistent slog usage
+  - spancheck # checks OpenTelemetry span errors
+  - sqlclosecheck # verifies sql.Rows/Stmt closure
+  - staticcheck # advanced static analysis
+  - testifylint # checks testify usage
+  - tparallel # detects inappropriate t.Parallel()
+  - unconvert # finds unnecessary type conversions
+  - unparam # reports unused parameters
+  - unused # finds unused code
+  - usestdlibvars # suggests stdlib variables
+  - wastedassign # finds wasted assignments
+  - whitespace # detects leading/trailing whitespace
+  - wsl_v5 # enforces empty line rules
+
+  settings:
+    recvcheck:
+      exclusions:
+      - "*.Unmarshal*"
+      - "*.UnmarshalJSON"
+      - "*.UnmarshalYAML"
+      - "*.UnmarshalText"
+      - "*.UnmarshalBinary"
+    cyclop:
+      # The maximal code complexity to report.
+      # Default: 10
+      max-complexity: 30
+      # The maximal average package complexity.
+      # If it's higher than 0.0 (float) the check is enabled
+      # Default: 0.0
+      package-average: 10
+
+    errcheck:
+      # Report about not checking of errors in type assertions: `a := b.(MyStruct)`.
+      # Such cases aren't reported by default.
+      # Default: false
+      check-type-assertions: true
+
+    exhaustive:
+      # Program elements to check for exhaustiveness.
+      # Default: [ switch ]
+      # - switch: Ensures all enum values are handled in switch statements
+      # - map: Ensures all enum values are present when initializing maps with enum keys
+      check:
+      - switch
+      - map
+      # Presence of "default" case in switch statements satisfies exhaustiveness,
+      # even if all enum members are not listed.
+      # Default: false
+      default-signifies-exhaustive: true
+
+    funlen:
+      # If lower than 0, disable the check.
+      # Default: 60
+      lines: -1 # the number of lines (code + empty lines) is not a right metric and leads to code without empty line or one-liner.
+      # Checks the number of statements in a function.
+      # If lower than 0, disable the check.
+      # Default: 40
+      statements: 50
+      # Ignore comments when counting lines.
+      # Default false
+      ignore-comments: true
+
+    govet:
+      # Disable analyzers by name.
+      # Run `go tool vet help` to see all analyzers.
+      # Default: []
+      disable:
+      - fieldalignment
+      # Enable all analyzers.
+      # Default: false
+      enable-all: true
+
+    inamedparam:
+      # Skips check for interface methods with only a single parameter.
+      # Default: false
+      skip-single-param: true
+
+    nolintlint:
+      # Exclude following linters from requiring an explanation.
+      # Default: []
+      allow-no-explanation:
+      - gocognit
+      - funlen
+      - cyclop
+      # Enable to require an explanation of nonzero length after each nolint directive.
+      # Default: false
+      require-explanation: true
+      # Enable to require nolint directives to mention the specific linter being suppressed.
+      # Default: false
+      require-specific: true
+
+    rowserrcheck:
+      # database/sql is always checked
+      # Default: []
+      packages:
+      - github.com/jmoiron/sqlx
+
+    sloglint:
+      # Enforce not using global loggers.
+      # Values:
+      # - "": disabled
+      # - "all": report all global loggers
+      # - "default": report only the default slog logger
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#no-global
+      # Default: ""
+      # no-global: "all"
+      # Enforce using static values for log messages.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#static-messages
+      # Default: false
+      static-msg: true
+
+  exclusions:
+    # Very commonly not checked.
+    rules:
+    - path: (.+)\.go$
+      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+    - path: (.+)\.go$
+      text: G104:.*
+    - path: (.+)\.go$
+      text: exported method (.*\.MarshalJSON|.*\.UnmarshalJSON|.*\.MarshalText|.*\.UnmarshalText|.*\.LogValue|.*\.MarshalLogObject) should have comment or be unexported
+    - path: (.+)\.go$
+      text: 'shadow: declaration of "err" shadows declaration.*'
+    - path: (.+)\.go$
+      text: 'shadow: declaration of "logger" shadows declaration.*'
+
+    paths:
+    - ^\.github
+    - ^build/
+    - ^web/
+    - ^\.go
+    - ^vendor
+    - third_party$
+    - builtin$
+    - examples$
+
+issues:
+  max-same-issues: 0
+
+formatters:
+  enable:
+  - goimports # formats code and fixes imports
+
+  exclusions:
+    paths:
+    - ^\.github
+    - ^build/
+    - ^web/
+    - ^\.go
+    - ^vendor
+    - third_party$
+    - builtin$
+    - examples$

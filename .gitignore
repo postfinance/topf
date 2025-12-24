@@ -1,0 +1,9 @@
+bin/
+.task/
+secrets.yaml
+.env
+talosconfig
+!talosconfig/
+kubeconfig
+!kubeconfig/
+.sops.yaml
