@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/postfinance/topf/internal/topf"
+	"github.com/postfinance/topf/pkg/config"
+	"github.com/siderolabs/talos/pkg/machinery/config/encoder"
 	"github.com/urfave/cli/v3"
 	"go.yaml.in/yaml/v4"
 )
@@ -23,6 +26,13 @@ func newNodesCmd() *cli.Command {
 				Usage:   "output format (table, yaml)",
 				Value:   "table",
 			},
+			&cli.StringFlag{
+				Name:        "machineconfig-output",
+				Aliases:     []string{"m"},
+				Usage:       "write machineconfig in <dir>",
+				Value:       "./output",
+				DefaultText: "./output",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			t := MustGetRuntime(ctx)
@@ -30,6 +40,14 @@ func newNodesCmd() *cli.Command {
 			nodes, err := t.Nodes(ctx)
 			if err != nil {
 				return err
+			}
+
+			// Write machine configs if the flag is set
+			if cmd.IsSet("machineconfig-output") {
+				outputDir := cmd.String("machineconfig-output")
+				if err := writeMachineConfigs(nodes, outputDir); err != nil {
+					return fmt.Errorf("failed to write machine configs: %w", err)
+				}
 			}
 
 			outputFormat := cmd.String("output")
@@ -112,6 +130,50 @@ func renderNodesYAML(nodes []*topf.Node) error {
 	}
 
 	fmt.Println(string(yamlBytes))
+
+	return nil
+}
+
+func writeMachineConfigs(nodes []*topf.Node, outputDir string) error {
+	// Create the output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	for _, node := range nodes {
+		if node.ConfigBundle == nil {
+			fmt.Fprintf(os.Stderr, "Warning: skipping %s - no config bundle available\n", node.Node.Host)
+			continue
+		}
+
+		// Determine which config to use based on the node's role
+		var provider interface {
+			EncodeBytes(...encoder.Option) ([]byte, error)
+		}
+
+		if node.Node.Role == config.RoleControlPlane {
+			provider = node.ConfigBundle.ControlPlaneCfg
+		} else {
+			provider = node.ConfigBundle.WorkerCfg
+		}
+
+		// Encode the config to YAML
+		configBytes, err := provider.EncodeBytes(
+			encoder.WithComments(encoder.CommentsDisabled),
+			encoder.WithOmitEmpty(true),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to encode config for %s: %w", node.Node.Host, err)
+		}
+
+		// Write to file named <hostname>.yaml
+		outputPath := filepath.Join(outputDir, node.Node.Host+".yaml")
+		if err := os.WriteFile(outputPath, configBytes, 0o600); err != nil {
+			return fmt.Errorf("failed to write config for %s: %w", node.Node.Host, err)
+		}
+
+		fmt.Fprintf(os.Stdout, "Wrote machine config for %s to %s\n", node.Node.Host, outputPath)
+	}
 
 	return nil
 }
