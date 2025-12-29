@@ -127,7 +127,7 @@ func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
 	}
 
 	if strings.HasSuffix(filename, ".tpl") {
-		tmpl, err := template.New("config").Parse(string(content))
+		tmpl, err := template.New("config").Option("missingkey=error").Parse(string(content))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
 		}

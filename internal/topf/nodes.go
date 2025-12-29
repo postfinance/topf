@@ -129,7 +129,13 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 					},
 				),
 				bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
-				bundle.WithPatch(patches),
+			}
+
+			switch node.Node.Role {
+			case config.RoleControlPlane:
+				configBundleOpts = append(configBundleOpts, bundle.WithPatchControlPlane(patches))
+			case config.RoleWorker:
+				configBundleOpts = append(configBundleOpts, bundle.WithPatchWorker(patches))
 			}
 
 			configBundle, err := bundle.NewBundle(configBundleOpts...)
