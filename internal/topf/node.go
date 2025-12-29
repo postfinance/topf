@@ -24,3 +24,26 @@ type Node struct {
 	ConfigBundle  *bundle.Bundle `yaml:"-"`
 	Error         error          `yaml:",omitempty"`
 }
+
+// MarshalYAML implements custom YAML marshalling to properly serialize the Error field
+func (n *Node) MarshalYAML() (interface{}, error) {
+	// Create a struct with only the exported fields we want to marshal
+	aux := &struct {
+		Node          *config.Node              `yaml:"node"`
+		MachineStatus runtime.MachineStatusSpec `yaml:"machinestatus"`
+		Schematic     string                    `yaml:"schematic"`
+		TalosVersion  string                    `yaml:"talosversion"`
+		Error         string                    `yaml:"error,omitempty"`
+	}{
+		Node:          n.Node,
+		MachineStatus: n.MachineStatus,
+		Schematic:     n.Schematic,
+		TalosVersion:  n.TalosVersion,
+	}
+
+	if n.Error != nil {
+		aux.Error = n.Error.Error()
+	}
+
+	return aux, nil
+}
