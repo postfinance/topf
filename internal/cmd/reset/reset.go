@@ -42,7 +42,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	}
 
 	for _, n := range nodes {
-		logger := logger.With("node", n.Node.Host)
+		logger := logger.With(n.Attrs())
 
 		if n.MachineStatus.Stage == runtime.MachineStageMaintenance {
 			logger.Info("already in maintenance mode")

@@ -39,7 +39,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	abort := false
 
 	for _, node := range nodes {
-		logger := logger.With("node", node.Node.Host)
+		logger := logger.With(node.Attrs())
 
 		if node.Error != nil {
 			logger.Error("node pre-checks", "error", node.Error)
@@ -63,7 +63,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	}
 
 	for _, node := range nodes {
-		logger := logger.With("node", node.Node.Host)
+		logger := logger.With(node.Attrs())
 
 		installerImage := node.ConfigBundle.WorkerCfg.Machine().Install().Image()
 

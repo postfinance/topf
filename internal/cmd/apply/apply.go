@@ -32,7 +32,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	abort := false
 
 	for _, node := range nodes {
-		logger := logger.With("node", node.Node.Host)
+		logger := logger.With(node.Attrs())
 
 		if node.Error != nil {
 			logger.Error("node pre-checks", "error", node.Error)
@@ -57,7 +57,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 	// apply configs
 	for _, node := range nodes {
-		logger := logger.With("node", node.Node.Host)
+		logger := logger.With(node.Attrs())
 
 		applied, err := node.Apply(ctx, logger, opts.Confirm)
 		if err != nil {

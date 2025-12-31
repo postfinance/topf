@@ -16,7 +16,7 @@ import (
 
 // Apply applies the configuration bundle to the node.
 func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm bool) (bool, error) {
-	logger = logger.With("node", n.Node.Host)
+	logger = logger.With(n.Attrs())
 
 	if n.ConfigBundle == nil {
 		return false, errors.New("cannot apply config: config bundle is empty")

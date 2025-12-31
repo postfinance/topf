@@ -35,7 +35,7 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 		go func(node *Node) {
 			defer wg.Done()
 
-			logger := t.Logger().With("node", node.Node.Host)
+			logger := t.Logger().With(node.Attrs())
 
 			logger.Debug("collecting data")
 

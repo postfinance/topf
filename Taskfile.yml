@@ -14,3 +14,9 @@ tasks:
       - echo "Cleaning..."
       - rm -rf bin
 
+  lint:
+    desc: Run linter
+    cmds:
+      - echo "Running linter..."
+      - golangci-lint run
+

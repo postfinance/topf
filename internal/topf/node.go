@@ -1,6 +1,8 @@
 package topf
 
 import (
+	"log/slog"
+
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
@@ -46,4 +48,9 @@ func (n *Node) MarshalYAML() (interface{}, error) {
 	}
 
 	return aux, nil
+}
+
+// Attrs returns a key/value for use with slog.Logger.With
+func (n *Node) Attrs() slog.Attr {
+	return slog.String("node", n.Node.Host)
 }

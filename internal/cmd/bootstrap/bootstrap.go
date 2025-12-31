@@ -88,7 +88,7 @@ func preChecks(logger *slog.Logger, nodes []*topf.Node) (ok bool) {
 	ok = true
 
 	for _, node := range nodes {
-		logger := logger.With("node", node.Node.Host)
+		logger := logger.With(node.Attrs())
 
 		if node.Error != nil {
 			logger.Error("couldn't collect information for node", "error", node.Error)
