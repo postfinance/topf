@@ -25,6 +25,7 @@ func newUpgradeCmd() *cli.Command {
 				Value: false,
 			},
 		},
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
 			t := MustGetRuntime(ctx)
 

@@ -26,14 +26,19 @@ type Result struct {
 }
 
 // Execute performs the reset operation on all nodes in the cluster
-func Execute(ctx context.Context, t topf.Topf, opts Options) (*Result, error) {
+func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	logger := t.Logger().With("command", "reset")
 	result := &Result{}
 
 	// Gather node information
 	nodes, err := t.Nodes(ctx)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	if len(nodes) == 0 {
+		logger.Info("no node to act upon")
+		return nil
 	}
 
 	for _, n := range nodes {
@@ -62,7 +67,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) (*Result, error) {
 			{Label: "EPHEMERAL", Wipe: true},
 		}
 
-		// full wipe blindely wipes all partitions
+		// full wipe blindly wipes all partitions
 		if opts.Full {
 			partitions = nil
 		}
@@ -85,5 +90,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) (*Result, error) {
 		result.SuccessCount++
 	}
 
-	return result, nil
+	logger.Info("reset completed", "result", *result)
+
+	return nil
 }

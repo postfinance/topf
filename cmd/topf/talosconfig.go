@@ -10,8 +10,9 @@ import (
 
 func newTalosconfigCmd() *cli.Command {
 	return &cli.Command{
-		Name:  "talosconfig",
-		Usage: "generate and save talosconfig from secrets bundle",
+		Name:   "talosconfig",
+		Usage:  "generate and save talosconfig from secrets bundle",
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, _ *cli.Command) error {
 			t := MustGetRuntime(ctx)
 

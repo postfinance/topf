@@ -15,6 +15,7 @@ func newApplyCmd() *cli.Command {
 		Flags: []cli.Flag{
 			confirmFlag(),
 		},
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
 			t := MustGetRuntime(ctx)
 

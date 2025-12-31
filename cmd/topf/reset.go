@@ -29,9 +29,9 @@ func newResetCmd() *cli.Command {
 			},
 		},
 		Description: `This command resets a Talos node to its initial state, wiping the state and ephemeral system partitions and rebooting the node.`,
+		Before:      noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
 			t := MustGetRuntime(ctx)
-			logger := t.Logger().With("command", "reset")
 
 			opts := reset.Options{
 				Full:     c.Bool("full"),
@@ -39,14 +39,7 @@ func newResetCmd() *cli.Command {
 				Shutdown: c.Bool("shutdown"),
 			}
 
-			_, err := reset.Execute(ctx, t, opts)
-			if err != nil {
-				return err
-			}
-
-			logger.Info("reset completed")
-
-			return nil
+			return reset.Execute(ctx, t, opts)
 		},
 	}
 }

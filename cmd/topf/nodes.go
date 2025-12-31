@@ -17,8 +17,9 @@ import (
 
 func newNodesCmd() *cli.Command {
 	return &cli.Command{
-		Name:  "nodes",
-		Usage: "list all nodes and their current state",
+		Name:   "nodes",
+		Usage:  "list all nodes and their current state",
+		Before: noPositionalArgs,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "output",

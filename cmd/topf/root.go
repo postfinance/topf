@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -89,4 +90,14 @@ func confirmFlag() *cli.BoolFlag {
 		Usage: "confirm any changes before applying them",
 		Value: true,
 	}
+}
+
+// noPositionalArgs is a Before hook that rejects any positional arguments.
+// Use this for commands that only accept flags.
+func noPositionalArgs(ctx context.Context, c *cli.Command) (context.Context, error) {
+	if c.Args().Len() > 0 {
+		return ctx, fmt.Errorf("unexpected argument(s): %v. Did you mean to use flags? (e.g., --flag=value instead of flag=value)", c.Args().Slice())
+	}
+
+	return ctx, nil
 }

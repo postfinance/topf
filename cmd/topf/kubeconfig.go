@@ -11,8 +11,9 @@ import (
 
 func newKubeconfigCmd() *cli.Command {
 	return &cli.Command{
-		Name:  "kubeconfig",
-		Usage: "generate a temporary admin kubeconfig",
+		Name:   "kubeconfig",
+		Usage:  "generate a temporary admin kubeconfig",
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, _ *cli.Command) error {
 			t := MustGetRuntime(ctx)
 

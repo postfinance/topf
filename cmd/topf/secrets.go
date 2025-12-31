@@ -10,8 +10,9 @@ import (
 
 func newSecretsCmd() *cli.Command {
 	return &cli.Command{
-		Name:  "secrets",
-		Usage: "get or generate secrets.yaml for cluster",
+		Name:   "secrets",
+		Usage:  "get or generate secrets.yaml for cluster",
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, _ *cli.Command) error {
 			t := MustGetRuntime(ctx)
 

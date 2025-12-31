@@ -11,8 +11,9 @@ import (
 
 func newClusterInfoCmd() *cli.Command {
 	return &cli.Command{
-		Name:  "clusterinfo",
-		Usage: "output non-sensitive cluster information",
+		Name:   "clusterinfo",
+		Usage:  "output non-sensitive cluster information",
+		Before: noPositionalArgs,
 		Action: func(ctx context.Context, _ *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
