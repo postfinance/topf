@@ -19,9 +19,10 @@ const (
 
 func main() {
 	app := &cli.Command{
-		Name:        "topf",
-		Usage:       "Talos Orchestrator by PostFinance",
-		Description: "Topf is a CLI for managing Talos clusters.",
+		Name:                  "topf",
+		Usage:                 "Talos Orchestrator by PostFinance",
+		Description:           "Topf is a CLI for managing Talos clusters.",
+		EnableShellCompletion: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "topfconfig",
@@ -43,6 +44,12 @@ func main() {
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			// Skip runtime initialization for completion command
+			// Check if the first arg is "completion"
+			if len(os.Args) > 1 && os.Args[1] == "completion" {
+				return ctx, nil
+			}
+
 			// passing down the Topf runtime to all commands via context
 			topf, err := topf.NewTopfRuntime(
 				c.String("topfconfig"),
