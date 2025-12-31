@@ -3,12 +3,12 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/postfinance/topf/pkg/providers"
+	"github.com/postfinance/topf/pkg/sops"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -34,15 +34,22 @@ type TopfConfig struct {
 
 // LoadFromFile loads the TopfConfig from a YAML file
 func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err error) {
-	//nolint:gosec // we allow loading the config from arbitrary paths by design
-	configFile, err := os.Open(path)
+	// Read file with automatic SOPS decryption if needed
+	content, err := sops.ReadFileWithSOPS(path)
 	if err != nil {
-		return config, err
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if content == nil {
+		return nil, fmt.Errorf("config file not found: %s", path)
 	}
 
 	config = &TopfConfig{}
 
-	err = yaml.NewDecoder(configFile).Decode(config)
+	err = yaml.Unmarshal(content, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
 
 	nodesFilter := regexp.MustCompile(".*")
 

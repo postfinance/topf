@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/postfinance/topf/pkg/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 )
 
@@ -120,13 +121,20 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) 
 }
 
 func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
-	//nolint:gosec // loading arbitrary patche files is by design
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
+	var (
+		content []byte
+		err     error
+	)
 
+	//nolint:nestif // complexity due to template vs SOPS handling
 	if strings.HasSuffix(filename, ".tpl") {
+		// Template files: read without SOPS decryption
+		//nolint:gosec // loading arbitrary patch files is by design
+		content, err = os.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+
 		tmpl, err := template.New("config").Option("missingkey=error").Parse(string(content))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
@@ -138,9 +146,20 @@ func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
 		}
 
 		content = buf.Bytes()
+	} else {
+		// Non-template files: use SOPS auto-detection
+		content, err = sops.ReadFileWithSOPS(filename)
+		if err != nil {
+			return nil, err
+		}
+
+		if content == nil {
+			return nil, fmt.Errorf("patch file not found: %s", filename)
+		}
 	}
 
-	// early error with JSON patches, as TOPF (and talos v1.12+) are not supporting those
+	// early error with JSON patches, as TOPF (and talos v1.12+) are not supporting those.
+	// note: an empty (or commented-out) file is considered a JSON patch
 	patch, err := configpatcher.LoadPatch(content)
 	if _, isJSONPatch := patch.(jsonpatch.Patch); isJSONPatch {
 		return nil, errors.New("TOPF doesn't not support JSON patches")
