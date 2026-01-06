@@ -17,11 +17,14 @@ const (
 	topfRuntimeCtxKey ContextKey = "topf"
 )
 
+var version = "dev"
+
 func main() {
 	app := &cli.Command{
 		Name:        "topf",
 		Usage:       "Talos Orchestrator by PostFinance",
 		Description: "Topf is a CLI for managing Talos clusters.",
+		Version:     version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "topfconfig",

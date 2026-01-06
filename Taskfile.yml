@@ -3,9 +3,12 @@ version: "3"
 tasks:
   default:
     desc: build
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
     cmds:
-      - echo "Building topf..."
-      - "go build -o bin/topf ./cmd/topf"
+      - echo "Building topf version {{.VERSION}}..."
+      - go build -ldflags "-X main.version={{.VERSION}}" -o bin/topf ./cmd/topf
 
 
   clean:
