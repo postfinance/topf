@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -16,6 +17,12 @@ import (
 type Options struct {
 	// Ask for user input before applying
 	Confirm bool
+	// Automatically bootstrap etcd
+	AutoBootstrap bool
+	// Skip nodes with pre-flight errors and continue with healthy nodes
+	SkipProblematicNodes bool
+	// Skip post-apply stabilization and health checks
+	SkipPostApplyChecks bool
 }
 
 // Execute applies the Talos configurations to all nodes in the cluster
@@ -25,37 +32,83 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	nodes, err := t.Nodes(ctx)
 	if err != nil {
 		return err
+	} else if len(nodes) == 0 {
+		logger.Warn("no nodes to process. exiting")
+		return nil
 	}
 
-	// Pre Checks
-	// collect all errors to report them all at once
-	abort := false
+	// Pre-flight checks
+	filteredNodes, err := runPreflightChecks(logger, nodes, &opts)
+	if err != nil {
+		return err
+	}
 
-	for _, node := range nodes {
+	// Apply configs
+	if err := applyConfigs(ctx, logger, filteredNodes, opts); err != nil {
+		return err
+	}
+
+	// Bootstrap if requested
+	if opts.AutoBootstrap {
+		return bootstrap(ctx, logger, filteredNodes)
+	}
+
+	return nil
+}
+
+// runPreflightChecks filters nodes based on pre-flight checks and returns healthy nodes
+func runPreflightChecks(logger *slog.Logger, nodes []*topf.Node, opts *Options) ([]*topf.Node, error) {
+	maintenanceNodesCnt := 0
+
+	filteredNodes := slices.DeleteFunc(nodes, func(node *topf.Node) bool {
 		logger := logger.With(node.Attrs())
 
 		if node.Error != nil {
 			logger.Error("node pre-checks", "error", node.Error)
-
-			abort = true
-
-			continue
+			return true
 		}
 
-		if !slices.Contains([]runtime.MachineStage{runtime.MachineStageRunning, runtime.MachineStageMaintenance, runtime.MachineStageBooting}, node.MachineStatus.Stage) {
-			logger.Error("node in unprocessable stage", "stage", node.MachineStatus.Stage.String())
+		if !node.MachineStatus.Status.Ready {
+			logger.Error("node not ready", "unmet conditions", node.MachineStatus.Status.UnmetConditions)
+			return true
+		}
 
-			abort = true
+		st := node.MachineStatus.Stage
+		if !slices.Contains([]runtime.MachineStage{runtime.MachineStageRunning, runtime.MachineStageMaintenance, runtime.MachineStageBooting}, st) {
+			logger.Error("node in unprocessable stage", "stage", st.String())
+			return true
+		}
 
-			continue
+		if st == runtime.MachineStageMaintenance {
+			maintenanceNodesCnt++
+		}
+
+		return false
+	})
+
+	if len(filteredNodes) == 0 {
+		return nil, errors.New("no healthy nodes available to process")
+	}
+
+	if len(filteredNodes) != len(nodes) {
+		if opts.SkipProblematicNodes {
+			logger.Warn("pre-flight checks failed for some nodes. continuing with healthy nodes only", "healthy_nodes", len(filteredNodes), "total_nodes", len(nodes))
+		} else {
+			return nil, errors.New("aborting due to errors with some nodes")
 		}
 	}
 
-	if abort {
-		return errors.New("aborting due to errors with some nodes")
+	if maintenanceNodesCnt == len(filteredNodes) {
+		logger.Info("all nodes are in maintenance stage. ignoring the post-apply checks")
+
+		opts.SkipPostApplyChecks = true
 	}
 
-	// apply configs
+	return filteredNodes, nil
+}
+
+// applyConfigs applies configuration to all filtered nodes
+func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, opts Options) error {
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
@@ -65,7 +118,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 
 		// if nothing was applied, skip healthchecks
-		if !applied {
+		if !applied || opts.SkipPostApplyChecks {
 			continue
 		}
 

@@ -59,7 +59,6 @@ func main() {
 			return context.WithValue(ctx, topfRuntimeCtxKey, topf), nil
 		},
 		Commands: []*cli.Command{
-			newBootstrapCmd(),
 			newApplyCmd(),
 			newUpgradeCmd(),
 			newResetCmd(),
