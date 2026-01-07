@@ -34,7 +34,7 @@ func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilization
 
 		machineStatus, err := safe.ReaderGetByID[*runtime.MachineStatus](ctx, nodeClient.COSI, runtime.MachineStatusID)
 		if err != nil {
-			return retry.ExpectedErrorf("couldn't get machine status: %s", machineStatus.TypedSpec().Stage)
+			return retry.ExpectedErrorf("couldn't get machine status: %s", err)
 		}
 
 		if machineStatus.TypedSpec().Stage != runtime.MachineStageRunning {
@@ -74,8 +74,8 @@ func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilization
 
 					if !msg.GetStatus().GetReady() {
 						reasons := []string{}
-						for _, cond := range machineStatus.TypedSpec().Status.UnmetConditions {
-							reasons = append(reasons, fmt.Sprintf("%s: %s", cond.Name, cond.Reason))
+						for _, cond := range msg.GetStatus().GetUnmetConditions() {
+							reasons = append(reasons, fmt.Sprintf("%s: %s", cond.GetName(), cond.GetReason()))
 						}
 
 						return retry.ExpectedErrorf("machine not ready (%v)", reasons)
