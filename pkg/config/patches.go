@@ -14,6 +14,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/postfinance/topf/pkg/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
+	"gopkg.in/yaml.v3"
 )
 
 // PatchContext are the things that can be templated in patches
@@ -107,15 +108,18 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) 
 		return nil, err
 	}
 
-	patches := make([]configpatcher.Patch, len(filePaths))
+	patches := make([]configpatcher.Patch, 0, len(filePaths))
 
-	for i, filePath := range filePaths {
+	for _, filePath := range filePaths {
 		patch, err := p.loadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read patch %s: %w", filePath, err)
 		}
 
-		patches[i] = patch
+		// Skip nil patches (empty files)
+		if patch != nil {
+			patches = append(patches, patch)
+		}
 	}
 
 	return patches, nil
@@ -159,12 +163,52 @@ func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
 		}
 	}
 
+	// Check if patch is empty (only whitespace or comments)
+	if isEmpty(content) {
+		// Skip empty patches gracefully - returning nil patch is intentional, not an error
+		//nolint:nilnil // empty patch is valid, not an error condition
+		return nil, nil
+	}
+
 	// early error with JSON patches, as TOPF (and talos v1.12+) are not supporting those.
-	// note: an empty (or commented-out) file is considered a JSON patch
 	patch, err := configpatcher.LoadPatch(content)
 	if _, isJSONPatch := patch.(jsonpatch.Patch); isJSONPatch {
 		return nil, errors.New("TOPF doesn't not support JSON patches")
 	}
 
 	return patch, err
+}
+
+// isEmpty checks if content is effectively empty by attempting to unmarshal it
+func isEmpty(content []byte) bool {
+	// Trim whitespace first
+	trimmed := strings.TrimSpace(string(content))
+	if trimmed == "" {
+		return true
+	}
+
+	// Try to unmarshal as generic YAML
+	var data any
+	if err := yaml.Unmarshal(content, &data); err != nil {
+		// If it doesn't unmarshal, it's not valid YAML, so not empty
+		return false
+	}
+
+	// Check if unmarshaled data is nil or empty
+	if data == nil {
+		return true
+	}
+
+	// Check if it's an empty map
+	if m, ok := data.(map[string]any); ok && len(m) == 0 {
+		return true
+	}
+
+	// Check if it's an empty slice
+	if s, ok := data.([]any); ok && len(s) == 0 {
+		return true
+	}
+
+	// Has actual data
+	return false
 }
