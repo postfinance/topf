@@ -52,10 +52,22 @@ func main() {
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			// Validate config-dir exists
+			configDir := c.String("config-dir")
+			if stat, err := os.Stat(configDir); err != nil {
+				if os.IsNotExist(err) {
+					return ctx, fmt.Errorf("config directory does not exist: %s", configDir)
+				}
+
+				return ctx, fmt.Errorf("failed to access config directory: %w", err)
+			} else if !stat.IsDir() {
+				return ctx, fmt.Errorf("config path is not a directory: %s", configDir)
+			}
+
 			// passing down the Topf runtime to all commands via context
 			topf, err := topf.NewTopfRuntime(
 				c.String("topfconfig"),
-				c.String("config-dir"),
+				configDir,
 				c.String("nodes"),
 				c.String("log-level"),
 			)
