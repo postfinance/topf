@@ -29,6 +29,11 @@ func newApplyCmd() *cli.Command {
 				Usage: "skip post-apply stabilization and health checks",
 				Value: false,
 			},
+			&cli.BoolFlag{
+				Name:  "allow-not-ready",
+				Usage: "allow applying to nodes that are not ready (have unmet conditions)",
+				Value: false,
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -39,6 +44,7 @@ func newApplyCmd() *cli.Command {
 				AutoBootstrap:        c.Bool("auto-bootstrap"),
 				SkipProblematicNodes: c.Bool("skip-problematic-nodes"),
 				SkipPostApplyChecks:  c.Bool("skip-post-apply-checks"),
+				AllowNotReady:        c.Bool("allow-not-ready"),
 			})
 		},
 	}

@@ -23,6 +23,8 @@ type Options struct {
 	SkipProblematicNodes bool
 	// Skip post-apply stabilization and health checks
 	SkipPostApplyChecks bool
+	// Allow applying to nodes that are not ready (have unmet conditions)
+	AllowNotReady bool
 }
 
 // Execute applies the Talos configurations to all nodes in the cluster
@@ -68,7 +70,7 @@ func runPreflightChecks(logger *slog.Logger, nodes []*topf.Node, opts *Options) 
 			return true
 		}
 
-		if !node.MachineStatus.Status.Ready {
+		if !opts.AllowNotReady && !node.MachineStatus.Status.Ready {
 			logger.Error("node not ready", "unmet conditions", node.MachineStatus.Status.UnmetConditions)
 			return true
 		}

@@ -44,7 +44,7 @@ The `apply` command is the primary way to apply configuration changes to a runni
 
 2. **Pre-flight Checks**: Validate each node's health
    - Nodes with errors → unhealthy
-   - Nodes not ready (unmet conditions) → unhealthy
+   - Nodes not ready (unmet conditions) → unhealthy (unless `--allow-not-ready` is set)
    - Nodes not in Running/Maintenance/Booting stage → unhealthy
    - **If any unhealthy nodes found**:
      - Without `--skip-problematic-nodes`: **ABORT**
@@ -73,6 +73,7 @@ The `apply` command is the primary way to apply configuration changes to a runni
 | `--auto-bootstrap` | `false` | Automatically bootstrap ETCD after applying configurations |
 | `--skip-problematic-nodes` | `false` | Continue with healthy nodes if some fail pre-flight checks |
 | `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs |
+| `--allow-not-ready` | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
 
 ### Example Usage
 
@@ -91,6 +92,9 @@ topf apply --skip-problematic-nodes
 
 # Apply without waiting for nodes to stabilize
 topf apply --skip-post-apply-checks
+
+# Apply to nodes even if they have unmet conditions
+topf apply --allow-not-ready
 ```
 
 ### Pre-flight Checks
@@ -98,7 +102,7 @@ topf apply --skip-post-apply-checks
 The apply command validates each node before attempting to apply configuration:
 
 - **Node errors**: Skip nodes that failed to initialize or communicate
-- **Ready status**: Skip nodes with unmet conditions (e.g., missing network, disk issues)
+- **Ready status**: Skip nodes with unmet conditions (e.g., missing network, disk issues) unless `--allow-not-ready` is set
 - **Machine stage**: Only process nodes in Running, Maintenance, or Booting stages
 
 ### Post-apply Stabilization
