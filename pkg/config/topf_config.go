@@ -26,6 +26,11 @@ type TopfConfig struct {
 	// NodesProvider can be optionally set the path of a binary which will provide additional noddes
 	NodesProvider string `yaml:"nodesProvider,omitempty"`
 
+	// DataProvider can be optionally set to the path of a binary which will provide
+	// additional data that gets merged with the data field. Provider data overrides
+	// topf.yaml data.
+	DataProvider string `yaml:"dataProvider,omitempty"`
+
 	Nodes []Node `yaml:"nodes"`
 
 	// Data can contain arbitrary data that can be used when templating patches
@@ -49,6 +54,23 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err
 	err = yaml.Unmarshal(content, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
+
+	// If a data provider is given, merge its data with the config data
+	if config.DataProvider != "" {
+		provider := providers.NewBinaryDataProvider(config.DataProvider)
+
+		providerData, err := providers.LoadDataYAML(provider, config.ClusterName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Initialize Data map if nil
+		if config.Data == nil {
+			config.Data = make(map[string]any)
+		}
+		// Deep merge: provider overrides
+		config.Data = deepMerge(config.Data, providerData)
 	}
 
 	nodesFilter := regexp.MustCompile(".*")

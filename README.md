@@ -166,3 +166,72 @@ machine:
     extraArgs:
       provider-id: {{ .Node.Data.uuid }}
 ```
+
+### Data Provider
+
+You can use a data provider binary to inject dynamic cluster metadata at runtime. The provider data is deep-merged with and overrides the static `data` field from `topf.yaml`.
+
+**Configuration in topf.yaml:**
+
+```yaml
+clusterName: mycluster
+clusterEndpoint: https://192.168.1.100:6443
+dataProvider: /path/to/data-provider-binary
+
+data:
+  staticRegion: us-east-1
+  nested:
+    staticKey: staticValue
+```
+
+**Provider Binary Requirements:**
+
+- Must be executable
+- Receives cluster name as the only argument: `provider-binary <clusterName>`
+- Must output valid YAML map to stdout
+- Must exit with code 0 on success
+- Must complete within 30 seconds
+
+**Example Provider Script:**
+
+```bash
+#!/bin/bash
+# data-provider-binary
+CLUSTER_NAME=$1
+
+# Output dynamic data as YAML
+cat <<EOF
+dynamicRegion: us-west-2
+timestamp: $(date -Iseconds)
+environment: production
+nested:
+  dynamicKey: dynamicValue
+  staticKey: overridden
+EOF
+```
+
+**Merge Behavior:**
+
+The data provider output is deep-merged with `topf.yaml` data:
+- Nested maps are recursively merged
+- Provider values override `topf.yaml` values
+- Non-map values (scalars, arrays) are replaced, not merged
+
+**Result after merge:**
+
+```yaml
+data:
+  staticRegion: us-east-1        # from topf.yaml
+  dynamicRegion: us-west-2       # from provider
+  timestamp: 2026-01-12T...      # from provider
+  environment: production         # from provider
+  nested:
+    staticKey: overridden        # provider overrides
+    dynamicKey: dynamicValue     # from provider
+```
+
+All merged data is available in patch templates via `{{.Data.<key>}}`.
+
+**Error Handling:**
+
+If the provider fails (non-zero exit code, timeout, or invalid YAML output), the command will fail immediately with a clear error message.
