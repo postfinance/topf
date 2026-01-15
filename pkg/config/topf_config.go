@@ -26,6 +26,10 @@ type TopfConfig struct {
 	// NodesProvider can be optionally set the path of a binary which will provide additional noddes
 	NodesProvider string `yaml:"nodesProvider,omitempty"`
 
+	// ConfigDir is the directory containing patches and node-specific configurations
+	// Defaults to "." (current directory) if not specified
+	ConfigDir string `yaml:"configDir,omitempty"`
+
 	Nodes []Node `yaml:"nodes"`
 
 	// Data can contain arbitrary data that can be used when templating patches
@@ -49,6 +53,11 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err
 	err = yaml.Unmarshal(content, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
+
+	// Set default configDir if not specified
+	if config.ConfigDir == "" {
+		config.ConfigDir = "."
 	}
 
 	nodesFilter := regexp.MustCompile(".*")

@@ -33,9 +33,6 @@ type RuntimeConfig struct {
 	// ConfigPath is the path to the topf.yaml configuration file
 	ConfigPath string
 
-	// ConfigDir is the directory containing patches and node-specific configurations
-	ConfigDir string
-
 	// NodesRegexFilter is an optional regex pattern to filter which nodes to operate on
 	// Empty string means all nodes
 	NodesRegexFilter string
@@ -49,6 +46,17 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	topfConfig, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validate configDir exists and is a directory
+	if stat, err := os.Stat(topfConfig.ConfigDir); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("config directory does not exist: %s", topfConfig.ConfigDir)
+		}
+
+		return nil, fmt.Errorf("failed to access config directory: %w", err)
+	} else if !stat.IsDir() {
+		return nil, fmt.Errorf("config path is not a directory: %s", topfConfig.ConfigDir)
 	}
 
 	// Parse log level
@@ -66,7 +74,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 
 	return &topf{
 		TopfConfig: topfConfig,
-		configDir:  cfg.ConfigDir,
+		configDir:  topfConfig.ConfigDir,
 		logger:     logger,
 	}, nil
 }

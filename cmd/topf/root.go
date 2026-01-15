@@ -33,12 +33,6 @@ func main() {
 				Sources: cli.EnvVars("TOPFCONFIG"),
 			},
 			&cli.StringFlag{
-				Name:    "config-dir",
-				Value:   ".",
-				Usage:   "directory from which to read the configuration (patches)",
-				Sources: cli.EnvVars("TOPF_CONFIG_DIR"),
-			},
-			&cli.StringFlag{
 				Name:    "nodes",
 				Value:   "",
 				Usage:   "use a regex expression to select a subset of nodes to work upon",
@@ -52,22 +46,9 @@ func main() {
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
-			// Validate config-dir exists
-			configDir := c.String("config-dir")
-			if stat, err := os.Stat(configDir); err != nil {
-				if os.IsNotExist(err) {
-					return ctx, fmt.Errorf("config directory does not exist: %s", configDir)
-				}
-
-				return ctx, fmt.Errorf("failed to access config directory: %w", err)
-			} else if !stat.IsDir() {
-				return ctx, fmt.Errorf("config path is not a directory: %s", configDir)
-			}
-
 			// passing down the Topf runtime to all commands via context
 			topf, err := topf.NewTopfRuntime(topf.RuntimeConfig{
 				ConfigPath:       c.String("topfconfig"),
-				ConfigDir:        configDir,
 				NodesRegexFilter: c.String("nodes"),
 				LogLevel:         c.String("log-level"),
 			})
