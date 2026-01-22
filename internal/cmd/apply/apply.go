@@ -17,6 +17,8 @@ import (
 type Options struct {
 	// Ask for user input before applying
 	Confirm bool
+	// Only show what changes would be applied without actually applying them
+	DryRun bool
 	// Automatically bootstrap etcd
 	AutoBootstrap bool
 	// Skip nodes with pre-flight errors and continue with healthy nodes
@@ -50,8 +52,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
-	// Bootstrap if requested
-	if opts.AutoBootstrap {
+	// Bootstrap if requested (skip in dry-run mode)
+	if opts.AutoBootstrap && !opts.DryRun {
 		return bootstrap(ctx, logger, filteredNodes)
 	}
 
@@ -115,13 +117,13 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
-		applied, err := node.Apply(ctx, logger, opts.Confirm)
+		applied, err := node.Apply(ctx, logger, opts.Confirm, opts.DryRun)
 		if err != nil {
 			return fmt.Errorf("failed to apply config to node %v: %w", node.Node.Host, err)
 		}
 
-		// if nothing was applied, skip healthchecks
-		if !applied || opts.SkipPostApplyChecks {
+		// if nothing was applied or dry-run mode, skip healthchecks
+		if !applied || opts.DryRun || opts.SkipPostApplyChecks {
 			continue
 		}
 

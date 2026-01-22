@@ -13,7 +13,8 @@ import (
 )
 
 // Apply applies the configuration bundle to the node.
-func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm bool) (bool, error) {
+// If dryRun is true, only shows what changes would be applied without actually applying them.
+func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun bool) (bool, error) {
 	logger = logger.With(n.Attrs())
 
 	if n.ConfigBundle == nil {
@@ -53,6 +54,12 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm bool) (bo
 
 	if len(applyResponse.GetWarnings()) > 0 {
 		logger.Warn("dry-run", "warnings", strings.Join(applyResponse.GetWarnings(), ", "))
+	}
+
+	// in dry-run mode, print the changes and return without applying
+	if dryRun {
+		fmt.Println("     " + strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
+		return false, nil
 	}
 
 	// ask for user confirmation

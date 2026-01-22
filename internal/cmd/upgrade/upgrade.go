@@ -18,10 +18,11 @@ import (
 // Options contains the options for the upgrade execution
 type Options struct {
 	Confirm bool
+	// Only show what upgrades would be performed without actually upgrading
+	DryRun bool
 
 	// Talos upgrade options
-	Force    bool
-	Preserve bool
+	Force bool
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -85,6 +86,11 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			"version_desired", talosVersion,
 			"installer", installerImage)
 
+		// in dry-run mode, skip the actual upgrade
+		if opts.DryRun {
+			continue
+		}
+
 		// ask for user confirmation
 		if opts.Confirm {
 			if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)) == 'n' {
@@ -101,8 +107,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 		_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
 			Image:      installerImage,
-			Preserve:   len(nodes) == 1,                   // TODO: make this a param
-			Force:      opts.Force,                        // TODO: make this a param
+			Preserve:   true, // talos default since v1.8+
+			Force:      opts.Force,
 			RebootMode: machine.UpgradeRequest_POWERCYCLE, // TODO: make this a param
 		})
 		if err != nil {

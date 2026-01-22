@@ -15,13 +15,13 @@ func newUpgradeCmd() *cli.Command {
 		Flags: []cli.Flag{
 			confirmFlag(),
 			&cli.BoolFlag{
-				Name:  "force",
-				Usage: "force the upgrade (skip checks on etcd health and members, might lead to data loss)",
+				Name:  "dry-run",
+				Usage: "only show what upgrades would be performed without actually upgrading",
 				Value: false,
 			},
 			&cli.BoolFlag{
-				Name:  "preserve",
-				Usage: "preserve data",
+				Name:  "force",
+				Usage: "force the upgrade (skip checks on etcd health and members, might lead to data loss)",
 				Value: false,
 			},
 		},
@@ -30,9 +30,9 @@ func newUpgradeCmd() *cli.Command {
 			t := MustGetRuntime(ctx)
 
 			return upgrade.Execute(ctx, t, upgrade.Options{
-				Confirm:  c.Bool("confirm"),
-				Force:    c.Bool("force"),
-				Preserve: c.Bool("reserve"),
+				Confirm: c.Bool("confirm"),
+				DryRun:  c.Bool("dry-run"),
+				Force:   c.Bool("force"),
 			})
 		},
 	}

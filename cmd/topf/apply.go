@@ -15,6 +15,11 @@ func newApplyCmd() *cli.Command {
 		Flags: []cli.Flag{
 			confirmFlag(),
 			&cli.BoolFlag{
+				Name:  "dry-run",
+				Usage: "only show what changes would be applied without actually applying them",
+				Value: false,
+			},
+			&cli.BoolFlag{
 				Name:  "auto-bootstrap",
 				Usage: "automatically run the bootstrap command after an apply",
 				Value: false,
@@ -41,6 +46,7 @@ func newApplyCmd() *cli.Command {
 
 			return apply.Execute(ctx, t, apply.Options{
 				Confirm:              c.Bool("confirm"),
+				DryRun:               c.Bool("dry-run"),
 				AutoBootstrap:        c.Bool("auto-bootstrap"),
 				SkipProblematicNodes: c.Bool("skip-problematic-nodes"),
 				SkipPostApplyChecks:  c.Bool("skip-post-apply-checks"),
