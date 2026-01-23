@@ -35,7 +35,11 @@ func LoadSecretsBundle(provider SecretsProvider, clusterName string) (*secrets.B
 
 	bundle := &secrets.Bundle{Clock: nowFunc(time.Now)}
 	if err := yaml.Unmarshal(bytes, &bundle); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal secrets: %w", err)
+	}
+
+	if err := bundle.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid secrets bundle: %w", err)
 	}
 
 	return bundle, nil
