@@ -28,9 +28,5 @@ dockers_v2:
     dockerfile: Dockerfile.goreleaser
 
 changelog:
+  use: git-cliff
   sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^chore:"
-      - "^ci:"

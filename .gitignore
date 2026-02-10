@@ -9,3 +9,4 @@ kubeconfig
 .sops.yaml
 dist/
 topf
+CHANGES.md

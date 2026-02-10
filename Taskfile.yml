@@ -28,3 +28,8 @@ tasks:
       - echo "Running linter..."
       - golangci-lint run
 
+  changelog:
+    desc: Generate changelog with git-cliff
+    cmds:
+      - git-cliff -o CHANGELOG.md
+
