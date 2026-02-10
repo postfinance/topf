@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2] - 2026-02-10
+
+### Build
+
+- **brew**: Remove quarantine flag on topf binary ([b0eb4d6](https://github.com/postfinance/topf/commit/b0eb4d696a98a2367ac198718a279009461ef59f))
+
+### Miscellaneous
+
+- Update changelog ([bf838b4](https://github.com/postfinance/topf/commit/bf838b498013b9d4c6751d726725c140fbd56332))
 ## [0.1.1] - 2026-02-10
 
 ### Build
