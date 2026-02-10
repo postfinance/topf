@@ -1,0 +1,52 @@
+site_name: TOPF
+site_url: https://postfinance.github.io/topf
+repo_url: https://github.com/postfinance/topf
+repo_name: postfinance/topf
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - Commands:
+    - Apply: commands/apply.md
+    - Upgrade: commands/upgrade.md
+    - Reset: commands/reset.md
+    - Nodes: commands/nodes.md
+    - Clusterinfo: commands/clusterinfo.md
+    - Secrets: commands/secrets.md
+    - Kubeconfig: commands/kubeconfig.md
+    - Talosconfig: commands/talosconfig.md
+  - Configuration Model: configuration-model.md
+  - Dynamic Providers: providers.md
+  - Kubernetes Upgrade: kubernetes-upgrade.md
+  - Production Usage: production-usage.md
+  - Migration from talhelper: migration-from-talhelper.md
+  - Comparison with talhelper: comparison.md
+  - Alternatives: alternatives.md
+
+markdown_extensions:
+  - mdx_truly_sane_lists
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list

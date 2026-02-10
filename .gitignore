@@ -10,3 +10,4 @@ kubeconfig
 dist/
 topf
 CHANGES.md
+venv/mkdocs

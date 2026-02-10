@@ -33,3 +33,8 @@ tasks:
     cmds:
       - git-cliff -o CHANGELOG.md
 
+  docs:
+    desc: Serve documentation locally
+    cmds:
+      - mkdocs serve
+

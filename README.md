@@ -5,7 +5,11 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/postfinance/topf)](https://goreportcard.com/report/github.com/postfinance/topf)
 [![Latest Release](https://img.shields.io/github/v/release/postfinance/topf)](https://github.com/postfinance/topf/releases/latest)
 
-TOPF is managing [Talos](https://www.talos.dev/) based Kubernetes clusters. It provides functionality for bootstrapping new clusters, resetting existing ones, and applying configuration changes.
+TOPF is managing [Talos](https://www.talos.dev/) based Kubernetes clusters. It
+provides functionality for bootstrapping new clusters, resetting existing ones,
+and applying configuration changes.
+
+**[Full Documentation](https://postfinance.github.io/topf)**
 
 ## Installation
 
@@ -50,220 +54,25 @@ Create a new patch to specify the install disk and desired talos version:
 machine:
   install:
     disk: /dev/vda
-    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.11.5
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
 ```
 
 Then run `topf apply --auto-bootstrap` to provision the cluster.
 
-Once finished use `topf kubeconfig` to create an admin kubeconfig for the cluster and use `topf talosconfig` to create a valid talosconfig.
+Once finished use `topf kubeconfig` to create an admin kubeconfig for the
+cluster and use `topf talosconfig` to create a valid talosconfig.
 
-## Configuration
-
-### topf.yaml
-
-The `topf.yaml` file is the main configuration for your cluster. Here's a complete example with all available fields:
-
-```yaml
-# Required fields
-clusterName: mycluster
-clusterEndpoint: https://192.168.1.100:6443
-kubernetesVersion: 1.34.1
-
-# Optional: Directory containing patches (default: ".")
-configDir: .
-
-# Optional: Provider binaries for dynamic configuration
-secretsProvider: /path/to/secrets-provider
-nodesProvider: /path/to/nodes-provider
-
-# Optional: Arbitrary data for use in patch templates
-data:
-  region: us-west-2
-  environment: production
-
-# Node definitions
-nodes:
-  - host: node1
-    ip: 172.20.10.2
-    role: control-plane
-    data:
-      uuid: "550e8400-e29b-41d4-a716-446655440000"
-  - host: node2
-    ip: 172.20.10.3
-    role: worker
-```
-
-### Configuration Fields
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `clusterName` | Yes | - | Name of the Kubernetes cluster |
-| `clusterEndpoint` | Yes | - | Kubernetes API endpoint URL |
-| `kubernetesVersion` | Yes | - | Kubernetes version to install |
-| `configDir` | No | `.` | Directory containing patch files and node-specific configs |
-| `secretsProvider` | No | - | Path to binary that manages secrets.yaml |
-| `nodesProvider` | No | - | Path to binary that provides additional nodes |
-| `data` | No | - | Arbitrary key-value data for use in patch templates |
-| `nodes` | Yes | - | List of nodes in the cluster |
-
-### Global Flags
-
-TOPF supports the following global flags that can be used with any command:
-
-| Flag | Environment Variable | Default | Description |
-|------|---------------------|---------|-------------|
-| `--topfconfig` | `TOPFCONFIG` | `topf.yaml` | Path to the topf.yaml configuration file |
-| `--nodes-filter` | `TOPF_NODES_FILTER` | - | Regex pattern to filter which nodes to operate on |
-| `--log-level` | `LOG_LEVEL` | `info` | Logging level (debug, info, warn, error) |
-
-Example usage:
-
-```bash
-# Use a different config file
-topf apply --topfconfig prod-cluster.yaml
-
-# Only operate on specific nodes
-topf apply --nodes-filter "node[1-3]"
-
-# Enable debug logging
-topf apply --log-level debug
-```
-
-## Apply Command
-
-The `apply` command is the primary way to apply configuration changes to a running Talos cluster. It handles the full lifecycle of updating nodes, from pre-flight checks to post-apply validation.
-
-### Flow
-
-1. **Gather Nodes**: Read `topf.yaml` and generate configurations for all nodes
-
-2. **Pre-flight Checks**: Validate each node's health
-   - Nodes with errors → unhealthy
-   - Nodes not ready (unmet conditions) → unhealthy (unless `--allow-not-ready` is set)
-   - Nodes not in Running/Maintenance/Booting stage → unhealthy
-   - **If any unhealthy nodes found**:
-     - Without `--skip-problematic-nodes`: **ABORT**
-     - With `--skip-problematic-nodes`: Continue with healthy nodes only (warn and filter)
-
-3. **Determine Post-Apply Behavior**: If all remaining nodes are in maintenance mode, automatically enable `--skip-post-apply-checks`
-
-4. **Apply Configurations** (for each healthy node):
-   - Dry-run apply to check for changes
-   - If changes detected:
-     - Show diff (if `--confirm` enabled)
-     - Ask for confirmation (if `--confirm` enabled)
-     - Apply configuration
-   - If config applied AND not `--skip-post-apply-checks`: Stabilize (wait 30s for node to be ready)
-
-5. **Bootstrap** (if `--auto-bootstrap` enabled):
-   - Select first control plane node
-   - Call ETCD bootstrap API
-   - Retry for up to 10 minutes
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--confirm` | `true` | Ask for confirmation before applying changes to each node |
-| `--auto-bootstrap` | `false` | Automatically bootstrap ETCD after applying configurations |
-| `--skip-problematic-nodes` | `false` | Continue with healthy nodes if some fail pre-flight checks |
-| `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs |
-| `--allow-not-ready` | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
-
-### Example Usage
-
-```bash
-# Apply with confirmation (default)
-topf apply
-
-# Apply without confirmation
-topf apply --confirm=false
-
-# Apply and bootstrap a new cluster
-topf apply --auto-bootstrap
-
-# Apply only to healthy nodes, skip problematic ones
-topf apply --skip-problematic-nodes
-
-# Apply without waiting for nodes to stabilize
-topf apply --skip-post-apply-checks
-
-# Apply to nodes even if they have unmet conditions
-topf apply --allow-not-ready
-```
-
-### Pre-flight Checks
-
-The apply command validates each node before attempting to apply configuration:
-
-- **Node errors**: Skip nodes that failed to initialize or communicate
-- **Ready status**: Skip nodes with unmet conditions (e.g., missing network, disk issues) unless `--allow-not-ready` is set
-- **Machine stage**: Only process nodes in Running, Maintenance, or Booting stages
-
-### Post-apply Stabilization
-
-After applying configuration to a node, the command waits up to 30 seconds for the node to:
-- Report as ready
-- Have no unmet conditions
-- Reach a stable state
-
-This check is automatically skipped if:
-- All nodes are in maintenance mode (fresh install)
-- The `--skip-post-apply-checks` flag is set
-- No configuration changes were applied
-
-### Bootstrap
-
-When `--auto-bootstrap` is enabled, after all configurations are applied, the command will:
-1. Select the first control plane node
-2. Call the ETCD bootstrap API
-3. Retry for up to 10 minutes if the call fails
-
-This is typically used when bringing up a new cluster for the first time.
-
-## Patches
-
-In almost all cases you want to apply some talos patches to your cluster. These will go into your cluster folder like so:
-
-```bash
-.
-├── control-plane
-│   ├── 01-vip.yaml
-│   ├── 02-disable-discovery.yaml
-│   └── 03-allow-cp-scheduling.yaml
-├── nodes
-│   └── node1
-│       └── 01-some-nodespecific-patch.yaml
-├── patches
-│   └── 01-installation.yaml
-└── topf.yaml
-```
-
-You can add patches for all nodes (`patches/`), control plane nodes (`control-plane/`) and individual nodes (`nodes/<host>`).
-
-### Templating Patches
-
-If patches end with `yaml.tpl`, you can use go templating in them. There you can use the following fields:
-
-* `.ClusterName`
-* `.ClusterEndpoint`
-* `.Data.<key>` (from `topf.yaml`, you can add arbitrary global data under "data")
-* `.Node.Host`
-* `.Node.Role`
-* `.Node.IP` (if set)
-* `.Node.Data.<key>` (if set)
-
-Example:
-
-```yaml
-machine:
-  kubelet:
-    extraArgs:
-      provider-id: {{ .Node.Data.uuid }}
-```
+For detailed documentation on configuration, commands, patches, and more, visit
+the **[full documentation site](https://postfinance.github.io/topf)**.
 
 ## Alternatives
 
-- **[talosctl](https://www.talos.dev/)** — the official Talos CLI; fully featured but lower-level, requires managing configs and node operations manually
-- **[talhelper](https://github.com/budimanjojo/talhelper)** — popular community tool for generating Talos machine configs from a declarative YAML definition
-- **[Omni](https://www.siderolabs.com/omni/)** — SideroLabs' management platform for Talos clusters with a UI, multi-environment support, and GitOps workflows; available as SaaS or self-hosted (requires a commercial license for production use)
+- **[talosctl](https://www.talos.dev/)** — the official Talos CLI; fully
+featured but lower-level, requires managing configs and node operations
+manually
+- **[talhelper](https://github.com/budimanjojo/talhelper)** — popular community
+tool for generating Talos machine configs from a declarative YAML definition
+- **[Omni](https://www.siderolabs.com/omni/)** — SideroLabs' management
+platform for Talos clusters with a UI, multi-environment support, and GitOps
+workflows; available as SaaS or self-hosted (requires a commercial license for
+production use)
