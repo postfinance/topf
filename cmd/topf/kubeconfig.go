@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/postfinance/topf/internal/cmd/kubeconfig"
 	"github.com/urfave/cli/v3"
@@ -17,10 +18,17 @@ func newKubeconfigCmd() *cli.Command {
 		Name:   "kubeconfig",
 		Usage:  "generate a temporary admin kubeconfig",
 		Before: noPositionalArgs,
-		Action: func(ctx context.Context, _ *cli.Command) error {
+		Flags: []cli.Flag{
+			&cli.DurationFlag{
+				Name:  "validity",
+				Usage: "validity duration of the client certificate",
+				Value: 12 * time.Hour,
+			},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
-			kubeconfigStruct, err := kubeconfig.Generate(t)
+			kubeconfigStruct, err := kubeconfig.Generate(t, cmd.Duration("validity"))
 			if err != nil {
 				return fmt.Errorf("couldn't generate kubeconfig: %w", err)
 			}

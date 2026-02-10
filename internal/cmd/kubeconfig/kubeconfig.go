@@ -23,13 +23,13 @@ import (
 )
 
 // Generate creates a kubeconfig with a client certificate using the topf runtime
-func Generate(t topf.Topf) (*api.Config, error) {
+func Generate(t topf.Topf, validity time.Duration) (*api.Config, error) {
 	secretsBundle, err := t.Secrets()
 	if err != nil {
 		return nil, err
 	}
 	// Generate client certificate
-	clientCert, clientKey, err := generateClientCertificate(secretsBundle)
+	clientCert, clientKey, err := generateClientCertificate(secretsBundle, validity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
@@ -66,9 +66,8 @@ func Generate(t topf.Topf) (*api.Config, error) {
 	return kubeconfig, nil
 }
 
-// generateClientCertificate creates a new client certificate signed by the Kubernetes CA
-// with 12h validity, system:masters group, and topf username
-func generateClientCertificate(secretsBundle *secrets.Bundle) ([]byte, []byte, error) {
+// generateClientCertificate creates a new admin client certificate signed by the Kubernetes CA
+func generateClientCertificate(secretsBundle *secrets.Bundle, validity time.Duration) ([]byte, []byte, error) {
 	// Generate EC private key
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -83,7 +82,7 @@ func generateClientCertificate(secretsBundle *secrets.Bundle) ([]byte, []byte, e
 			Organization: []string{"system:masters"},
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(12 * time.Hour),
+		NotAfter:              time.Now().Add(validity),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,

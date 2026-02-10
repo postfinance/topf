@@ -6,7 +6,7 @@ The `kubeconfig` command generates a temporary admin kubeconfig for cluster acce
 
 The generated kubeconfig:
 
-- Is valid for **12 hours**
+- Is valid for **12 hours** (configurable via `--validity`)
 - Uses a client certificate with `system:masters` group (full admin access)
 - Is signed by the cluster's Kubernetes CA
 - Context name: `topf@<cluster-name>`
