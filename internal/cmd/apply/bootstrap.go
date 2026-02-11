@@ -5,7 +5,6 @@ package apply
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -20,7 +19,9 @@ import (
 // bootstrap initiates the ETCD bootstrap process and waits for nodes to stabilize
 func bootstrap(ctx context.Context, logger *slog.Logger, nodes []*topf.Node) error {
 	if len(nodes) == 0 || nodes[0].Node.Role != config.RoleControlPlane {
-		return errors.New("bootstrap requires at least 1 control plane node")
+		logger.Warn("bootstrap requires at least 1 control plane node, not sending bootstrap request")
+
+		return nil
 	}
 
 	logger.Info("starting bootstrap process", "timeout", "10 minutes")
