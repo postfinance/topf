@@ -23,7 +23,7 @@ dockers_v2:
   - images:
       - ghcr.io/postfinance/topf
     tags:
-      - "{{ .Version }}"
+      - "v{{ .Version }}"
       - latest
     dockerfile: Dockerfile.goreleaser
 
