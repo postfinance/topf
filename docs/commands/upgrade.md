@@ -9,6 +9,7 @@ The `upgrade` command upgrades Talos OS on each node to the desired version spec
 | `--confirm` | `true` | Ask for user confirmation before upgrading |
 | `--dry-run` | `false` | Only show what upgrades would be performed without actually upgrading |
 | `--force` | `false` | Force the upgrade (skip checks on etcd health and members, might lead to data loss) |
+| `--reboot-mode` | `default` | Mode "powercycle" bypasses kexec. Valid values are: ["default" "powercycle"] |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
 ## Behavior

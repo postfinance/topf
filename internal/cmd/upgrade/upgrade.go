@@ -26,6 +26,9 @@ type Options struct {
 
 	// Talos upgrade options
 	Force bool
+
+	// Talos reboot mode
+	RebootMode string
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -108,11 +111,16 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 		defer nodeClient.Close()
 
+		rebootMode := machine.UpgradeRequest_DEFAULT
+		if opts.RebootMode == "powercycle" {
+			rebootMode = machine.UpgradeRequest_POWERCYCLE
+		}
+
 		_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
 			Image:      installerImage,
 			Preserve:   true, // talos default since v1.8+
 			Force:      opts.Force,
-			RebootMode: machine.UpgradeRequest_POWERCYCLE, // TODO: make this a param
+			RebootMode: rebootMode,
 		})
 		if err != nil {
 			return err
