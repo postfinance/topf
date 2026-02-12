@@ -7,7 +7,7 @@ The final machine configuration for each node is assembled from a series of conf
 Patches are applied in the following order:
 
 1. **`patches/`** — applied to all nodes
-2. **`<role>/`** — applied to nodes matching the role (`control-plane/` or `worker/`)
+2. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
 3. **`nodes/<host>/`** — applied only to that specific node
 
 Within each folder, patches are applied in **lexicographical order**. Later patches take precedence over earlier ones when the same field is set. This layering is useful for per-node overrides — for example, pinning a different [installer image](commands/upgrade.md#installer-image) on a single host.
