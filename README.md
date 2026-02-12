@@ -5,11 +5,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/postfinance/topf)](https://goreportcard.com/report/github.com/postfinance/topf)
 [![Latest Release](https://img.shields.io/github/v/release/postfinance/topf)](https://github.com/postfinance/topf/releases/latest)
 
-TOPF is managing [Talos](https://www.talos.dev/) based Kubernetes clusters. It
-provides functionality for bootstrapping new clusters, resetting existing ones,
-and applying configuration changes.
+TOPF is managing [Talos](https://www.talos.dev/) based Kubernetes
+clusters. It provides functionality for bootstrapping new clusters,
+resetting existing ones, and applying configuration changes.
 
 **[Full Documentation](https://postfinance.github.io/topf)**
+
+[![demo](https://asciinema.org/a/yg1XKJYpwIJUdJZT.svg)](https://asciinema.org/a/yg1XKJYpwIJUdJZT)
 
 ## Installation
 
