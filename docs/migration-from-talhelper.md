@@ -120,7 +120,7 @@ machine:
 
 This is cleaner and avoids the need for JSON pointer escaping (`~1` for `/`).
 
-## Step 4: Migrate secrets and templating
+## Step 4: Migrate envs and templating
 
 **Before** (talhelper uses `talenv.sops.yaml` + envsubst):
 
@@ -151,9 +151,9 @@ cluster:
 
 No separate secrets file needed — sensitive values live directly in `topf.yaml` under `data`, encrypted with SOPS.
 
-## Step 5: Migrate `secrets.yaml`
+## Step 5: Migrate secrets
 
-Your existing `secrets.yaml` (Talos secrets bundle) is compatible with TOPF. Simply keep it in the same directory.
+Move your existing Talos secrets bundle `talsecret.sops.yaml` to `secrets.yaml`. It is compatible with TOPF. Simply keep it in the same directory.
 
 ## Step 6: Apply
 
