@@ -34,6 +34,7 @@ The `apply` command is the primary way to apply configuration changes to a runni
 | Flag                       | Default | Description                                                        |
 | -------------------------- | ------- | ------------------------------------------------------------------ |
 | `--confirm`                | `true`  | Ask for confirmation before applying changes to each node          |
+| `--dry-run`                | `false` | Only show changes without actually applying them                   |
 | `--auto-bootstrap`         | `false` | Automatically bootstrap ETCD after applying configurations         |
 | `--skip-problematic-nodes` | `false` | Continue with healthy nodes if some fail pre-flight checks         |
 | `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs      |
@@ -48,6 +49,9 @@ topf apply
 
 # Apply without confirmation
 topf apply --confirm=false
+
+# Preview what would be changed
+topf apply --dry-run
 
 # Apply and bootstrap a new cluster
 topf apply --auto-bootstrap
