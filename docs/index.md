@@ -7,6 +7,12 @@
 
 TOPF is managing [Talos](https://www.talos.dev/) based Kubernetes clusters. It provides functionality for bootstrapping new clusters, resetting existing ones, and applying configuration changes.
 
+!!! warning "Early Stage Project"
+
+    TOPF has just been released and is in an early stage of development. While it is actively used at PostFinance, APIs, configuration formats, and CLI flags may change between releases.
+
+    Feedback and contributions are welcome — please open an [issue](https://github.com/postfinance/topf/issues) if you run into problems or have suggestions.
+
 [Get Started](getting-started.md){ .md-button .md-button--primary }
 
 ## What TOPF does
