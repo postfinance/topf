@@ -19,6 +19,31 @@ The `upgrade` command upgrades Talos OS on each node to the desired version spec
 4. **Upgrade**: Issues the upgrade command with `POWERCYCLE` reboot mode
 5. **Stabilization**: Waits 30 seconds after upgrade for the node to stabilize
 
+## Installer Image
+
+The target image for each node comes from the `machine.install.image` field in the assembled node configuration. To upgrade all nodes, bump the tag in your shared install patch:
+
+`patches/01-installation.yaml`:
+
+```yaml
+machine:
+  install:
+    disk: /dev/vda
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
+```
+
+To upgrade a single node to a different version (or a different schematic), add a node-specific patch that overrides the image:
+
+`nodes/node1/installer.yaml`:
+
+```yaml
+machine:
+  install:
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.1
+```
+
+Because node-level patches are merged after global and role patches (see [Configuration Model](../configuration-model.md)), this override applies only to that host.
+
 ## Example Usage
 
 ```bash

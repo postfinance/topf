@@ -10,7 +10,7 @@ Patches are applied in the following order:
 2. **`<role>/`** — applied to nodes matching the role (`control-plane/` or `worker/`)
 3. **`nodes/<host>/`** — applied only to that specific node
 
-Within each folder, patches are applied in **lexicographical order**. Later patches take precedence over earlier ones when the same field is set.
+Within each folder, patches are applied in **lexicographical order**. Later patches take precedence over earlier ones when the same field is set. This layering is useful for per-node overrides — for example, pinning a different [installer image](commands/upgrade.md#installer-image) on a single host.
 
 A typical cluster folder looks like this:
 

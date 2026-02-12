@@ -68,7 +68,7 @@ machine:
 
     Use the [Image Factory UI](https://factory.talos.dev) to select your desired system extensions and
     generate the schematic ID, or see the [Talos Image Factory docs](https://www.talos.dev/v1.12/learn-more/image-factory/)
-    for the full API reference.
+    for the full API reference. For details on how this image is used during upgrades, see [Installer Image](commands/upgrade.md#installer-image).
 
 Then run `topf apply --auto-bootstrap` to provision the cluster.
 

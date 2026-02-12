@@ -26,11 +26,9 @@ TOPF is a single binary that handles the full lifecycle of a Talos cluster:
 
 Configuration is built from [layered patches](configuration-model.md) — small, composable YAML files organized by scope (all nodes, role, individual host). This makes cluster config easy to review, version, and share across environments.
 
-TOPF uses the Talos Go libraries directly, so there are no intermediate config files to manage and no dependency on `talosctl` for day-to-day operations.
-
 ## Philosophy
 
-TOPF doesn't reinvent the wheel. Under the hood it uses the Talos Go libraries directly — the same operations you would run manually with `talosctl`, but automated with health checks, diffs, and safety prompts on top.
+TOPF doesn't reinvent the wheel. Under the hood it uses the Talos Go libraries directly — the same operations you would run manually with `talosctl`, but automated with health checks, diffs, and safety prompts on top. There are no intermediate config files to manage and no dependency on `talosctl` for day-to-day operations.
 
 Where TOPF really shines is its [configuration model](configuration-model.md). Instead of managing one monolithic machine config per node, you compose small, scoped patches — per cluster, per role, or per host. This layered approach keeps configurations DRY, easy to review in pull requests, and straightforward to share across environments.
 
