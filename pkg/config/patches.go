@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,7 +35,13 @@ type PatchContext struct {
 // role (worker/control-plane) specific patches and node specific patches in
 // that order
 func (p *PatchContext) Load() (patches []configpatcher.Patch, err error) {
-	patches, err = p.loadFolder(filepath.Join(p.ConfigDir, "patches"))
+	// warn about legacy patches/ directory
+	oldDir := filepath.Join(p.ConfigDir, "patches")
+	if info, statErr := os.Stat(oldDir); statErr == nil && info.IsDir() {
+		slog.Warn("legacy patches/ directory found, rename it to all/", "path", oldDir)
+	}
+
+	patches, err = p.loadFolder(filepath.Join(p.ConfigDir, "all"))
 	if err != nil {
 		return
 	}

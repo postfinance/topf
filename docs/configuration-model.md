@@ -6,9 +6,12 @@ The final machine configuration for each node is assembled from a series of conf
 
 Patches are applied in the following order:
 
-1. **`patches/`** — applied to all nodes
+1. **`all/`** — applied to all nodes
 2. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
-3. **`nodes/<host>/`** — applied only to that specific node
+3. **`node/<host>/`** — applied only to that specific node
+
+!!! tip
+    The per-host directory is `node/` (singular), not `nodes/` as each `<host>/` subfolder targets a single node at a time.
 
 Within each folder, patches are applied in **lexicographical order**. Later patches take precedence over earlier ones when the same field is set. This layering is useful for per-node overrides — for example, pinning a different [installer image](commands/upgrade.md#installer-image) on a single host.
 
@@ -16,22 +19,22 @@ A typical cluster folder looks like this:
 
 ```text
 .
+├── all
+│   └── 01-installation.yaml
 ├── control-plane
 │   ├── 01-vip.yaml
 │   ├── 02-disable-discovery.yaml
 │   └── 03-allow-cp-scheduling.yaml
 ├── worker
 │   └── 01-worker-taints.yaml
-├── nodes
+├── node
 │   └── node1
 │       └── 01-some-nodespecific-patch.yaml
-├── patches
-│   └── 01-installation.yaml
 └── topf.yaml
 ```
 
 !!! tip
-Prefix patch filenames with a number (e.g. `01-`, `02-`) to make the merge order explicit and predictable.
+    Prefix patch filenames with a number (e.g. `01-`, `02-`) to make the merge order explicit and predictable.
 
 ## Patch Formats
 
@@ -44,7 +47,7 @@ Patches can be provided in several formats:
 | `.enc.yaml` | SOPS-encrypted strategic merge patch |
 
 !!! warning
-JSON patches (RFC 6902) are **not supported**. They have been deprecated in Talos starting from v1.12.
+    JSON patches (RFC 6902) are **not supported**. They have been deprecated in Talos starting from v1.12.
 
 Empty patches (comments only, whitespace, `{}`, `[]`, `null`) are automatically skipped.
 
