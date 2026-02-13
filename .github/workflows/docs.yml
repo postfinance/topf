@@ -19,7 +19,7 @@ jobs:
           python-version: "3.x"
       - run: pip install mkdocs-material mdx-truly-sane-lists
       - run: mkdocs build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site
       - id: deployment
