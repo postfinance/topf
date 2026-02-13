@@ -9,7 +9,7 @@ The main differences:
 | Aspect       | talhelper                                    | TOPF                                                     |
 | ------------ | -------------------------------------------- | -------------------------------------------------------- |
 | Config file  | `talconfig.yaml`                             | `topf.yaml`                                              |
-| Patches      | Inline in config or separate files           | Separate files in `patches/`, `<role>/`, `nodes/<host>/` |
+| Patches      | Inline in config or separate files           | Separate files in `all/`, `<role>/`, `node/<host>/` |
 | Patch format | Strategic merge + JSON patches (RFC 6902)    | Strategic merge only (with `$patch: delete` support)     |
 | Secrets      | `talenv.sops.yaml` + envsubst                | SOPS-encrypted fields directly in `topf.yaml`            |
 | Templating   | envsubst / talhelper variables               | Go templates (`.Data`, `.Node.Data`)                     |
@@ -80,16 +80,16 @@ controlPlane:
 **After** (separate files):
 
 ```text
-patches/01-cluster-config.yaml      # global patches
-control-plane/01-vip.yaml           # control-plane patches
-worker/10-kubelet.yaml              # worker patches
-nodes/node-01/01-specific.yaml      # node-specific patches
+all/01-cluster-config.yaml              # global patches
+control-plane/01-vip.yaml              # control-plane patches
+worker/10-kubelet.yaml                 # worker patches
+node/node-01/01-specific.yaml          # node-specific patches
 ```
 
 Each file is a standalone YAML document:
 
 ```yaml
-# patches/01-cluster-config.yaml
+# all/01-cluster-config.yaml
 cluster:
   proxy:
     disabled: true
