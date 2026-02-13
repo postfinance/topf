@@ -6,7 +6,7 @@ require (
 	github.com/cosi-project/runtime v1.13.0
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/siderolabs/go-retry v0.3.3
-	github.com/siderolabs/talos/pkg/machinery v1.12.1
+	github.com/siderolabs/talos/pkg/machinery v1.12.4
 	github.com/urfave/cli/v3 v3.6.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.3
 	gopkg.in/yaml.v3 v3.0.1
