@@ -16,7 +16,8 @@ body = """
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | striptags | trim | upper_first }}
 {% for commit in commits %}
-  - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}]({{ self::remote_url() }}/commit/{{ commit.id }}))
+  - {% if commit.breaking %}**BREAKING**: {% endif %}{% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
+      {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}]({{ self::remote_url() }}/commit/{{ commit.id }}))
 {%- endfor %}
 {% endfor %}
 """
@@ -25,18 +26,21 @@ trim = true
 [git]
 conventional_commits = true
 filter_unconventional = true
+protect_breaking_commits = true
 commit_parsers = [
-  { message = "^feat", group = "Features" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^docs", group = "Documentation" },
-  { message = "^perf", group = "Performance" },
-  { message = "^refactor", group = "Refactor" },
-  { message = "^style", group = "Styling" },
-  { message = "^test", group = "Testing" },
-  { message = "^chore", group = "Miscellaneous" },
-  { message = "^build", group = "Build" },
-  { message = "^ci", group = "CI" },
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Bug Fixes" },
+  { message = "^doc", group = "<!-- 2 -->Documentation" },
+  { message = "^perf", group = "<!-- 3 -->Performance" },
+  { message = "^refactor", group = "<!-- 4 -->Refactor" },
+  { message = "^style", group = "<!-- 5 -->Styling" },
+  { message = "^test", group = "<!-- 6 -->Testing" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore\\(deps\\)", skip = true },
+  { message = "^chore|^ci", group = "<!-- 7 -->Miscellaneous" },
+  { message = "^build", group = "<!-- 8 -->Build" },
+  { message = "^revert", group = "<!-- 9 -->Revert" },
 ]
 filter_commits = false
 tag_pattern = "v[0-9].*"
-sort_commits = "newest"
+sort_commits = "oldest"
