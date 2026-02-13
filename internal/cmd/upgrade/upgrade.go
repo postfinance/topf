@@ -25,7 +25,8 @@ type Options struct {
 	DryRun bool
 
 	// Talos upgrade options
-	Force bool
+	Force      bool
+	RebootMode machine.UpgradeRequest_RebootMode
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -112,7 +113,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			Image:      installerImage,
 			Preserve:   true, // talos default since v1.8+
 			Force:      opts.Force,
-			RebootMode: machine.UpgradeRequest_POWERCYCLE, // TODO: make this a param
+			RebootMode: opts.RebootMode,
 		})
 		if err != nil {
 			return err
