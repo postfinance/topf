@@ -9,7 +9,7 @@ The `upgrade` command upgrades Talos OS on each node to the desired version spec
 | `--confirm` | `true` | Ask for user confirmation before upgrading |
 | `--dry-run` | `false` | Only show what upgrades would be performed without actually upgrading |
 | `--force` | `false` | Force the upgrade (skip checks on etcd health and members, might lead to data loss) |
-| `--reboot-mode` | `default` | Mode "powercycle" bypasses kexec. Valid values are: ["default" "powercycle"] |
+| `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
 ## Behavior
@@ -17,14 +17,14 @@ The `upgrade` command upgrades Talos OS on each node to the desired version spec
 1. **Pre-flight checks**: Ensures all nodes are in the `Running` stage
 2. **Version comparison**: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state
 3. **Per-node confirmation**: Before each upgrade (unless `--confirm=false`)
-4. **Upgrade**: Issues the upgrade command with `POWERCYCLE` reboot mode
+4. **Upgrade**: Issues the upgrade command with the selected reboot mode (default: kexec)
 5. **Stabilization**: Waits 30 seconds after upgrade for the node to stabilize
 
 ## Installer Image
 
 The target image for each node comes from the `machine.install.image` field in the assembled node configuration. To upgrade all nodes, bump the tag in your shared install patch:
 
-`patches/01-installation.yaml`:
+`all/01-installation.yaml`:
 
 ```yaml
 machine:
@@ -35,7 +35,7 @@ machine:
 
 To upgrade a single node to a different version (or a different schematic), add a node-specific patch that overrides the image:
 
-`nodes/node1/installer.yaml`:
+`node/node1/installer.yaml`:
 
 ```yaml
 machine:
