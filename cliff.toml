@@ -25,7 +25,7 @@ trim = true
 
 [git]
 conventional_commits = true
-filter_unconventional = true
+filter_unconventional = false
 protect_breaking_commits = true
 commit_parsers = [
   { message = "^feat", group = "<!-- 0 -->Features" },
@@ -40,6 +40,9 @@ commit_parsers = [
   { message = "^chore|^ci", group = "<!-- 7 -->Miscellaneous" },
   { message = "^build", group = "<!-- 8 -->Build" },
   { message = "^revert", group = "<!-- 9 -->Revert" },
+  { message = "^Merge pull request", skip = true },
+  { message = "^Merge branch", skip = true },
+  { message = "^initial commit$", skip = true }
 ]
 filter_commits = false
 tag_pattern = "v[0-9].*"
