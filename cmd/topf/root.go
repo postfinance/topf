@@ -74,7 +74,7 @@ func main() {
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("error", "error", err.Error())
+		slog.Error("error", "error", err)
 		os.Exit(1)
 	}
 }
