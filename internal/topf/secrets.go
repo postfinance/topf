@@ -27,8 +27,11 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 	if errors.Is(err, providers.ErrSecretsNotFound) {
 		t.logger.Warn("generating new secrets.yaml", "cluster", t.ClusterName)
 
-		// Generate and save
-		bundle, err = secrets.NewBundle(secrets.NewFixedClock(time.Now()), nil)
+		// use a clock skewed slightly to the past to ensure generated certs are valid even
+		// if there is some time drift between the talos node and the machine running topf
+		skewedClock := secrets.NewFixedClock(time.Now().Add(-time.Second * 1))
+
+		bundle, err = secrets.NewBundle(skewedClock, nil)
 		if err != nil {
 			return nil, err
 		}
