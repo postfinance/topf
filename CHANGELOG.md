@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.1] - 2026-02-17
+
+### Bug Fixes
+
+- Skew secret cert clock to past to handle time drift ([855755b](https://github.com/postfinance/topf/commit/855755b46f97633be37ae0dd700e23515bb4b52a))
+- **lint**: Resolve gosec log injection warning ([23eca64](https://github.com/postfinance/topf/commit/23eca6438a8a0a61994ec6594fa6da66efea5f6b))
+
+### Miscellaneous
+
+- Update changelog ([6bedb54](https://github.com/postfinance/topf/commit/6bedb5426d28d9d0d5a44f646821f0c9d975b9df))
+- **ci**: Fix git-cliff warnings for merge commits ([952a107](https://github.com/postfinance/topf/commit/952a107a5f251a36658efa33248ac0353bb52086))
+
+### Build
+
+- **deps**: Bump actions/setup-python from 5 to 6 ([afd3e79](https://github.com/postfinance/topf/commit/afd3e79c27131506d51fd6cf3aec2b8eb4235ece))
+- **deps**: Bump actions/checkout from 5 to 6 ([0501cbf](https://github.com/postfinance/topf/commit/0501cbffb236d3e77f32790c77464960e4608471))
+- **deps**: Bump actions/setup-go from 5 to 6 ([a54a89e](https://github.com/postfinance/topf/commit/a54a89eb799cd8db47576c58261f98b93b41054b))
+- **deps**: Bump golangci/golangci-lint-action from 8 to 9 ([36fd37a](https://github.com/postfinance/topf/commit/36fd37a247cd0ae5426c0ff9ad3ee3f76e013c8e))
+- **deps**: Bump actions/upload-pages-artifact from 3 to 4 ([c603e7c](https://github.com/postfinance/topf/commit/c603e7c6b5860871094170795f627164211f696a))
+- **deps**: Bump go.yaml.in/yaml/v4 from 4.0.0-rc.3 to 4.0.0-rc.4 ([c1e23c2](https://github.com/postfinance/topf/commit/c1e23c2dbcf0e0463105bc8d67a7ebb4e4dd74aa))
+- **deps**: Bump github.com/cosi-project/runtime from 1.13.0 to 1.14.0 ([2bffe91](https://github.com/postfinance/topf/commit/2bffe914d176e85318ac6da93bca3941dd196788))
 ## [0.2.0] - 2026-02-13
 
 ### Features
