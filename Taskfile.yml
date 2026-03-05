@@ -10,6 +10,10 @@ tasks:
       - echo "Building topf version {{.VERSION}}..."
       - go build -ldflags "-X main.version={{.VERSION}}" -o bin/topf ./cmd/topf
 
+  install:
+    desc: Install topf to GOPATH/bin
+    cmds:
+      - go install ./cmd/topf/
 
   clean:
     desc: Clean build artifacts and caches
@@ -37,4 +41,3 @@ tasks:
     desc: Serve documentation locally
     cmds:
       - mkdocs serve
-
