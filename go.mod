@@ -6,7 +6,7 @@ require (
 	github.com/cosi-project/runtime v1.14.0
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/siderolabs/go-retry v0.3.3
-	github.com/siderolabs/talos/pkg/machinery v1.12.4
+	github.com/siderolabs/talos/pkg/machinery v1.12.5
 	github.com/urfave/cli/v3 v3.6.2
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	gopkg.in/yaml.v3 v3.0.1
@@ -78,7 +78,7 @@ require (
 	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
-	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
