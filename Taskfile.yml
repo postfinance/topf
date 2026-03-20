@@ -26,6 +26,11 @@ tasks:
     cmds:
       - goreleaser release --snapshot --clean
 
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./...
+
   lint:
     desc: Run linter
     cmds:

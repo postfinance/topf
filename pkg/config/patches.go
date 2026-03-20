@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -189,36 +190,42 @@ func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
 	return patch, err
 }
 
-// isEmpty checks if content is effectively empty by attempting to unmarshal it
+// isEmpty checks if content is effectively empty by iterating over all YAML
+// documents. Returns true only when every document is empty/nil.
 func isEmpty(content []byte) bool {
-	// Trim whitespace first
 	trimmed := strings.TrimSpace(string(content))
 	if trimmed == "" {
 		return true
 	}
 
-	// Try to unmarshal as generic YAML
-	var data any
-	if err := yaml.Unmarshal(content, &data); err != nil {
-		// If it doesn't unmarshal, it's not valid YAML, so not empty
-		return false
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+
+	for {
+		var data any
+
+		err := decoder.Decode(&data)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			return false // invalid YAML → not our call to skip
+		}
+
+		if data == nil {
+			continue
+		}
+
+		if m, ok := data.(map[string]any); ok && len(m) == 0 {
+			continue
+		}
+
+		if s, ok := data.([]any); ok && len(s) == 0 {
+			continue
+		}
+
+		return false // found at least one non-empty document
 	}
 
-	// Check if unmarshaled data is nil or empty
-	if data == nil {
-		return true
-	}
-
-	// Check if it's an empty map
-	if m, ok := data.(map[string]any); ok && len(m) == 0 {
-		return true
-	}
-
-	// Check if it's an empty slice
-	if s, ok := data.([]any); ok && len(s) == 0 {
-		return true
-	}
-
-	// Has actual data
-	return false
+	return true // all documents were empty/nil
 }
