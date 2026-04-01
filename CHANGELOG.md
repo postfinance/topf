@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2] - 2026-04-01
+
+### Bug Fixes
+
+- Use the skewed clock also for loaded secret bundles ([7b83ade](https://github.com/postfinance/topf/commit/7b83ade89e14fb57362d493dec8e07d4e832c7de))
+
+### Miscellaneous
+
+- Update changelog ([9be59c3](https://github.com/postfinance/topf/commit/9be59c352edf3f7e301e0640167466c95cdd9a9e))
+
+### Build
+
+- Add 'install' task ([3138fb4](https://github.com/postfinance/topf/commit/3138fb466d59a06ebf5d14696cdf0391f5bc3a46))
 ## [0.2.1] - 2026-02-17
 
 ### Bug Fixes
