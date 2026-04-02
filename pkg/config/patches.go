@@ -16,7 +16,6 @@ import (
 	"regexp"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/postfinance/topf/pkg/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"gopkg.in/yaml.v3"
@@ -66,7 +65,7 @@ func (p *PatchContext) Load() (patches []configpatcher.Patch, err error) {
 	return
 }
 
-func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) {
+func (p *PatchContext) loadFolder(folder string) (patches []configpatcher.Patch, err error) {
 	var filePaths []string
 
 	pattern := regexp.MustCompile(`.*\.ya?ml(\.tpl)?`)
@@ -110,7 +109,7 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) 
 		return nil
 	}
 
-	err := filepath.WalkDir(folder, walkFunc)
+	err = filepath.WalkDir(folder, walkFunc)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -119,24 +118,24 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) 
 		return nil, err
 	}
 
-	patches := make([]configpatcher.Patch, 0, len(filePaths))
-
 	for _, filePath := range filePaths {
-		patch, err := p.loadFile(filePath)
+		templatedFileContent, err := p.loadFile(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read patch %s: %w", filePath, err)
+			return nil, err
 		}
 
-		// Skip nil patches (empty files)
-		if patch != nil {
-			patches = append(patches, patch)
+		patchesInFile, err := parsePatches(templatedFileContent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse patches in file %s: %w", filePath, err)
 		}
+
+		patches = append(patches, patchesInFile...)
 	}
 
 	return patches, nil
 }
 
-func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
+func (p *PatchContext) loadFile(filename string) ([]byte, error) {
 	var (
 		content []byte
 		err     error
@@ -174,58 +173,55 @@ func (p *PatchContext) loadFile(filename string) (configpatcher.Patch, error) {
 		}
 	}
 
-	// Check if patch is empty (only whitespace or comments)
-	if isEmpty(content) {
-		// Skip empty patches gracefully - returning nil patch is intentional, not an error
-		//nolint:nilnil // empty patch is valid, not an error condition
-		return nil, nil
-	}
-
-	// early error with JSON patches, as TOPF (and talos v1.12+) are not supporting those.
-	patch, err := configpatcher.LoadPatch(content)
-	if _, isJSONPatch := patch.(jsonpatch.Patch); isJSONPatch {
-		return nil, errors.New("TOPF doesn't not support JSON patches")
-	}
-
-	return patch, err
+	return content, nil
 }
 
-// isEmpty checks if content is effectively empty by iterating over all YAML
-// documents. Returns true only when every document is empty/nil.
-func isEmpty(content []byte) bool {
-	trimmed := strings.TrimSpace(string(content))
-	if trimmed == "" {
-		return true
-	}
-
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
+func parsePatches(data []byte) (patches []configpatcher.Patch, err error) {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	documentIndex := 0
 
 	for {
-		var data any
+		var doc any
 
-		err := decoder.Decode(&data)
+		err := decoder.Decode(&doc)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 
 		if err != nil {
-			return false // invalid YAML → not our call to skip
+			return nil, fmt.Errorf("invalid patch at document index %d: %w", documentIndex, err)
 		}
 
-		if data == nil {
-			continue
+		if doc == nil {
+			continue // skip empty documents
 		}
 
-		if m, ok := data.(map[string]any); ok && len(m) == 0 {
-			continue
+		data, ok := doc.(map[string]any)
+		if !ok {
+			if _, isArray := doc.([]any); isArray {
+				return nil, fmt.Errorf("document at index %d looks like a JSON patch (array of operations), which is not supported - use strategic merge patches instead", documentIndex)
+			}
+
+			return nil, fmt.Errorf("invalid patch at document index %d: expected a YAML mapping, got %T", documentIndex, doc)
 		}
 
-		if s, ok := data.([]any); ok && len(s) == 0 {
-			continue
+		if len(data) == 0 {
+			continue // skip empty documents
 		}
 
-		return false // found at least one non-empty document
+		patchBytes, err := yaml.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal YAML at document index %d: %w", documentIndex, err)
+		}
+
+		patch, err := configpatcher.LoadPatch(patchBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load patch at document index %d: %w", documentIndex, err)
+		}
+
+		patches = append(patches, patch)
+		documentIndex++
 	}
 
-	return true // all documents were empty/nil
+	return patches, nil
 }
