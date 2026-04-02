@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/postfinance/topf/pkg/sops"
+	"github.com/postfinance/topf/internal/sops"
 )
 
 // NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes secrets.yaml files with optional SOPS support
@@ -26,7 +26,8 @@ type filesystemSecrets struct {
 }
 
 func (s *filesystemSecrets) Get(_ string) ([]byte, error) {
-	return sops.ReadFileWithSOPS(s.path)
+	content, _, err := sops.ReadFileWithSOPS(s.path)
+	return content, err
 }
 
 func (s *filesystemSecrets) Put(_ string, bundle []byte) error {

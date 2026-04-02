@@ -29,7 +29,7 @@ tasks:
   test:
     desc: Run all tests
     cmds:
-      - go test ./...
+      - go test -v -race ./...
 
   lint:
     desc: Run linter

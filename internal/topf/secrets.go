@@ -4,6 +4,7 @@
 package topf
 
 import (
+	"encoding/base64"
 	"errors"
 	"time"
 
@@ -54,5 +55,24 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 
 	t.secretsBundle = bundle
 
+	t.maskedPrinter.AddSecrets(collectSecrets(bundle))
+
 	return bundle, nil
+}
+
+// collectSecrets extracts all sensitive strings from the secrets bundle.
+// assumes a validated secrets bundle, with all fields present
+func collectSecrets(bundle *secrets.Bundle) []string {
+	return []string{
+		base64.StdEncoding.EncodeToString(bundle.Certs.Etcd.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.K8s.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.K8sAggregator.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.K8sServiceAccount.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.OS.Key),
+		bundle.Secrets.BootstrapToken,
+		bundle.Secrets.AESCBCEncryptionSecret,
+		bundle.Secrets.SecretboxEncryptionSecret,
+		bundle.TrustdInfo.Token,
+		bundle.Cluster.Secret,
+	}
 }

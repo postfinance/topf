@@ -7,11 +7,13 @@ package topf
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/postfinance/topf/internal/maskedwriter"
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
@@ -29,6 +31,10 @@ type Topf interface {
 
 	// Nodes returns the list of nodes with additional information
 	Nodes(context.Context) ([]*Node, error)
+
+	// MaskedPrinter returns a writer that redacts secrets from output.
+	// Before secrets are loaded it passes through to os.Stdout unchanged.
+	MaskedPrinter() io.Writer
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -46,7 +52,7 @@ type RuntimeConfig struct {
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
-	topfConfig, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter)
+	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +81,13 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	handler := slog.NewTextHandler(os.Stderr, opts)
 	logger := slog.New(handler)
 
+	mp := maskedwriter.NewMaskedWriter(os.Stdout, secrets)
+
 	return &topf{
-		TopfConfig: topfConfig,
-		configDir:  topfConfig.ConfigDir,
-		logger:     logger,
+		TopfConfig:    topfConfig,
+		configDir:     topfConfig.ConfigDir,
+		logger:        logger,
+		maskedPrinter: mp,
 	}, nil
 }
 
@@ -89,6 +98,7 @@ type topf struct {
 	configDir     string
 	secretsBundle *secrets.Bundle
 	logger        *slog.Logger
+	maskedPrinter *maskedwriter.Writer
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -98,6 +108,11 @@ func (t *topf) Config() *config.TopfConfig {
 // Logger returns the configured logger for this runtime
 func (t *topf) Logger() *slog.Logger {
 	return t.logger
+}
+
+// MaskedPrinter returns the writer that redacts loaded secrets from output
+func (t *topf) MaskedPrinter() io.Writer {
+	return t.maskedPrinter
 }
 
 // parseLogLevel converts a string log level to slog.Level

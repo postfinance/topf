@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/postfinance/topf/internal/sops"
 	"github.com/postfinance/topf/pkg/providers"
-	"github.com/postfinance/topf/pkg/sops"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -40,22 +40,24 @@ type TopfConfig struct {
 }
 
 // LoadFromFile loads the TopfConfig from a YAML file
-func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err error) {
+func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, secrets []string, err error) {
 	// Read file with automatic SOPS decryption if needed
-	content, err := sops.ReadFileWithSOPS(path)
+	var content []byte
+
+	content, secrets, err = sops.ReadFileWithSOPS(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	if content == nil {
-		return nil, fmt.Errorf("config file not found: %s", path)
+		return nil, nil, fmt.Errorf("config file not found: %s", path)
 	}
 
 	config = &TopfConfig{}
 
 	err = yaml.Unmarshal(content, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode config: %w", err)
+		return nil, nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
 	// Set default configDir if not specified
@@ -68,7 +70,7 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err
 	if nodesRegexFilter != "" {
 		nodesFilter, err = regexp.Compile(nodesRegexFilter)
 		if err != nil {
-			return nil, fmt.Errorf("invalid nodes selector regex: %w", err)
+			return nil, nil, fmt.Errorf("invalid nodes selector regex: %w", err)
 		}
 	}
 
@@ -78,12 +80,12 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err
 
 		nodesYAML, err := providers.LoadNodesYAML(provider, config.ClusterName)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		var nodes []Node
 		if err := yaml.Unmarshal(nodesYAML, &nodes); err != nil {
-			return nil, fmt.Errorf("failed to parse nodes from provider: %w", err)
+			return nil, nil, fmt.Errorf("failed to parse nodes from provider: %w", err)
 		}
 
 		config.Nodes = append(config.Nodes, nodes...)
@@ -104,7 +106,7 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, err
 		return strings.Compare(a.Host, b.Host)
 	})
 
-	return config, err
+	return config, secrets, err
 }
 
 // GetSecretsProvider returns the configured secrets provider, or the default filesystem provider

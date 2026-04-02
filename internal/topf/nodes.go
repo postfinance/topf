@@ -102,11 +102,13 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 				ConfigDir:         t.configDir,
 			}
 
-			patches, err := patchContext.Load()
+			patches, patchSecrets, err := patchContext.Load()
 			if err != nil {
 				node.Error = fmt.Errorf("couldn't load patch: %w", err)
 				return
 			}
+
+			t.maskedPrinter.AddSecrets(patchSecrets)
 
 			secretsBundle, err := t.Secrets()
 			if err != nil {

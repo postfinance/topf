@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/postfinance/topf/pkg/sops"
+	"github.com/postfinance/topf/internal/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"gopkg.in/yaml.v3"
 )
@@ -33,39 +33,41 @@ type PatchContext struct {
 
 // Load loads all patches applicable for the node This includes general patches,
 // role (worker/control-plane) specific patches and node specific patches in
-// that order
-func (p *PatchContext) Load() (patches []configpatcher.Patch, err error) {
+// that order. It also returns any secrets discovered from SOPS-encrypted patch files.
+func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, err error) {
 	// warn about legacy patches/ directory
 	oldDir := filepath.Join(p.ConfigDir, "patches")
 	if info, statErr := os.Stat(oldDir); statErr == nil && info.IsDir() {
 		slog.Warn("legacy patches/ directory found, rename it to all/", "path", oldDir)
 	}
 
-	patches, err = p.loadFolder(filepath.Join(p.ConfigDir, "all"))
+	patches, secrets, err = p.loadFolder(filepath.Join(p.ConfigDir, "all"))
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
 	// patches relating to role of node, control-plane or worker
-	rolePatches, err := p.loadFolder(filepath.Join(p.ConfigDir, string(p.Node.Role)))
+	rolePatches, roleSecrets, err := p.loadFolder(filepath.Join(p.ConfigDir, string(p.Node.Role)))
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
 	patches = append(patches, rolePatches...)
+	secrets = append(secrets, roleSecrets...)
 
 	// patches relating to single specific node
-	nodePatches, err := p.loadFolder(filepath.Join(p.ConfigDir, "node", p.Node.Host))
+	nodePatches, nodeSecrets, err := p.loadFolder(filepath.Join(p.ConfigDir, "node", p.Node.Host))
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
 	patches = append(patches, nodePatches...)
+	secrets = append(secrets, nodeSecrets...)
 
-	return
+	return patches, secrets, nil
 }
 
-func (p *PatchContext) loadFolder(folder string) (patches []configpatcher.Patch, err error) {
+func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []string, error) {
 	var filePaths []string
 
 	pattern := regexp.MustCompile(`.*\.ya?ml(\.tpl)?`)
@@ -109,35 +111,43 @@ func (p *PatchContext) loadFolder(folder string) (patches []configpatcher.Patch,
 		return nil
 	}
 
-	err = filepath.WalkDir(folder, walkFunc)
+	err := filepath.WalkDir(folder, walkFunc)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, nil, nil
 		}
 
-		return nil, err
+		return nil, nil, err
 	}
 
+	var (
+		patches []configpatcher.Patch
+		secrets []string
+	)
+
 	for _, filePath := range filePaths {
-		templatedFileContent, err := p.loadFile(filePath)
+		templatedFileContent, fileSecrets, err := p.loadFile(filePath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+
+		secrets = append(secrets, fileSecrets...)
 
 		patchesInFile, err := parsePatches(templatedFileContent)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse patches in file %s: %w", filePath, err)
+			return nil, nil, fmt.Errorf("failed to parse patches in file %s: %w", filePath, err)
 		}
 
 		patches = append(patches, patchesInFile...)
 	}
 
-	return patches, nil
+	return patches, secrets, nil
 }
 
-func (p *PatchContext) loadFile(filename string) ([]byte, error) {
+func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 	var (
 		content []byte
+		secrets []string
 		err     error
 	)
 
@@ -147,33 +157,33 @@ func (p *PatchContext) loadFile(filename string) ([]byte, error) {
 		//nolint:gosec // loading arbitrary patch files is by design
 		content, err = os.ReadFile(filename)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		tmpl, err := template.New("config").Option("missingkey=error").Parse(string(content))
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
+			return nil, nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
 		}
 
 		var buf bytes.Buffer
 		if err := tmpl.Execute(&buf, p); err != nil {
-			return nil, fmt.Errorf("failed to execute template for patch %s: %w", filename, err)
+			return nil, nil, fmt.Errorf("failed to execute template for patch %s: %w", filename, err)
 		}
 
 		content = buf.Bytes()
 	} else {
 		// Non-template files: use SOPS auto-detection
-		content, err = sops.ReadFileWithSOPS(filename)
+		content, secrets, err = sops.ReadFileWithSOPS(filename)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if content == nil {
-			return nil, fmt.Errorf("patch file not found: %s", filename)
+			return nil, nil, fmt.Errorf("patch file not found: %s", filename)
 		}
 	}
 
-	return content, nil
+	return content, secrets, nil
 }
 
 func parsePatches(data []byte) (patches []configpatcher.Patch, err error) {
