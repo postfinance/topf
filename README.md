@@ -56,7 +56,7 @@ nodes:
 
 Create a new patch to specify the install disk and desired talos version:
 
-`patches/01-installation.yaml`:
+`all/01-installation.yaml`:
 
 ```yaml
 machine:
