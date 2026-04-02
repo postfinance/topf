@@ -5,7 +5,6 @@ package config
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
@@ -59,36 +58,41 @@ cluster:
   etcd: {}
 `
 
-func TestLoadFile(t *testing.T) {
+func TestParsePatches(t *testing.T) {
 	tests := []struct {
-		name      string
-		content   string
-		wantPatch bool // true → expect a non-nil, non-JSON patch
+		name           string
+		content        string
+		wantPatchCount int
+		wantErr        bool
 		// applyAndCheck, if non-nil, applies the patch to minimalMachineConfig
 		// and runs extra assertions on the merged YAML bytes.
 		applyAndCheck func(t *testing.T, merged []byte)
 	}{
 		{
-			name:      "empty file is skipped",
-			content:   "",
-			wantPatch: false,
+			name:           "empty file is skipped",
+			content:        "",
+			wantPatchCount: 0,
+			wantErr:        false,
 		},
 		{
-			name:      "whitespace-only file is skipped",
-			content:   "   \n\n  ",
-			wantPatch: false,
+			name:           "whitespace-only file is skipped",
+			content:        "   \n\n  ",
+			wantPatchCount: 0,
+			wantErr:        false,
 		},
 		{
-			name:      "comment-only file is skipped",
-			content:   "# intentionally empty\n",
-			wantPatch: false,
+			name:           "comment-only file is skipped",
+			content:        "# intentionally empty\n",
+			wantPatchCount: 0,
+			wantErr:        false,
 		},
 		{
 			name: "valid strategic merge patch is loaded and applied",
 			content: `machine:
   network:
     hostname: mynode`,
-			wantPatch: true,
+			wantPatchCount: 1,
+			wantErr:        false,
 			applyAndCheck: func(t *testing.T, merged []byte) {
 				t.Helper()
 				if !bytes.Contains(merged, []byte("hostname: mynode")) {
@@ -108,7 +112,8 @@ func TestLoadFile(t *testing.T) {
 machine:
   network:
     hostname: mynode`,
-			wantPatch: true,
+			wantPatchCount: 1,
+			wantErr:        false,
 			applyAndCheck: func(t *testing.T, merged []byte) {
 				t.Helper()
 				if !bytes.Contains(merged, []byte("hostname: mynode")) {
@@ -123,39 +128,50 @@ machine:
 ---
 # second doc is also empty
 `,
-			wantPatch: false,
+			wantPatchCount: 0,
+			wantErr:        false,
+		},
+		{
+			name:    "invalid patch with unknown field is rejected",
+			content: `foo: bar`,
+			wantErr: true,
+		},
+		{
+			name: "json patch is rejected",
+			content: `- op: replace
+  path: /machine/network/hostname
+  value: worker1`,
+			wantErr: true,
+		},
+		{
+			name:    "string is rejected",
+			content: "foobar",
+			wantErr: true,
 		},
 	}
 
-	p := &PatchContext{}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "*.yaml")
+			patches, err := parsePatches([]byte(tt.content))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("parsePatches() expected error, got nil")
+				}
+				return
+			}
 			if err != nil {
-				t.Fatalf("creating temp file: %v", err)
+				t.Fatalf("parsePatches() error: %v", err)
 			}
 
-			if _, err := f.WriteString(tt.content); err != nil {
-				t.Fatalf("writing temp file: %v", err)
+			if tt.wantPatchCount != len(patches) {
+				t.Fatalf("unexpected patch count: got %d, want %d", len(patches), tt.wantPatchCount)
 			}
 
-			f.Close()
-
-			patch, err := p.loadFile(f.Name())
-			if err != nil {
-				t.Fatalf("loadFile() unexpected error: %v", err)
-			}
-
-			if (patch != nil) != tt.wantPatch {
-				t.Fatalf("loadFile() patch = %v, wantPatch %v", patch, tt.wantPatch)
-			}
-
-			if patch == nil || tt.applyAndCheck == nil {
+			if tt.applyAndCheck == nil {
 				return
 			}
 
-			out, err := configpatcher.Apply(configpatcher.WithBytes([]byte(minimalMachineConfig)), []configpatcher.Patch{patch})
+			out, err := configpatcher.Apply(configpatcher.WithBytes([]byte(minimalMachineConfig)), patches)
 			if err != nil {
 				t.Fatalf("configpatcher.Apply() error: %v", err)
 			}
@@ -166,125 +182,6 @@ machine:
 			}
 
 			tt.applyAndCheck(t, merged)
-		})
-	}
-}
-
-func TestIsEmpty(t *testing.T) {
-	tests := []struct {
-		name     string
-		content  string
-		expected bool
-	}{
-		{
-			name:     "completely empty",
-			content:  "",
-			expected: true,
-		},
-		{
-			name: "only whitespace",
-			content: `
-
-  `,
-			expected: true,
-		},
-		{
-			name: "only comments",
-			content: `# This is a comment
-# Another comment`,
-			expected: true,
-		},
-		{
-			name:     "empty yaml map",
-			content:  "{}",
-			expected: true,
-		},
-		{
-			name:     "empty yaml list",
-			content:  "[]",
-			expected: true,
-		},
-		{
-			name:     "yaml null",
-			content:  "null",
-			expected: true,
-		},
-		{
-			name:     "yaml tilde (null)",
-			content:  "~",
-			expected: true,
-		},
-		// Scalar types: yaml.v3 decodes these into bool/int/float64/string/time.Time,
-		// none of which match the nil/empty-map/empty-slice checks, so all must
-		// return false (not empty).
-		{
-			name:     "boolean scalar",
-			content:  "true",
-			expected: false,
-		},
-		{
-			name:     "integer scalar",
-			content:  "42",
-			expected: false,
-		},
-		{
-			name:     "float scalar",
-			content:  "3.14",
-			expected: false,
-		},
-		{
-			name:     "string scalar",
-			content:  "hello",
-			expected: false,
-		},
-		{
-			name:     "quoted empty string scalar",
-			content:  `""`,
-			expected: false,
-		},
-		{
-			name:     "date scalar (decoded as time.Time)",
-			content:  "2024-01-01",
-			expected: false,
-		},
-		{
-			name: "yaml content",
-			content: `machine:
-  type: worker`,
-			expected: false,
-		},
-		{
-			name: "yaml list with data",
-			content: `- op: add
-  path: /machine/network`,
-			expected: false,
-		},
-		{
-			name: "multi-doc all empty documents",
-			content: `---
-# comment only
----
-`,
-			expected: true,
-		},
-		{
-			name: "multi-doc with empty first document and valid second",
-			content: `---
-# intentionally empty
----
-machine:
-  network:
-    hostname: mynode`,
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isEmpty([]byte(tt.content))
-			if result != tt.expected {
-				t.Errorf("isEmpty() = %v, want %v for content:\n%q", result, tt.expected, tt.content)
-			}
 		})
 	}
 }
