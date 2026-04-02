@@ -44,7 +44,7 @@ Boot at least one Talos machine to maintenance mode.
 Create a new folder for you cluster with a `topf.yaml` file:
 
 ```yaml
-kubernetesVersion: 1.34.1
+kubernetesVersion: 1.35.3
 clusterEndpoint: https://192.168.1.100:6443
 clusterName: mycluster
 
@@ -62,7 +62,7 @@ Create a new patch to specify the install disk and desired talos version:
 machine:
   install:
     disk: /dev/vda
-    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.4
 ```
 
 Then run `topf apply --auto-bootstrap` to provision the cluster.
