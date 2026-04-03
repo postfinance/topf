@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/cosi-project/runtime v1.14.0
-	github.com/jedib0t/go-pretty/v6 v6.7.8
+	github.com/jedib0t/go-pretty/v6 v6.7.9
 	github.com/siderolabs/go-retry v0.3.3
 	github.com/siderolabs/talos/pkg/machinery v1.12.4
 	github.com/urfave/cli/v3 v3.6.2
