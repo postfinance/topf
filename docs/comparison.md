@@ -12,7 +12,7 @@ Both TOPF and [talhelper](https://github.com/budimanjojo/talhelper) help manage 
 
 **talhelper** keeps everything in a single `talconfig.yaml`, including inline patches and node-specific settings like `installDisk` and `networkInterfaces`.
 
-**TOPF** separates node definitions (`topf.yaml`) from patches (individual files in `patches/`, `<role>/`, `nodes/<host>/`). This makes patches easier to review in pull requests.
+**TOPF** separates node definitions (`topf.yaml`) from patches (individual files in `all/`, `<role>/`, `nodes/<host>/`). This makes patches easier to review in pull requests.
 
 ## Patches
 
