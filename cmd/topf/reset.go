@@ -31,6 +31,11 @@ func newResetCmd() *cli.Command {
 				Value: false,
 				Usage: "if true, shut down machine after reset. otherwise, machine reboots.",
 			},
+			&cli.BoolFlag{
+				Name:  "wait-for-maintenance",
+				Value: false,
+				Usage: "wait for all reset nodes to reach maintenance mode",
+			},
 		},
 		Description: `This command resets a Talos node to its initial state, wiping the state and ephemeral system partitions and rebooting the node.`,
 		Before:      noPositionalArgs,
@@ -38,10 +43,11 @@ func newResetCmd() *cli.Command {
 			t := MustGetRuntime(ctx)
 
 			opts := reset.Options{
-				Confirm:  c.Bool("confirm"),
-				Full:     c.Bool("full"),
-				Graceful: c.Bool("graceful"),
-				Shutdown: c.Bool("shutdown"),
+				Confirm:            c.Bool("confirm"),
+				Full:               c.Bool("full"),
+				Graceful:           c.Bool("graceful"),
+				Shutdown:           c.Bool("shutdown"),
+				WaitForMaintenance: c.Bool("wait-for-maintenance"),
 			}
 
 			return reset.Execute(ctx, t, opts)
