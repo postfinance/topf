@@ -5,6 +5,8 @@ package maskedwriter
 
 import (
 	"bytes"
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -145,5 +147,32 @@ func TestMaskedWriter(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.expected)
 			}
 		})
+	}
+}
+
+// TestMaskedWriterConcurrency verifies that concurrent AddSecrets and Write
+// calls do not race. Run with -race to detect any missing synchronization.
+func TestMaskedWriterConcurrency(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewMaskedWriter(&buf, nil)
+
+	var wg sync.WaitGroup
+
+	for i := range 10 {
+		wg.Go(func() {
+			w.AddSecrets([]string{fmt.Sprintf("secret%d", i)})
+		})
+	}
+
+	for i := range 10 {
+		wg.Go(func() {
+			fmt.Fprintf(w, "output line %d", i)
+		})
+	}
+
+	wg.Wait()
+
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
 	}
 }

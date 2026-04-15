@@ -7,6 +7,7 @@ package maskedwriter
 import (
 	"bytes"
 	"io"
+	"sync"
 )
 
 const redacted = "*** redacted ***"
@@ -14,6 +15,7 @@ const redacted = "*** redacted ***"
 // Writer wraps an io.Writer and replaces any occurrence of registered
 // secrets with "*** redacted ***" before writing to the underlying writer.
 type Writer struct {
+	mu      sync.Mutex
 	inner   io.Writer
 	buf     []byte
 	secrets [][]byte
@@ -31,6 +33,9 @@ func NewMaskedWriter(writer io.Writer, sensitive []string) *Writer {
 
 // AddSecrets registers additional sensitive strings to be redacted.
 func (w *Writer) AddSecrets(sensitive []string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	for _, s := range sensitive {
 		if len(s) > 0 {
 			w.secrets = append(w.secrets, []byte(s))
@@ -39,6 +44,9 @@ func (w *Writer) AddSecrets(sensitive []string) {
 }
 
 func (w *Writer) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	for _, b := range p {
 		w.buf = append(w.buf, b)
 
@@ -70,6 +78,9 @@ func (w *Writer) Write(p []byte) (int, error) {
 // Flush writes any remaining buffered bytes to the underlying writer.
 // Partial matches that never completed are written as-is.
 func (w *Writer) Flush() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	return w.flush(len(w.buf))
 }
 
