@@ -173,6 +173,13 @@ func TestMaskedWriter(t *testing.T) {
 			wantBeforeClose: "x",
 			expected:        "x*** redacted ***",
 		},
+		{
+			name:            "longest match wins",
+			secrets:         []string{"aaaaaaaaaaa", "a"},
+			writes:          []string{"aaaaaaaaaaaa"},
+			wantBeforeClose: "*** redacted ***",
+			expected:        "*** redacted ****** redacted ***",
+		},
 	}
 
 	for _, tt := range tests {
