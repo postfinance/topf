@@ -12,10 +12,11 @@ import (
 
 func TestMaskedWriter(t *testing.T) {
 	tests := []struct {
-		name     string
-		secrets  []string
-		writes   []string
-		expected string
+		name            string
+		secrets         []string
+		writes          []string
+		wantBeforeFlush string // if set, asserted before Flush() is called
+		expected        string
 	}{
 		{
 			name:     "no secrets",
@@ -72,10 +73,11 @@ func TestMaskedWriter(t *testing.T) {
 			expected: "*** redacted ***",
 		},
 		{
-			name:     "partial match at end needs flush",
-			secrets:  []string{"abc"},
-			writes:   []string{"xab"},
-			expected: "x", // "ab" is buffered, flushed by Flush()
+			name:            "partial match at end needs flush",
+			secrets:         []string{"abc"},
+			writes:          []string{"xab"},
+			wantBeforeFlush: "x", // "ab" is still buffered
+			expected:        "xab",
 		},
 		{
 			name:     "empty secret ignored",
@@ -113,6 +115,28 @@ func TestMaskedWriter(t *testing.T) {
 			writes:   []string{"ab", "cd"},
 			expected: "ab*** redacted ***",
 		},
+		{
+			name:            "partial match at end of all writes is lost without Flush",
+			secrets:         []string{"abc"},
+			writes:          []string{"foo ab"},
+			wantBeforeFlush: "foo ", // "ab" is still buffered
+			expected:        "foo ab",
+		},
+		{
+			name:     "trailing newline flushes partial match without explicit Flush",
+			secrets:  []string{"abc"},
+			writes:   []string{"foo ab\n"},
+			expected: "foo ab\n",
+		},
+		{
+			// shorter secret is shadowed by a longer partial match that never completes:
+			// "abc" is held in the buffer as a prefix of "abcd", then 'e' arrives and
+			// neither secret matches — "abc" should have been redacted but is flushed as-is
+			name:     "shorter secret shadowed by longer partial match",
+			secrets:  []string{"abcd", "abc"},
+			writes:   []string{"abce"},
+			expected: "*** redacted ***e",
+		},
 	}
 
 	for _, tt := range tests {
@@ -126,24 +150,17 @@ func TestMaskedWriter(t *testing.T) {
 				}
 			}
 
-			// Flush remaining buffer.
+			if tt.wantBeforeFlush != "" {
+				if got := buf.String(); got != tt.wantBeforeFlush {
+					t.Errorf("before Flush: got %q, want %q", got, tt.wantBeforeFlush)
+				}
+			}
+
 			if err := w.Flush(); err != nil {
 				t.Fatalf("Flush() error: %v", err)
 			}
 
-			got := buf.String()
-
-			// For the "partial match at end" test, the flushed
-			// partial is appended after.
-			if tt.name == "partial match at end needs flush" {
-				if got != "xab" {
-					t.Errorf("got %q, want %q", got, "xab")
-				}
-
-				return
-			}
-
-			if got != tt.expected {
+			if got := buf.String(); got != tt.expected {
 				t.Errorf("got %q, want %q", got, tt.expected)
 			}
 		})
