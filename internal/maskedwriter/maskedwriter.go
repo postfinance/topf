@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 // Package maskedwriter provides a writer that redacts sensitive strings from output.
+//
+// Incoming bytes are buffered while they could still be part of a secret.
+// As soon as a match is impossible, safe bytes are flushed to the underlying
+// writer. When a complete secret is found, it is replaced with a redaction
+// marker. Call Close after the last Write to emit any remaining buffered bytes.
 package maskedwriter
 
 import (
@@ -14,11 +19,15 @@ const redacted = "*** redacted ***"
 
 // Writer wraps an io.Writer and replaces any occurrence of registered
 // secrets with "*** redacted ***" before writing to the underlying writer.
+//
+// Bytes are held in a pending buffer while they could still be the start
+// of a secret. This allows secrets that are split across multiple Write
+// calls to be detected and redacted.
 type Writer struct {
 	mu      sync.Mutex
 	inner   io.Writer
-	buf     []byte
 	secrets [][]byte
+	pending []byte // bytes not yet written; might be part of a secret
 }
 
 // NewMaskedWriter returns a Writer that replaces any occurrence of the
@@ -43,81 +52,94 @@ func (w *Writer) AddSecrets(sensitive []string) {
 	}
 }
 
+// Write appends p to the internal buffer and drains as many bytes as
+// possible to the underlying writer. Bytes that form a potential secret
+// prefix remain buffered until more input resolves the ambiguity or
+// Close is called.
 func (w *Writer) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	for _, b := range p {
-		w.buf = append(w.buf, b)
+	w.pending = append(w.pending, p...)
 
-		n, full := w.bufferEndsWithSecretPrefix()
-		if full {
-			// flush everything before the secret
-			if err := w.flush(len(w.buf) - n); err != nil {
-				return len(p), err
-			}
-
-			// print the redacted message
-			if _, err := w.inner.Write([]byte(redacted)); err != nil {
-				return len(p), err
-			}
-
-			// clear out slice while keeping backing array the same
-			w.buf = w.buf[:0]
-		} else {
-			// flush everything except the partial overlap
-			if err := w.flush(len(w.buf) - n); err != nil {
-				return len(p), err
-			}
-		}
+	if err := w.drainPending(false); err != nil {
+		return 0, err
 	}
 
 	return len(p), nil
 }
 
-// Flush writes any remaining buffered bytes to the underlying writer.
-// Partial matches that never completed are written as-is.
-func (w *Writer) Flush() error {
+// Close drains all buffered bytes to the underlying writer. Buffered
+// content that forms a complete secret is redacted; everything else is
+// emitted verbatim. The underlying writer is not closed.
+func (w *Writer) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	return w.flush(len(w.buf))
+	return w.drainPending(true)
 }
 
-// flush writes the first n bytes of the buffer to the underlying writer
-// and removes them from the buffer.
-func (w *Writer) flush(n int) error {
-	if n <= 0 {
-		return nil
-	}
+// drainPending emits bytes from the pending buffer to the inner writer.
+//
+// The loop applies three rules in order:
+//
+//  1. If the buffer is a proper (not full) prefix of any secret and we are not
+//     flushing, stop — more input may complete the match.
+//  2. If the longest registered secret matches at the start of the
+//     buffer, replace it with the redaction marker and continue.
+//  3. Otherwise the first byte cannot be part of a secret starting
+//     here — emit it and retry from step 1.
+func (w *Writer) drainPending(flush bool) error {
+	for len(w.pending) > 0 {
+		// Rule 1: pause when future input could still complete a match.
+		if !flush && w.couldGrowIntoSecret(w.pending) {
+			return nil
+		}
 
-	if _, err := w.inner.Write(w.buf[:n]); err != nil {
-		return err
-	}
+		// Rule 2: redact the longest secret that starts at pending[0].
+		if n := w.longestMatchAtStart(w.pending); n > 0 {
+			if _, err := io.WriteString(w.inner, redacted); err != nil {
+				return err
+			}
 
-	// cut off bytes from the beginning of slice
-	// without allocation new backing array
-	w.buf = append(w.buf[:0], w.buf[n:]...)
+			w.pending = w.pending[n:]
+
+			continue
+		}
+
+		// Rule 3: first byte is safe — emit it.
+		if _, err := w.inner.Write(w.pending[:1]); err != nil {
+			return err
+		}
+
+		w.pending = w.pending[1:]
+	}
 
 	return nil
 }
 
-// bufferEndsWithSecretPrefix returns the length of the longest secret prefix
-// that matches at the end of the buffer. full is true when the match
-// covers an entire secret.
-func (w *Writer) bufferEndsWithSecretPrefix() (maxFound int, full bool) {
-	for _, secret := range w.secrets {
-		maxLen := min(len(secret), len(w.buf))
-
-		for i := maxLen; i > maxFound; i-- {
-			if bytes.HasSuffix(w.buf, secret[:i]) {
-				maxFound = i
-				full = i == len(secret)
-
-				break
-			}
+// couldGrowIntoSecret reports whether buf is a proper prefix of at least
+// one registered secret, meaning additional input could complete a match.
+func (w *Writer) couldGrowIntoSecret(buf []byte) bool {
+	for _, s := range w.secrets {
+		if len(s) > len(buf) && bytes.HasPrefix(s, buf) {
+			return true
 		}
 	}
 
-	return
+	return false
+}
+
+// longestMatchAtStart returns the length of the longest registered secret
+// that matches at the very beginning of buf, or 0 if none matches.
+func (w *Writer) longestMatchAtStart(buf []byte) int {
+	best := 0
+
+	for _, s := range w.secrets {
+		if len(s) > best && bytes.HasPrefix(buf, s) {
+			best = len(s)
+		}
+	}
+
+	return best
 }

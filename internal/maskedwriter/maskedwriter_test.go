@@ -15,7 +15,7 @@ func TestMaskedWriter(t *testing.T) {
 		name            string
 		secrets         []string
 		writes          []string
-		wantBeforeFlush string // if set, asserted before Flush() is called
+		wantBeforeClose string // if set, asserted before Close() is called
 		expected        string
 	}{
 		{
@@ -73,10 +73,10 @@ func TestMaskedWriter(t *testing.T) {
 			expected: "*** redacted ***",
 		},
 		{
-			name:            "partial match at end needs flush",
+			name:            "partial match at end needs close",
 			secrets:         []string{"abc"},
 			writes:          []string{"xab"},
-			wantBeforeFlush: "x", // "ab" is still buffered
+			wantBeforeClose: "x", // "ab" is still buffered
 			expected:        "xab",
 		},
 		{
@@ -116,26 +116,62 @@ func TestMaskedWriter(t *testing.T) {
 			expected: "ab*** redacted ***",
 		},
 		{
-			name:            "partial match at end of all writes is lost without Flush",
+			name:            "partial match at end of all writes is lost without Close",
 			secrets:         []string{"abc"},
 			writes:          []string{"foo ab"},
-			wantBeforeFlush: "foo ", // "ab" is still buffered
+			wantBeforeClose: "foo ", // "ab" is still buffered
 			expected:        "foo ab",
 		},
 		{
-			name:     "trailing newline flushes partial match without explicit Flush",
+			name:     "trailing newline flushes partial match without explicit Close",
 			secrets:  []string{"abc"},
 			writes:   []string{"foo ab\n"},
 			expected: "foo ab\n",
 		},
 		{
-			// shorter secret is shadowed by a longer partial match that never completes:
-			// "abc" is held in the buffer as a prefix of "abcd", then 'e' arrives and
-			// neither secret matches — "abc" should have been redacted but is flushed as-is
-			name:     "shorter secret shadowed by longer partial match",
+			// longer secret doesn't complete — backtrack and redact
+			// the shorter secret that was hidden in the buffer
+			name:     "longer partial fails shorter secret redacted",
 			secrets:  []string{"abcd", "abc"},
 			writes:   []string{"abce"},
 			expected: "*** redacted ***e",
+		},
+		{
+			name:     "longer secret partial no complete",
+			secrets:  []string{"aab"},
+			writes:   []string{"aac"},
+			expected: "aac",
+		},
+		{
+			// shorter secret is a prefix of a longer one; the longer
+			// one completes so the whole thing is redacted (no tail leak)
+			name:     "overlapping prefix longer completes",
+			secrets:  []string{"a", "aSECRET"},
+			writes:   []string{"aSECRET"},
+			expected: "*** redacted ***",
+		},
+		{
+			name:     "overlapping prefix longer completes split",
+			secrets:  []string{"abc", "abcd"},
+			writes:   []string{"ab", "cd"},
+			expected: "*** redacted ***",
+		},
+		{
+			// longer secret doesn't complete; backtrack redacts the
+			// shorter secret, remainder passes through
+			name:     "overlapping prefix longer fails backtrack",
+			secrets:  []string{"a", "aSECRET"},
+			writes:   []string{"aXYZ"},
+			expected: "*** redacted ***XYZ",
+		},
+		{
+			// Close must redact a buffered byte that is itself a secret,
+			// not leak it as a raw partial match
+			name:            "close redacts held secret",
+			secrets:         []string{"a", "abc"},
+			writes:          []string{"xa"},
+			wantBeforeClose: "x",
+			expected:        "x*** redacted ***",
 		},
 	}
 
@@ -150,14 +186,14 @@ func TestMaskedWriter(t *testing.T) {
 				}
 			}
 
-			if tt.wantBeforeFlush != "" {
-				if got := buf.String(); got != tt.wantBeforeFlush {
-					t.Errorf("before Flush: got %q, want %q", got, tt.wantBeforeFlush)
+			if tt.wantBeforeClose != "" {
+				if got := buf.String(); got != tt.wantBeforeClose {
+					t.Errorf("before Close: got %q, want %q", got, tt.wantBeforeClose)
 				}
 			}
 
-			if err := w.Flush(); err != nil {
-				t.Fatalf("Flush() error: %v", err)
+			if err := w.Close(); err != nil {
+				t.Fatalf("Close() error: %v", err)
 			}
 
 			if got := buf.String(); got != tt.expected {
@@ -189,7 +225,7 @@ func TestMaskedWriterConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	if err := w.Flush(); err != nil {
+	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
