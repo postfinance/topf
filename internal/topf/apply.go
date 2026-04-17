@@ -17,7 +17,7 @@ import (
 
 // Apply applies the configuration bundle to the node.
 // If dryRun is true, only shows what changes would be applied without actually applying them.
-func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun bool) (bool, error) {
+func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
 	logger = logger.With(n.Attrs())
 
 	if n.ConfigBundle == nil {
@@ -41,7 +41,7 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun b
 	response, err := nodeClient.MachineClient.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
 		Data:   configBytes,
 		DryRun: true,
-		Mode:   machine.ApplyConfigurationRequest_AUTO,
+		Mode:   mode,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to apply machine config: %w", err)
@@ -79,7 +79,7 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun b
 	// actually apply config
 	response, err = nodeClient.MachineClient.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
 		Data: configBytes,
-		Mode: machine.ApplyConfigurationRequest_AUTO,
+		Mode: mode,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to apply machine config: %w", err)
