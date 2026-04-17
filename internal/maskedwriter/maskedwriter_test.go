@@ -185,7 +185,7 @@ func TestMaskedWriter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			w := NewMaskedWriter(&buf, tt.secrets)
+			w := New(&buf, tt.secrets)
 
 			for _, s := range tt.writes {
 				if _, err := w.Write([]byte(s)); err != nil {
@@ -214,7 +214,7 @@ func TestMaskedWriter(t *testing.T) {
 // calls do not race. Run with -race to detect any missing synchronization.
 func TestMaskedWriterConcurrency(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewMaskedWriter(&buf, nil)
+	w := New(&buf, nil)
 
 	var wg sync.WaitGroup
 

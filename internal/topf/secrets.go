@@ -55,7 +55,7 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 
 	t.secretsBundle = bundle
 
-	t.maskedPrinter.AddSecrets(collectSecrets(bundle))
+	t.addSecrets(collectSecrets(bundle))
 
 	return bundle, nil
 }
@@ -64,10 +64,14 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 // assumes a validated secrets bundle, with all fields present
 func collectSecrets(bundle *secrets.Bundle) []string {
 	return []string{
+		base64.StdEncoding.EncodeToString(bundle.Certs.Etcd.Crt),
 		base64.StdEncoding.EncodeToString(bundle.Certs.Etcd.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.K8s.Crt),
 		base64.StdEncoding.EncodeToString(bundle.Certs.K8s.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.K8sAggregator.Crt),
 		base64.StdEncoding.EncodeToString(bundle.Certs.K8sAggregator.Key),
 		base64.StdEncoding.EncodeToString(bundle.Certs.K8sServiceAccount.Key),
+		base64.StdEncoding.EncodeToString(bundle.Certs.OS.Crt),
 		base64.StdEncoding.EncodeToString(bundle.Certs.OS.Key),
 		bundle.Secrets.BootstrapToken,
 		bundle.Secrets.AESCBCEncryptionSecret,

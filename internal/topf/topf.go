@@ -32,9 +32,10 @@ type Topf interface {
 	// Nodes returns the list of nodes with additional information
 	Nodes(context.Context) ([]*Node, error)
 
-	// MaskedPrinter returns a writer that redacts secrets from output.
-	// Before secrets are loaded it passes through to os.Stdout unchanged.
-	MaskedPrinter() io.Writer
+	// Writer returns a writer targeting os.Stdout. When the runtime was
+	// created with Redact=true, secrets and certificates are replaced with
+	// "*** redacted ***" before being written.
+	Writer() io.Writer
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -48,6 +49,9 @@ type RuntimeConfig struct {
 
 	// LogLevel sets the logging verbosity (debug, info, warn, error)
 	LogLevel string
+
+	// Redact controls whether sensitive values are masked in output
+	Redact bool
 }
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
@@ -81,13 +85,18 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	handler := slog.NewTextHandler(os.Stderr, opts)
 	logger := slog.New(handler)
 
-	mp := maskedwriter.NewMaskedWriter(os.Stdout, secrets)
+	var w io.Writer
+	if cfg.Redact {
+		w = maskedwriter.New(os.Stdout, secrets)
+	} else {
+		w = os.Stdout
+	}
 
 	return &topf{
-		TopfConfig:    topfConfig,
-		configDir:     topfConfig.ConfigDir,
-		logger:        logger,
-		maskedPrinter: mp,
+		TopfConfig: topfConfig,
+		configDir:  topfConfig.ConfigDir,
+		logger:     logger,
+		writer:     w,
 	}, nil
 }
 
@@ -98,7 +107,7 @@ type topf struct {
 	configDir     string
 	secretsBundle *secrets.Bundle
 	logger        *slog.Logger
-	maskedPrinter *maskedwriter.Writer
+	writer        io.Writer
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -110,9 +119,15 @@ func (t *topf) Logger() *slog.Logger {
 	return t.logger
 }
 
-// MaskedPrinter returns the writer that redacts loaded secrets from output
-func (t *topf) MaskedPrinter() io.Writer {
-	return t.maskedPrinter
+func (t *topf) Writer() io.Writer {
+	return t.writer
+}
+
+// addSecrets registers additional sensitive strings when redaction is active.
+func (t *topf) addSecrets(sensitive []string) {
+	if mw, ok := t.writer.(*maskedwriter.Writer); ok {
+		mw.AddSecrets(sensitive)
+	}
 }
 
 // parseLogLevel converts a string log level to slog.Level

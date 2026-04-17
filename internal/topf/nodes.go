@@ -108,7 +108,7 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 				return
 			}
 
-			t.maskedPrinter.AddSecrets(patchSecrets)
+			t.addSecrets(patchSecrets)
 
 			secretsBundle, err := t.Secrets()
 			if err != nil {

@@ -61,14 +61,14 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun b
 
 	// in dry-run mode, print the changes and return without applying
 	if dryRun {
-		fmt.Fprintln(n.t.MaskedPrinter(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
+		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
 
 		return false, nil
 	}
 
 	// ask for user confirmation
 	if confirm {
-		fmt.Fprintln(n.t.MaskedPrinter(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
+		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
 
 		if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to apply the above changes to %s (Mode: %s)?", n.Node.Host, applyResponse.GetMode().String())) == 'n' {
 			logger.Info("skipping")

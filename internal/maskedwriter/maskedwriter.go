@@ -30,10 +30,9 @@ type Writer struct {
 	pending []byte // bytes not yet written; might be part of a secret
 }
 
-// NewMaskedWriter returns a Writer that replaces any occurrence of the
-// sensitive strings with "*** redacted ***" before writing to the
-// underlying writer.
-func NewMaskedWriter(writer io.Writer, sensitive []string) *Writer {
+// New returns a Writer that replaces any occurrence of the sensitive
+// strings with "*** redacted ***" before writing to the underlying writer.
+func New(writer io.Writer, sensitive []string) *Writer {
 	w := &Writer{inner: writer}
 	w.AddSecrets(sensitive)
 
