@@ -47,6 +47,12 @@ func main() {
 				Usage:   "set the logging level (debug, info, warn, error)",
 				Sources: cli.EnvVars("LOG_LEVEL"),
 			},
+			&cli.BoolFlag{
+				Name:    "redact",
+				Value:   true,
+				Usage:   "redact sensitive values (secrets, certificates) from output",
+				Sources: cli.EnvVars("TOPF_REDACT"),
+			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// passing down the Topf runtime to all commands via context
@@ -54,6 +60,7 @@ func main() {
 				ConfigPath:       c.String("topfconfig"),
 				NodesRegexFilter: c.String("nodes-filter"),
 				LogLevel:         c.String("log-level"),
+				Redact:           c.Bool("redact"),
 			})
 			if err != nil {
 				return ctx, err

@@ -1,0 +1,36 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Install sops
+        env:
+          SOPS_VERSION: "3.12.2"
+        run: |
+          curl -fsSLo sops "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64"
+          chmod +x sops
+          sudo mv sops /usr/local/bin/
+          sops --version
+      - name: Install age
+        env:
+          AGE_VERSION: "1.3.1"
+        run: |
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz" | tar xz
+          sudo mv age/age age/age-keygen /usr/local/bin/
+          age --version
+      - name: Run tests
+        run: go test -v -race ./...
