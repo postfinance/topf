@@ -6,7 +6,9 @@ package reset
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/postfinance/topf/internal/interactive"
 	"github.com/postfinance/topf/internal/topf"
@@ -20,9 +22,10 @@ type Options struct {
 	Confirm bool
 	// Whether to perform a full wipe of the installation disk. If false, only
 	// STATE and EPHEMERAL partitions are wiped.
-	Full     bool
-	Graceful bool
-	Shutdown bool
+	Full               bool
+	Graceful           bool
+	Shutdown           bool
+	WaitForMaintenance bool
 }
 
 // Result contains the result of the reset operation
@@ -47,6 +50,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		logger.Info("no node to act upon")
 		return nil
 	}
+
+	var resetNodes []*topf.Node
 
 	for _, n := range nodes {
 		logger := logger.With(n.Attrs())
@@ -107,9 +112,51 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		logger.Info("reset initiated")
 
 		result.SuccessCount++
+
+		resetNodes = append(resetNodes, n)
 	}
 
 	logger.Info("reset completed", "result", *result)
+
+	if opts.WaitForMaintenance && len(resetNodes) > 0 {
+		logger.Info("waiting for nodes to reach maintenance mode", "count", len(resetNodes))
+
+		var wg sync.WaitGroup
+
+		errs := make(chan error, len(resetNodes))
+
+		for _, n := range resetNodes {
+			wg.Add(1)
+
+			go func(n *topf.Node) {
+				defer wg.Done()
+
+				logger := logger.With(n.Attrs())
+
+				if err := n.WaitForMaintenance(ctx, logger); err != nil {
+					logger.Error("failed waiting for maintenance mode", "error", err)
+
+					errs <- err
+
+					return
+				}
+
+				logger.Info("node is in maintenance mode")
+			}(n)
+		}
+
+		wg.Wait()
+		close(errs)
+
+		var waitErrs []error
+		for err := range errs {
+			waitErrs = append(waitErrs, err)
+		}
+
+		if err := errors.Join(waitErrs...); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

@@ -93,3 +93,27 @@ func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilization
 
 	return retry.Constant(time.Minute*15, retry.WithErrorLogging(logger.Enabled(ctx, slog.LevelDebug))).RetryWithContext(ctx, waitForMachineReady)
 }
+
+// WaitForMaintenance waits for the talos machine to reach maintenance mode
+func (n *Node) WaitForMaintenance(ctx context.Context, logger *slog.Logger) error {
+	return retry.Constant(time.Minute*15,
+		retry.WithErrorLogging(logger.Enabled(ctx, slog.LevelDebug)),
+	).RetryWithContext(ctx, func(ctx context.Context) error {
+		nodeClient, err := n.Client(ctx)
+		if err != nil {
+			return retry.ExpectedErrorf("couldn't get client: %w", err)
+		}
+		defer nodeClient.Close()
+
+		machineStatus, err := safe.ReaderGetByID[*runtime.MachineStatus](ctx, nodeClient.COSI, runtime.MachineStatusID)
+		if err != nil {
+			return retry.ExpectedErrorf("couldn't get machine status: %s", err)
+		}
+
+		if machineStatus.TypedSpec().Stage != runtime.MachineStageMaintenance {
+			return retry.ExpectedErrorf("machine not in maintenance mode: %s", machineStatus.TypedSpec().Stage)
+		}
+
+		return nil
+	})
+}
