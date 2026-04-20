@@ -6,6 +6,7 @@ package reset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -122,6 +123,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 		var wg sync.WaitGroup
 
+		errs := make(chan error, len(resetNodes))
+
 		for _, n := range resetNodes {
 			wg.Add(1)
 
@@ -132,6 +135,9 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 				if err := n.WaitForMaintenance(ctx, logger); err != nil {
 					logger.Error("failed waiting for maintenance mode", "error", err)
+
+					errs <- err
+
 					return
 				}
 
@@ -140,6 +146,16 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 
 		wg.Wait()
+		close(errs)
+
+		var waitErrs []error
+		for err := range errs {
+			waitErrs = append(waitErrs, err)
+		}
+
+		if err := errors.Join(waitErrs...); err != nil {
+			return err
+		}
 	}
 
 	return nil
