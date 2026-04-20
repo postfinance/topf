@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/postfinance/topf/internal/topf"
+	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 )
 
@@ -30,6 +31,8 @@ type Options struct {
 	SkipPostApplyChecks bool
 	// Allow applying to nodes that are not ready (have unmet conditions)
 	AllowNotReady bool
+	// Apply mode passed to Talos (auto, reboot, no-reboot, staged, try)
+	Mode machine.ApplyConfigurationRequest_Mode
 }
 
 // Execute applies the Talos configurations to all nodes in the cluster
@@ -120,7 +123,7 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
-		applied, err := node.Apply(ctx, logger, opts.Confirm, opts.DryRun)
+		applied, err := node.Apply(ctx, logger, opts.Confirm, opts.DryRun, opts.Mode)
 		if err != nil {
 			return fmt.Errorf("failed to apply config to node %v: %w", node.Node.Host, err)
 		}

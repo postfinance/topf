@@ -58,26 +58,27 @@ func newUpgradeCmd() *cli.Command {
 	}
 }
 
-// validRebootModes returns the valid reboot mode names derived from the protobuf enum,
-// lowercased and sorted by their protobuf numeric value.
-func validRebootModes() []string {
-	modes := slices.Collect(maps.Keys(machine.UpgradeRequest_RebootMode_value))
-	slices.SortFunc(modes, func(a, b string) int {
-		return cmp.Compare(machine.UpgradeRequest_RebootMode_value[a], machine.UpgradeRequest_RebootMode_value[b])
-	})
+// rebootModes maps user-facing mode names to their protobuf values.
+// https://github.com/siderolabs/talos/blob/main/cmd/talosctl/pkg/talos/helpers/mode.go
+var rebootModes = map[string]machine.UpgradeRequest_RebootMode{ //nolint:gochecknoglobals // read-only lookup table
+	"default":    machine.UpgradeRequest_DEFAULT,
+	"powercycle": machine.UpgradeRequest_POWERCYCLE,
+}
 
-	for i, m := range modes {
-		modes[i] = strings.ToLower(m)
-	}
+func validRebootModes() []string {
+	modes := slices.Collect(maps.Keys(rebootModes))
+	slices.SortFunc(modes, func(a, b string) int {
+		return cmp.Compare(int32(rebootModes[a]), int32(rebootModes[b]))
+	})
 
 	return modes
 }
 
 func parseRebootMode(mode string) (machine.UpgradeRequest_RebootMode, error) {
-	val, ok := machine.UpgradeRequest_RebootMode_value[strings.ToUpper(mode)]
+	val, ok := rebootModes[mode]
 	if !ok {
 		return 0, fmt.Errorf("invalid reboot mode %q, valid values: %s", mode, strings.Join(validRebootModes(), ", "))
 	}
 
-	return machine.UpgradeRequest_RebootMode(val), nil
+	return val, nil
 }
