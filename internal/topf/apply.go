@@ -15,6 +15,10 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/encoder"
 )
 
+// ErrDryRunChangesDetected is returned by Apply when running in dry-run mode
+// and changes were detected. Callers can use this to exit with a non-zero status.
+var ErrDryRunChangesDetected = errors.New("dry-run: changes detected")
+
 // Apply applies the configuration bundle to the node.
 // If dryRun is true, only shows what changes would be applied without actually applying them.
 func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
@@ -59,11 +63,11 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun b
 		logger.Warn("dry-run", "warnings", strings.Join(applyResponse.GetWarnings(), ", "))
 	}
 
-	// in dry-run mode, print the changes and return without applying
+	// in dry-run mode, print the changes and signal that changes were detected
 	if dryRun {
 		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
 
-		return false, nil
+		return false, ErrDryRunChangesDetected
 	}
 
 	// ask for user confirmation

@@ -6,12 +6,14 @@ package main
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
 	"github.com/postfinance/topf/internal/cmd/apply"
+	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
 )
@@ -63,7 +65,7 @@ func newApplyCmd() *cli.Command {
 				return err
 			}
 
-			return apply.Execute(ctx, t, apply.Options{
+			err = apply.Execute(ctx, t, apply.Options{
 				Confirm:              c.Bool("confirm"),
 				DryRun:               c.Bool("dry-run"),
 				AutoBootstrap:        c.Bool("auto-bootstrap"),
@@ -72,6 +74,11 @@ func newApplyCmd() *cli.Command {
 				AllowNotReady:        c.Bool("allow-not-ready"),
 				Mode:                 mode,
 			})
+			if errors.Is(err, topf.ErrDryRunChangesDetected) {
+				return cli.Exit(err.Error(), 2)
+			}
+
+			return err
 		},
 	}
 }

@@ -120,10 +120,17 @@ func runPreflightChecks(logger *slog.Logger, nodes []*topf.Node, opts *Options) 
 
 // applyConfigs applies configuration to all filtered nodes
 func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, opts Options) error {
+	var changesDetected bool
+
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
 		applied, err := node.Apply(ctx, logger, opts.Confirm, opts.DryRun, opts.Mode)
+		if errors.Is(err, topf.ErrDryRunChangesDetected) {
+			changesDetected = true
+			continue
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to apply config to node %v: %w", node.Node.Host, err)
 		}
@@ -136,6 +143,10 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 		if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
 			return fmt.Errorf("node didn't stabilize: %w", err)
 		}
+	}
+
+	if changesDetected {
+		return topf.ErrDryRunChangesDetected
 	}
 
 	return nil
