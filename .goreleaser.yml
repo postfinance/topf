@@ -24,11 +24,15 @@ dockers_v2:
       - ghcr.io/postfinance/topf
     tags:
       - "v{{ .Version }}"
-      - latest
+      - "{{ if not .Prerelease }}latest{{ end }}"
     dockerfile: Dockerfile.goreleaser
+
+release:
+  prerelease: auto
 
 homebrew_casks:
   - name: topf
+    skip: "{{ if .Prerelease }}true{{ end }}"
     binaries:
       - topf
     repository:
