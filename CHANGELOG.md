@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.3-rc.1] - 2026-04-20
+
+### Features
+
+- Redact sensitive data in dry runs outputs (#43) ([2c55b1a](https://github.com/postfinance/topf/commit/2c55b1a0f9898862c35734e4b87e9aeea12d9c1d))
+- Permit specifying custom apply mode (#48) ([3399b9c](https://github.com/postfinance/topf/commit/3399b9c24eb91a0a10ae4c32bc8f5af8f7b9cec5))
+- Add --wait-for-maintenance flag to reset (#42) ([1cc03e0](https://github.com/postfinance/topf/commit/1cc03e0c1f7e9daa6d3c0e90e6bca15b8ac7b205))
+- Dry-run returns exitCode=2 when changes are detected ([41b1804](https://github.com/postfinance/topf/commit/41b1804aafe86cedc7c6eaefa39bcc80f99ac377))
+
+### Bug Fixes
+
+- **readme**: Rename old 'patches' folder to 'all' ([8403519](https://github.com/postfinance/topf/commit/8403519927f46e939dbf2beecb2a9161b97f3f60))
+- Process yaml files with leading empty doc ([3d1649c](https://github.com/postfinance/topf/commit/3d1649ce4e5a24b267b13e3beb4e01886dde9e4b))
+- **documentation**: Patches folder has been renamed to all ([6de1469](https://github.com/postfinance/topf/commit/6de14690f0de80f2e576020add579e2553cd212b))
+
+### Miscellaneous
+
+- Update changelog ([109da70](https://github.com/postfinance/topf/commit/109da70e841e27afeb8e2b8396c9565f3b2c1ef7))
+- **readme**: Update talos/kubernetes versions ([2ee6431](https://github.com/postfinance/topf/commit/2ee64319bd495b40a48a28678ee3481d8b070275))
+- Refactor patch loading ([d9b049f](https://github.com/postfinance/topf/commit/d9b049f56d12bb1291d19b624f0b91c7e6b58864))
+- Upgrade go-deps ([20bd2d4](https://github.com/postfinance/topf/commit/20bd2d4299617a15c5b3db859fdce9f9bacc748c))
+
+### Build
+
+- **deps**: Bump actions/deploy-pages from 4 to 5 (#38) ([e6cc23e](https://github.com/postfinance/topf/commit/e6cc23ea0df8c01ba291dd7b44de1fd54daf0296))
 ## [0.2.2] - 2026-04-01
 
 ### Bug Fixes
