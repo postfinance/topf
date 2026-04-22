@@ -9,6 +9,8 @@ permissions:
   contents: write
   packages: write
   pull-requests: read
+  pages: write
+  id-token: write
 
 jobs:
   release:
@@ -50,6 +52,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Deploy versioned docs
+        if: "!contains(github.ref_name, '-')"
+        run: |
+          pip install mkdocs-material mdx-truly-sane-lists mike
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          mike deploy --push --update-aliases ${{ github.ref_name }} latest
 
       - name: Generate full changelog
         if: "!contains(github.ref_name, '-')"

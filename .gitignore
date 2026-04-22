@@ -10,3 +10,4 @@ kubeconfig
 dist/
 CHANGES.md
 venv/mkdocs
+site/

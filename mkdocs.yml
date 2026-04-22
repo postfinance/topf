@@ -3,6 +3,14 @@ site_url: https://postfinance.github.io/topf
 repo_url: https://github.com/postfinance/topf
 repo_name: postfinance/topf
 
+plugins:
+  - search
+  - mike
+
+extra:
+  version:
+    provider: mike
+
 theme:
   name: material
   palette:
