@@ -12,6 +12,7 @@ Nodes already in maintenance mode are automatically skipped.
 | `--full` | `true` | Wipe the entire disk. If `false`, only STATE and EPHEMERAL partitions are wiped |
 | `--graceful` | `false` | Attempt to cordon/drain the node and leave etcd before resetting |
 | `--shutdown` | `false` | Shut down the machine after reset instead of rebooting |
+| `--wait-for-maintenance` | `false` | Wait for all reset nodes to reach maintenance mode before returning |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
 ## Example Usage
@@ -31,4 +32,7 @@ topf reset --shutdown
 
 # Reset specific nodes
 topf reset --nodes-filter "node[1-2]"
+
+# Reset and wait for nodes to enter maintenance mode (useful for chaining with apply)
+topf reset --wait-for-maintenance
 ```

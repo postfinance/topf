@@ -67,6 +67,7 @@ TOPF supports the following global flags that can be used with any command:
 | `--topfconfig`   | `TOPFCONFIG`         | `topf.yaml` | Path to the topf.yaml configuration file          |
 | `--nodes-filter` | `TOPF_NODES_FILTER`  | -           | Regex pattern to filter which nodes to operate on |
 | `--log-level`    | `LOG_LEVEL`          | `info`      | Logging level (debug, info, warn, error)          |
+| `--redact`       | `TOPF_REDACT`        | `true`      | Redact secrets and certificates from output       |
 
 ### Filtering Nodes
 
@@ -91,4 +92,17 @@ The filter can also be set via the `TOPF_NODES_FILTER` environment variable:
 ```bash
 export TOPF_NODES_FILTER="node[1-3]"
 topf apply
+```
+
+### Redacting Sensitive Output
+
+When `--redact` is enabled (the default), topf replaces secrets and certificate data with `*** redacted ***` in any command output. The following values are redacted:
+
+- **Talos secrets bundle**: private keys, CA certificates, bootstrap tokens, encryption secrets, and trustd tokens from `secrets.yaml`
+- **SOPS-encrypted values**: any value that was encrypted with SOPS in `topf.yaml` or in patch files is decrypted internally and its plaintext is redacted from output
+
+Disable it only when you need to inspect the raw diff for debugging:
+
+```bash
+topf apply --dry-run --redact=false
 ```
