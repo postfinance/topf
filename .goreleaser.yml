@@ -32,7 +32,7 @@ release:
 
 homebrew_casks:
   - name: topf
-    skip: "{{ if .Prerelease }}true{{ end }}"
+    skip_upload: "{{ if .Prerelease }}true{{ end }}"
     binaries:
       - topf
     repository:
