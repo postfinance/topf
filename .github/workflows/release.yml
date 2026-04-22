@@ -52,6 +52,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - name: Generate full changelog
+        if: "!contains(github.ref_name, '-')"
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
@@ -60,6 +61,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Commit changelog
+        if: "!contains(github.ref_name, '-')"
         run: |
           git checkout main
           git config user.name 'github-actions[bot]'
