@@ -4,6 +4,8 @@ The `upgrade` command upgrades Talos OS on each node to the desired version spec
 
 ## Flags
 
+All flags can also be set via environment variables using the `TOPF_` prefix and uppercasing the flag name (e.g. `--reboot-mode` → `TOPF_REBOOT_MODE`).
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--confirm` | `true` | Ask for user confirmation before upgrading |

@@ -6,6 +6,8 @@ Nodes already in maintenance mode are automatically skipped.
 
 ## Flags
 
+All flags can also be set via environment variables using the `TOPF_` prefix and uppercasing the flag name (e.g. `--wait-for-maintenance` → `TOPF_WAIT_FOR_MAINTENANCE`).
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--confirm` | `true` | Ask for user confirmation before resetting |

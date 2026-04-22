@@ -32,16 +32,18 @@ The `apply` command is the primary way to apply configuration changes to a runni
 
 ## Flags
 
+All flags can also be set via environment variables using the `TOPF_` prefix and uppercasing the flag name (e.g. `--dry-run` → `TOPF_DRY_RUN`).
+
 | Flag                       | Default | Description                                                        |
 | -------------------------- | ------- | ------------------------------------------------------------------ |
 | `--confirm`                | `true`  | Ask for confirmation before applying changes to each node          |
 | `--dry-run`                | `false` | Only show changes without actually applying them                   |
-| `--mode`                 | `auto`  | Apply mode: `auto`, `reboot`, `no-reboot`, `staged`, `try`       |
+| `--mode`                   | `auto`  | Apply mode: `auto`, `reboot`, `no-reboot`, `staged`, `try`        |
 | `--auto-bootstrap`         | `false` | Automatically bootstrap ETCD after applying configurations         |
 | `--skip-problematic-nodes` | `false` | Continue with healthy nodes if some fail pre-flight checks         |
 | `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs      |
 | `--allow-not-ready`        | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
-| [`--nodes-filter`](../configuration.md#filtering-nodes) | -       | Regex pattern to filter which nodes to operate on (global flag)    |
+| [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag)    |
 | [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, certificates, and SOPS-encrypted values from output (global flag) |
 
 ## Example Usage

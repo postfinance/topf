@@ -98,9 +98,10 @@ func MustGetRuntime(ctx context.Context) topf.Topf {
 
 func confirmFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
-		Name:  "confirm",
-		Usage: "confirm any changes before applying them",
-		Value: true,
+		Name:    "confirm",
+		Usage:   "confirm any changes before applying them",
+		Value:   true,
+		Sources: cli.EnvVars("TOPF_CONFIRM"),
 	}
 }
 
