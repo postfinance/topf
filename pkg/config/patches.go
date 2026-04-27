@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"io/fs"
 	"log/slog"
 	"os"
+	"text/template"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -160,7 +160,7 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 			return nil, nil, err
 		}
 
-		tmpl, err := template.New("config").Option("missingkey=error").Parse(string(content))
+		tmpl, err := template.New("config").Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
 		}

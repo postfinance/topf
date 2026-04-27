@@ -5,6 +5,7 @@ package config
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
@@ -57,6 +58,56 @@ cluster:
   scheduler: {}
   etcd: {}
 `
+
+func writeTempTpl(t *testing.T, content string) string {
+	t.Helper()
+
+	f, err := os.CreateTemp(t.TempDir(), "*.yaml.tpl")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	f.Close()
+
+	return f.Name()
+}
+
+func TestLoadFileTemplate(t *testing.T) {
+	ctx := &PatchContext{
+		ClusterName:       "test-cluster",
+		KubernetesVersion: "1.35.1",
+		Data:              map[string]any{"region": "eu-west-1"},
+		Node:              &Node{Host: "node1"},
+	}
+
+	t.Run("env function resolves environment variable", func(t *testing.T) {
+		t.Setenv("TOPF_TEST_VAR", "hello-world")
+
+		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ env \"TOPF_TEST_VAR\" }}\n")
+
+		content, _, err := ctx.loadFile(f)
+		if err != nil {
+			t.Fatalf("loadFile() error: %v", err)
+		}
+
+		if !bytes.Contains(content, []byte("hostname: hello-world")) {
+			t.Errorf("expected rendered env var, got:\n%s", content)
+		}
+	})
+
+	t.Run("missing key returns error", func(t *testing.T) {
+		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ .Data.nonexistent }}\n")
+
+		_, _, err := ctx.loadFile(f)
+		if err == nil {
+			t.Fatal("expected error for missing key, got nil")
+		}
+	})
+}
 
 func TestParsePatches(t *testing.T) {
 	tests := []struct {
