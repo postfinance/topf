@@ -26,6 +26,8 @@ type PatchContext struct {
 	ClusterName       string
 	ClusterEndpoint   string
 	KubernetesVersion string
+	TalosVersion      string
+	SchematicID       string
 	Data              map[string]any
 	Node              *Node
 	ConfigDir         string

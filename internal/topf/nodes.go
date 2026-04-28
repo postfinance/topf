@@ -13,9 +13,26 @@ import (
 	"github.com/postfinance/topf/pkg/config"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
+	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
+	"go.yaml.in/yaml/v4"
 )
+
+func installerImagePatch(image string) (configpatcher.Patch, error) {
+	patchBytes, err := yaml.Marshal(map[string]any{
+		"machine": map[string]any{
+			"install": map[string]any{
+				"image": image,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return configpatcher.LoadPatch(patchBytes)
+}
 
 // Nodes gathers information about each configured node
 // Errors during gathering information for individual nodes are recorded in the Node.Error field
@@ -97,6 +114,8 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 				ClusterName:       t.Config().ClusterName,
 				ClusterEndpoint:   t.Config().ClusterEndpoint.String(),
 				KubernetesVersion: t.Config().KubernetesVersion,
+				TalosVersion:      t.Config().TalosVersion,
+				SchematicID:       t.Config().SchematicID,
 				Node:              node.Node,
 				Data:              t.Config().Data,
 				ConfigDir:         t.configDir,
@@ -107,6 +126,14 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 				node.Error = fmt.Errorf("couldn't load patch: %w", err)
 				return
 			}
+
+			installPatch, err := installerImagePatch(t.Config().InstallerImage())
+			if err != nil {
+				node.Error = fmt.Errorf("failed to build installer image patch: %w", err)
+				return
+			}
+
+			patches = append([]configpatcher.Patch{installPatch}, patches...)
 
 			t.addSecrets(patchSecrets)
 

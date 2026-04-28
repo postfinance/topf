@@ -5,6 +5,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
 	"slices"
@@ -12,7 +13,15 @@ import (
 
 	"github.com/postfinance/topf/internal/sops"
 	"github.com/postfinance/topf/pkg/providers"
+	"github.com/siderolabs/talos/pkg/machinery/version"
 	"go.yaml.in/yaml/v4"
+)
+
+const (
+	// TODO (v1.13): replace with images.DefaultInstallerImageSchematic
+	defaultSchematicID = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	// TODO (v1.13): replace with gendata.ImageFactory
+	imageFactory = "factory.talos.dev"
 )
 
 // TopfConfig is the main configuration structure for a Topf cluster
@@ -20,6 +29,8 @@ type TopfConfig struct {
 	ClusterName       string   `yaml:"clusterName"`
 	ClusterEndpoint   Endpoint `yaml:"clusterEndpoint"`
 	KubernetesVersion string   `yaml:"kubernetesVersion"`
+	TalosVersion      string   `yaml:"talosVersion,omitempty"`
+	SchematicID       string   `yaml:"schematicId,omitempty"`
 
 	// SecretsProvider can be optionally set to the path of a binary which is
 	// responsible for storing and retrieving secrets.yaml for a cluster. If not
@@ -107,6 +118,15 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, sec
 	})
 
 	return config, secrets, err
+}
+
+// InstallerImage returns the Talos installer image for the configured schematic and version,
+// defaulting to the default schematic and the bundled Talos version when not set.
+func (t *TopfConfig) InstallerImage() string {
+	schematic := cmp.Or(t.SchematicID, defaultSchematicID)
+	talosVersion := strings.TrimPrefix(cmp.Or(t.TalosVersion, version.Tag), "v")
+
+	return fmt.Sprintf("%s/installer/%s:v%s", imageFactory, schematic, talosVersion)
 }
 
 // GetSecretsProvider returns the configured secrets provider, or the default filesystem provider
