@@ -32,6 +32,7 @@ topf render
 topf render -o /tmp/configs
 
 # Render only control-plane nodes
+# (this assumes /cp-.*/ matches exactly the control plane hostnames)
 topf render --nodes-filter "cp-.*"
 ```
 
