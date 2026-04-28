@@ -36,19 +36,6 @@ topf render -o /tmp/configs
 topf render --nodes-filter "cp-.*"
 ```
 
-## Offline Validation Workflow
+## Inspecting Generated Configs
 
-`render` is the recommended way to validate your patch templates locally:
-
-```bash
-# 1. Render configs
-topf render -o ./output
-
-# 2. Inspect the generated configs
-cat ./output/node1.yaml
-
-# 3. Validate with talosctl (optional)
-talosctl validate --config ./output/node1.yaml --mode metal
-```
-
-Errors from template rendering (e.g. missing variables, syntax errors) are reported per-node with the file path, making it easy to pinpoint issues.
+`render` writes one `<hostname>.yaml` file per node so you can inspect the final merged configuration before applying it to the cluster. Errors from template rendering (e.g. missing variables, syntax errors) are reported per-node with the file path, making it easy to pinpoint issues.
