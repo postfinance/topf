@@ -4,11 +4,10 @@ The `nodes` command lists all nodes and their current state.
 
 ## Flags
 
-| Flag                                                    | Default    | Description                                                     |
-| ------------------------------------------------------- | ---------- | --------------------------------------------------------------- |
-| `--output`, `-o`                                        | `table`    | Output format: `table` or `yaml`                                |
-| `--machineconfig-output`, `-m`                          | `./output` | Write machine configs to this directory                         |
-| [`--nodes-filter`](../configuration.md#filtering-nodes) | -          | Regex pattern to filter which nodes to operate on (global flag) |
+| Flag                                                    | Default | Description                                                     |
+| ------------------------------------------------------- | ------- | --------------------------------------------------------------- |
+| `--output`, `-o`                                        | `table` | Output format: `table` or `yaml`                                |
+| [`--nodes-filter`](../configuration.md#filtering-nodes) | -       | Regex pattern to filter which nodes to operate on (global flag) |
 
 ## Table Output
 
@@ -26,10 +25,6 @@ The default table output displays the following columns:
 | Talos            | Installed Talos version         |
 | Error            | Any error encountered           |
 
-## Machine Config Export
-
-When using `--machineconfig-output`, TOPF writes each node's generated machine configuration to the specified directory as `<hostname>.yaml`.
-
 ## Example Usage
 
 ```bash
@@ -38,7 +33,7 @@ topf nodes
 
 # List nodes in YAML format
 topf nodes -o yaml
-
-# Export machine configs
-topf nodes -m ./configs
 ```
+
+!!! tip
+    To generate machine configs without connecting to a cluster, use the [`render`](render.md) command.

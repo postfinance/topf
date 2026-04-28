@@ -59,21 +59,48 @@ This is useful for patches that contain sensitive values (e.g. private keys, cre
 
 ## Templating
 
-Patches ending with `.yaml.tpl` support Go templating. The following fields are available:
+Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/template). The following context fields are available:
 
-- `.ClusterName`
-- `.ClusterEndpoint`
-- `.Data.<key>` — arbitrary global data from `topf.yaml` (see [configuration](configuration.md#configuration-fields))
-- `.Node.Host`
-- `.Node.Role`
-- `.Node.IP` (if set)
-- `.Node.Data.<key>` — per-node data (if set)
+| Field | Description |
+|-------|-------------|
+| `.ClusterName` | Cluster name from `topf.yaml` |
+| `.ClusterEndpoint` | Cluster endpoint URL |
+| `.KubernetesVersion` | Kubernetes version |
+| `.TalosVersion` | Talos version (if set in `topf.yaml`) |
+| `.SchematicID` | Schematic ID (if set in `topf.yaml`) |
+| `.Data.<key>` | Arbitrary global data from `topf.yaml` (see [configuration](configuration.md#configuration-fields)) |
+| `.Node.Host` | Node hostname |
+| `.Node.Role` | Node role (`control-plane` or `worker`) |
+| `.Node.IP` | Node IP address (if set) |
+| `.Node.Data.<key>` | Per-node data (if set) |
 
-Example:
+### Template Functions
+
+In addition to the [built-in Go template functions](https://pkg.go.dev/text/template#hdr-Functions), the following functions are available:
+
+| Function | Description |
+|----------|-------------|
+| `env "VAR"` | Returns the value of the environment variable `VAR`, or an empty string if unset |
+
+### Examples
+
+Use per-node data in a patch:
 
 ```yaml
 machine:
   kubelet:
     extraArgs:
-      provider-id: { { .Node.Data.uuid } }
+      provider-id: {{ .Node.Data.uuid }}
+```
+
+Use the `env` function in a multi-document template to conditionally configure a registry mirror:
+
+```yaml
+{{ if env "REGISTRY_MIRROR" -}}
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: ghcr.io
+endpoints:
+  - url: {{ env "REGISTRY_MIRROR" }}
+{{- end }}
 ```
