@@ -11,10 +11,10 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"text/template"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/postfinance/topf/internal/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
