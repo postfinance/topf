@@ -28,7 +28,7 @@ The target image for each node comes from the `machine.install.image` field in t
 
 ### Using `talosVersion` and `schematicId` (recommended)
 
-Set `talosVersion` and optionally `schematicId` in `topf.yaml`. Topf will automatically generate a least-precedence installer image patch for all nodes:
+To override the installer image for the entire cluster, set `talosVersion` and optionally `schematicId` in `topf.yaml`. Topf will automatically generate a new cluster-level patch:
 
 ```yaml
 talosVersion: 1.12.7
