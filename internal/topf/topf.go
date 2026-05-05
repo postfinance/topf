@@ -32,9 +32,9 @@ type Topf interface {
 	// Nodes returns the list of nodes with additional information
 	Nodes(context.Context) ([]*Node, error)
 
-	// Render generates machine config bundles for all nodes without connecting to a cluster.
-	// Requires talosVersion to be set in topf.yaml.
-	Render() ([]*Node, error)
+	// Render generates machine config bundles for all nodes.
+	// When online is true, live nodes are queried for their actual running Talos version.
+	Render(context.Context, bool) ([]*Node, error)
 
 	// Writer returns a writer targeting os.Stdout. When the runtime was
 	// created with Redact=true, secrets and certificates are replaced with

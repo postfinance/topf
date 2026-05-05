@@ -76,9 +76,9 @@ func renderNodesTable(nodes []*topf.Node) error {
 
 		unmetConditions := ""
 
-		schematic := elipsis(node.Schematic)
+		schematic := elipsis(node.RunningSchematic())
 
-		talosVersion := node.TalosVersion
+		talosVersion := node.TalosVersion()
 		errorMsg := ""
 
 		stage := node.MachineStatus.Stage.String()

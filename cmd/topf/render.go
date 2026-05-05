@@ -18,8 +18,8 @@ import (
 func newRenderCmd() *cli.Command {
 	return &cli.Command{
 		Name:        "render",
-		Usage:       "render machine configs offline without connecting to a cluster",
-		Description: `Generates machine config files for all nodes using only local files (topf.yaml and patches). Requires talosVersion to be set in topf.yaml.`,
+		Usage:       "render machine configs without applying them",
+		Description: `Generates machine config files for all nodes using local files (topf.yaml and patches). With --online, queries live nodes for their actual running Talos version.`,
 		Before:      noPositionalArgs,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -29,11 +29,15 @@ func newRenderCmd() *cli.Command {
 				Value:       "./output",
 				DefaultText: "./output",
 			},
+			&cli.BoolFlag{
+				Name:  "online",
+				Usage: "query live nodes for their running Talos version",
+			},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
-			nodes, err := t.Render()
+			nodes, err := t.Render(ctx, c.Bool("online"))
 			if err != nil {
 				return err
 			}

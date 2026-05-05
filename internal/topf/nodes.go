@@ -55,11 +55,11 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 
 	// it's possible that the schematic extension is not present
 	// in which case we have to assume the default one
-	n.Schematic = DefaultSchematic
+	n.runningSchematic = DefaultSchematic
 
 	for extension := range extensions.All() {
 		if extension.TypedSpec().Metadata.Name == "schematic" {
-			n.Schematic = extension.TypedSpec().Metadata.Version
+			n.runningSchematic = extension.TypedSpec().Metadata.Version
 		}
 	}
 
@@ -71,7 +71,7 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 
 	for v := range versions.All() {
 		if v.Metadata().Type() == runtime.VersionType {
-			n.TalosVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
+			n.runningVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
 		}
 	}
 
@@ -79,7 +79,6 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 }
 
 // generateNodeConfig loads patches and builds the machine config bundle for a node.
-// node.TalosVersion must be set before calling this.
 func (t *topf) generateNodeConfig(node *Node) error {
 	t.Logger().With(node.Attrs()).Debug("generating configuration bundle")
 
@@ -113,7 +112,7 @@ func (t *topf) generateNodeConfig(node *Node) error {
 		return fmt.Errorf("failed to get secrets bundle: %w", err)
 	}
 
-	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion)
+	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion())
 	if err != nil {
 		return err
 	}

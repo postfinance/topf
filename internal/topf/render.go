@@ -4,16 +4,15 @@
 package topf
 
 import (
-	"cmp"
-	"strings"
-
-	"github.com/siderolabs/talos/pkg/machinery/version"
+	"context"
+	"sync"
 )
 
-// Render generates machine config bundles for all configured nodes without connecting to a cluster.
-// Falls back to the bundled Talos version when talosVersion is not set in topf.yaml.
+// Render generates machine config bundles for all configured nodes.
+// When online is true, live nodes are queried for their actual running Talos version,
+// which is then used for version contract selection in config generation.
 // Errors during config generation for individual nodes are recorded in the Node.Error field.
-func (t *topf) Render() ([]*Node, error) {
+func (t *topf) Render(ctx context.Context, online bool) ([]*Node, error) {
 	cfg := t.Config()
 
 	nodes := make([]*Node, 0, len(cfg.Nodes))
@@ -22,11 +21,28 @@ func (t *topf) Render() ([]*Node, error) {
 		nodes = append(nodes, &Node{Node: &node, t: t})
 	}
 
-	talosVersion := strings.TrimPrefix(cmp.Or(cfg.TalosVersion, version.Tag), "v")
+	if online {
+		var wg sync.WaitGroup
+
+		for _, node := range nodes {
+			wg.Add(1)
+
+			go func(node *Node) {
+				defer wg.Done()
+
+				if err := node.collectNodeInfo(ctx); err != nil {
+					node.Error = err
+				}
+			}(node)
+		}
+
+		wg.Wait()
+	}
 
 	for _, node := range nodes {
-		node.TalosVersion = talosVersion
-		node.Schematic = cmp.Or(cfg.SchematicID, DefaultSchematic)
+		if node.Error != nil {
+			continue
+		}
 
 		if err := t.generateNodeConfig(node); err != nil {
 			node.Error = err
