@@ -474,6 +474,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../commands/render/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../commands/nodes/" class="md-nav__link">
         
   
@@ -722,6 +750,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Templating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -962,6 +1018,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Templating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1050,21 +1134,88 @@
 <p>TOPF attempts to decrypt every file it loads — both <code>topf.yaml</code> and all patch files — using <a href="https://github.com/getsops/sops">SOPS</a>. If a file is not SOPS-encrypted, it is loaded as-is. This means any patch file can be encrypted, except template files (ending with <code>.tpl</code>).</p>
 <p>This is useful for patches that contain sensitive values (e.g. private keys, credentials, tokens) that should not be stored in plaintext and for which you don't want to write a template.</p>
 <h2 id="templating">Templating</h2>
-<p>Patches ending with <code>.yaml.tpl</code> support Go templating. The following fields are available:</p>
-<ul>
-<li><code>.ClusterName</code></li>
-<li><code>.ClusterEndpoint</code></li>
-<li><code>.Data.&lt;key&gt;</code> — arbitrary global data from <code>topf.yaml</code> (see <a href="../configuration/#configuration-fields">configuration</a>)</li>
-<li><code>.Node.Host</code></li>
-<li><code>.Node.Role</code></li>
-<li><code>.Node.IP</code> (if set)</li>
-<li><code>.Node.Data.&lt;key&gt;</code> — per-node data (if set)</li>
-</ul>
-<p>Example:</p>
+<p>Patches ending with <code>.yaml.tpl</code> support <a href="https://pkg.go.dev/text/template">Go templating</a>. The following context fields are available:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.ClusterName</code></td>
+<td>Cluster name from <code>topf.yaml</code></td>
+</tr>
+<tr>
+<td><code>.ClusterEndpoint</code></td>
+<td>Cluster endpoint URL</td>
+</tr>
+<tr>
+<td><code>.KubernetesVersion</code></td>
+<td>Kubernetes version</td>
+</tr>
+<tr>
+<td><code>.TalosVersion</code></td>
+<td>Talos version (if set in <code>topf.yaml</code>)</td>
+</tr>
+<tr>
+<td><code>.SchematicID</code></td>
+<td>Schematic ID (if set in <code>topf.yaml</code>)</td>
+</tr>
+<tr>
+<td><code>.Data.&lt;key&gt;</code></td>
+<td>Arbitrary global data from <code>topf.yaml</code> (see <a href="../configuration/#configuration-fields">configuration</a>)</td>
+</tr>
+<tr>
+<td><code>.Node.Host</code></td>
+<td>Node hostname</td>
+</tr>
+<tr>
+<td><code>.Node.Role</code></td>
+<td>Node role (<code>control-plane</code> or <code>worker</code>)</td>
+</tr>
+<tr>
+<td><code>.Node.IP</code></td>
+<td>Node IP address (if set)</td>
+</tr>
+<tr>
+<td><code>.Node.Data.&lt;key&gt;</code></td>
+<td>Per-node data (if set)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="template-functions">Template Functions</h3>
+<p>In addition to the <a href="https://pkg.go.dev/text/template#hdr-Functions">built-in Go template functions</a>, the following functions are available:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>env "VAR"</code></td>
+<td>Returns the value of the environment variable <code>VAR</code>, or an empty string if unset</td>
+</tr>
+</tbody>
+</table>
+<h3 id="examples">Examples</h3>
+<p>Use per-node data in a patch:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">machine</span><span class="p">:</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">kubelet</span><span class="p">:</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">extraArgs</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">provider-id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="nv">.Node.Data.uuid</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">provider-id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">.Node.Data.uuid</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+</code></pre></div>
+<p>Use the <code>env</code> function in a multi-document template to conditionally configure a registry mirror:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if env &quot;REGISTRY_MIRROR&quot; -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RegistryMirrorConfig</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">endpoints</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">env &quot;REGISTRY_MIRROR&quot;</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 </code></pre></div>
 
 

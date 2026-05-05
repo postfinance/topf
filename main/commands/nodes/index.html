@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://postfinance.github.io/topf/main/commands/nodes/">
       
       
-        <link rel="prev" href="../reset/">
+        <link rel="prev" href="../render/">
       
       
         <link rel="next" href="../clusterinfo/">
@@ -473,6 +473,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../render/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -551,17 +579,6 @@
     <span class="md-ellipsis">
       
         Table Output
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#machine-config-export" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Machine Config Export
       
     </span>
   </a>
@@ -945,17 +962,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#machine-config-export" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Machine Config Export
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1002,11 +1008,6 @@
 <td><code>--output</code>, <code>-o</code></td>
 <td><code>table</code></td>
 <td>Output format: <code>table</code> or <code>yaml</code></td>
-</tr>
-<tr>
-<td><code>--machineconfig-output</code>, <code>-m</code></td>
-<td><code>./output</code></td>
-<td>Write machine configs to this directory</td>
 </tr>
 <tr>
 <td><a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a></td>
@@ -1063,18 +1064,17 @@
 </tr>
 </tbody>
 </table>
-<h2 id="machine-config-export">Machine Config Export</h2>
-<p>When using <code>--machineconfig-output</code>, TOPF writes each node's generated machine configuration to the specified directory as <code>&lt;hostname&gt;.yaml</code>.</p>
 <h2 id="example-usage">Example Usage</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># List nodes in table format</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>topf<span class="w"> </span>nodes
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># List nodes in YAML format</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>topf<span class="w"> </span>nodes<span class="w"> </span>-o<span class="w"> </span>yaml
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Export machine configs</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>topf<span class="w"> </span>nodes<span class="w"> </span>-m<span class="w"> </span>./configs
 </code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To generate machine configs without a running cluster, use the <a href="../render/"><code>render</code></a> command. Use <code>render --online</code> to generate configs using the actual running Talos version.</p>
+</div>
 
 
 

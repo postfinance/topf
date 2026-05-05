@@ -510,6 +510,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installer Image">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-talosversion-and-schematicid-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using talosVersion and schematicId (recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-installer-image-patch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual installer image patch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-node-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-node override
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -547,6 +586,34 @@
     
   
     Reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../render/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render
   
 
     
@@ -953,6 +1020,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installer Image">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-talosversion-and-schematicid-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using talosVersion and schematicId (recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-installer-image-patch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual installer image patch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-node-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-node override
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1035,32 +1141,39 @@
 <li><strong>Stabilization</strong>: Waits 30 seconds after upgrade for the node to stabilize</li>
 </ol>
 <h2 id="installer-image">Installer Image</h2>
-<p>The target image for each node comes from the <code>machine.install.image</code> field in the assembled node configuration. To upgrade all nodes, bump the tag in your shared install patch:</p>
-<p><code>all/01-installation.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">machine</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/vda</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0</span>
+<h3 id="using-talosversion-and-schematicid-recommended">Using <code>talosVersion</code> and <code>schematicId</code> (recommended)</h3>
+<p>To override the installer image for the entire cluster, set <code>talosVersion</code> and optionally <code>schematicId</code> in <code>topf.yaml</code>. Topf will automatically generate a cluster-level patch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">talosVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.12.7</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">schematicId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba</span>
 </code></pre></div>
-<p>To upgrade a single node to a different version (or a different schematic), add a node-specific patch that overrides the image:</p>
-<p><code>node/node1/installer.yaml</code>:</p>
+<p>This generates <code>factory.talos.dev/installer/&lt;schematicId&gt;:v&lt;talosVersion&gt;</code> as the base installer image. Since this patch is applied first, any subsequent <code>machine.install.image</code> patch (shared or node-level) will override it.</p>
+<h3 id="manual-installer-image-patch">Manual installer image patch</h3>
+<p>Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the <code>machine.install.image</code> field in the assembled node configuration (i.e. the last patch takes precedence). The patch looks like:</p>
+<p><code>all/00-install.yaml</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">machine</span><span class="p">:</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.1</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0</span>
 </code></pre></div>
-<p>Because node-level patches are merged after global and role patches (see <a href="../../configuration-model/">Configuration Model</a>), this override applies only to that host.</p>
+<h3 id="per-node-override">Per-node override</h3>
+<p>To upgrade a single node to a different version or schematic, add a node-specific patch that overrides the image:</p>
+<p><code>node/node1/installer.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">machine</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0</span>
+</code></pre></div>
+<p>Because node-level patches are merged last (see <a href="../../configuration-model/">Configuration Model</a>), this override applies only to that host.</p>
 <h2 id="example-usage">Example Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Upgrade with confirmation (default)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>topf<span class="w"> </span>upgrade
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Upgrade without confirmation</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--confirm<span class="o">=</span><span class="nb">false</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Preview what would be upgraded</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--dry-run
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Force upgrade (skip etcd health checks)</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Upgrade with confirmation (default)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>topf<span class="w"> </span>upgrade
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Upgrade without confirmation</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--confirm<span class="o">=</span><span class="nb">false</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Preview what would be upgraded</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--dry-run
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Force upgrade (skip etcd health checks)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
 </code></pre></div>
 
 

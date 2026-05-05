@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://postfinance.github.io/topf/main/commands/secrets/">
+        <link rel="canonical" href="https://postfinance.github.io/topf/main/commands/render/">
       
       
-        <link rel="prev" href="../clusterinfo/">
+        <link rel="prev" href="../reset/">
       
       
-        <link rel="next" href="../kubeconfig/">
+        <link rel="next" href="../nodes/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Secrets - TOPF</title>
+        <title>Render - TOPF</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#secrets-command" class="md-skip">
+        <a href="#render-command" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Secrets
+              Render
             
           </span>
         </div>
@@ -473,10 +473,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../render/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -492,6 +519,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#online-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspecting-generated-configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting Generated Configs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -557,37 +665,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Secrets
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../secrets/" class="md-nav__link">
         
   
   
@@ -603,37 +684,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#example-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example Usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -918,10 +968,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#online-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#example-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
         Example Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspecting-generated-configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting Generated Configs
       
     </span>
   </a>
@@ -948,16 +1048,61 @@
   
 
 
-<h1 id="secrets-command">Secrets Command</h1>
-<p>The <code>secrets</code> command retrieves or generates the <code>secrets.yaml</code> bundle for the cluster.</p>
-<p>The secrets bundle contains all sensitive cluster material including private keys, tokens, and certificates.</p>
+<h1 id="render-command">Render Command</h1>
+<p>The <code>render</code> command generates machine configuration files for all nodes using local files (<code>topf.yaml</code> and patch files). With <code>--online</code>, it queries live nodes for their actual running Talos version before generating configs.</p>
+<h2 id="flags">Flags</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td><code>./output</code></td>
+<td>Directory to write the generated config files</td>
+</tr>
+<tr>
+<td><code>--online</code></td>
+<td><code>false</code></td>
+<td>Query live nodes for their running Talos version</td>
+</tr>
+<tr>
+<td><a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a></td>
+<td>-</td>
+<td>Regex pattern to filter which nodes to render (global flag)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="behavior">Behavior</h2>
+<p>For each node, <code>render</code> assembles the full machine configuration using:</p>
+<ol>
+<li>The Talos version for config generation (fallback chain: running version from <code>--online</code> → <code>talosVersion</code> from <code>topf.yaml</code> → bundled Talos version)</li>
+<li>The <code>schematicId</code> from <code>topf.yaml</code> (falls back to the default no-extensions schematic)</li>
+<li>All applicable patches from <code>all/</code>, <code>&lt;role&gt;/</code>, and <code>node/&lt;host&gt;/</code></li>
+</ol>
+<p>Each node's config is written to <code>&lt;output&gt;/&lt;hostname&gt;.yaml</code>. If config generation fails for a node (e.g. a template error), the error is reported and the other nodes are still processed.</p>
+<h3 id="online-mode">Online mode</h3>
+<p>With <code>--online</code>, topf connects to each node and retrieves the actually running Talos version. This ensures the generated config uses the correct version contract for the node's current state — useful when nodes may be at different versions.</p>
+<p>Without <code>--online</code>, the Talos version is resolved from <code>topf.yaml</code> (or the bundled version), which is sufficient when all nodes are at the same known version.</p>
 <h2 id="example-usage">Example Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Output secrets to stdout</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>topf<span class="w"> </span>secrets
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Render all node configs to ./output</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>topf<span class="w"> </span>render
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Save secrets to a file</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>topf<span class="w"> </span>secrets<span class="w"> </span>&gt;<span class="w"> </span>secrets.yaml
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Render using the actual running Talos versions</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>topf<span class="w"> </span>render<span class="w"> </span>--online
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Render to a custom directory</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>topf<span class="w"> </span>render<span class="w"> </span>-o<span class="w"> </span>/tmp/configs
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Render only control-plane nodes</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>topf<span class="w"> </span>render<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;cp-.*&quot;</span>
 </code></pre></div>
+<h2 id="inspecting-generated-configs">Inspecting Generated Configs</h2>
+<p><code>render</code> writes one <code>&lt;hostname&gt;.yaml</code> file per node so you can inspect the final merged configuration before applying it to the cluster. Errors from template rendering (e.g. missing variables, syntax errors) are reported per-node, making it easy to pinpoint issues.</p>
 
 
 
