@@ -18,6 +18,7 @@ import (
 const (
 	// DefaultSchematic is the schematic version used by Talos when no
 	// extensions or command line flags are defined
+	// TODO (v1.13): replace with images.DefaultInstallerImageSchematic
 	DefaultSchematic = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
 )
 
