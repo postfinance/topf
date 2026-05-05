@@ -24,29 +24,26 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 ## Installer Image
 
-The target image for each node comes from the `machine.install.image` field in the assembled node configuration.
-
 ### Using `talosVersion` and `schematicId` (recommended)
 
-To override the installer image for the entire cluster, set `talosVersion` and optionally `schematicId` in `topf.yaml`. Topf will automatically generate a new cluster-level patch:
+To override the installer image for the entire cluster, set `talosVersion` and optionally `schematicId` in `topf.yaml`. Topf will automatically generate a cluster-level patch:
 
 ```yaml
 talosVersion: 1.12.7
 schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 ```
 
-This generates `factory.talos.dev/installer/<schematicId>:v<talosVersion>` as the base installer image. You can still override it for specific nodes via a node-level patch (see below).
+This generates `factory.talos.dev/installer/<schematicId>:v<talosVersion>` as the base installer image. Since this patch is applied first, any subsequent `machine.install.image` patch (shared or node-level) will override it.
 
 ### Manual installer image patch
 
-Alternatively, manage the installer image explicitly via a patch. To upgrade all nodes, bump the tag in your shared install patch:
+Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the `machine.install.image` field in the assembled node configuration (i.e. the last patch takes precedence). The patch looks like:
 
 `all/00-install.yaml`:
 
 ```yaml
 machine:
   install:
-    disk: /dev/vda
     image: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
 ```
 
@@ -59,7 +56,7 @@ To upgrade a single node to a different version or schematic, add a node-specifi
 ```yaml
 machine:
   install:
-    image: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.1
+    image: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0
 ```
 
 Because node-level patches are merged last (see [Configuration Model](../configuration-model.md)), this override applies only to that host.
