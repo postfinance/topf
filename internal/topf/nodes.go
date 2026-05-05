@@ -35,8 +35,8 @@ func installerImagePatch(image string) (configpatcher.Patch, error) {
 }
 
 // collectNodeInfo queries a live node via COSI to populate MachineStatus, Schematic, and TalosVersion.
-func (t *topf) collectNodeInfo(ctx context.Context, node *Node) error {
-	nodeClient, err := node.Client(ctx)
+func (n *Node) collectNodeInfo(ctx context.Context) error {
+	nodeClient, err := n.Client(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
@@ -46,7 +46,7 @@ func (t *topf) collectNodeInfo(ctx context.Context, node *Node) error {
 		return fmt.Errorf("unable to get machine status: %w", err)
 	}
 
-	node.MachineStatus = *machineStatus.TypedSpec()
+	n.MachineStatus = *machineStatus.TypedSpec()
 
 	extensions, err := safe.StateListAll[*runtime.ExtensionStatus](ctx, nodeClient.COSI)
 	if err != nil {
@@ -55,11 +55,11 @@ func (t *topf) collectNodeInfo(ctx context.Context, node *Node) error {
 
 	// it's possible that the schematic extension is not present
 	// in which case we have to assume the default one
-	node.Schematic = DefaultSchematic
+	n.Schematic = DefaultSchematic
 
 	for extension := range extensions.All() {
 		if extension.TypedSpec().Metadata.Name == "schematic" {
-			node.Schematic = extension.TypedSpec().Metadata.Version
+			n.Schematic = extension.TypedSpec().Metadata.Version
 		}
 	}
 
@@ -71,7 +71,7 @@ func (t *topf) collectNodeInfo(ctx context.Context, node *Node) error {
 
 	for v := range versions.All() {
 		if v.Metadata().Type() == runtime.VersionType {
-			node.TalosVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
+			n.TalosVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
 		}
 	}
 
@@ -171,7 +171,7 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 
 			t.Logger().With(node.Attrs()).Debug("collecting data")
 
-			if err := t.collectNodeInfo(ctx, node); err != nil {
+			if err := node.collectNodeInfo(ctx); err != nil {
 				node.Error = err
 				return
 			}
