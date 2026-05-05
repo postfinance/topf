@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/postfinance/topf/internal/topf"
+	talosversion "github.com/siderolabs/talos/pkg/machinery/version"
 	"github.com/urfave/cli/v3"
 )
 
@@ -27,7 +28,7 @@ func main() {
 		Name:        "topf",
 		Usage:       "Talos Orchestrator by PostFinance",
 		Description: "Topf is a CLI for managing Talos clusters.",
-		Version:     version,
+		Version:     fmt.Sprintf("%s (Talos %s)", version, talosversion.Tag),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "topfconfig",
@@ -74,6 +75,7 @@ func main() {
 			newResetCmd(),
 			newClusterInfoCmd(),
 			newNodesCmd(),
+			newRenderCmd(),
 			newSecretsCmd(),
 			newKubeconfigCmd(),
 			newTalosconfigCmd(),
