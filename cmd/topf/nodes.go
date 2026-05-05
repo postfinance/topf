@@ -78,7 +78,7 @@ func renderNodesTable(nodes []*topf.Node) error {
 
 		schematic := elipsis(node.RunningSchematic())
 
-		talosVersion := node.TalosVersion()
+		talosVersion := node.RunningVersion()
 		errorMsg := ""
 
 		stage := node.MachineStatus.Stage.String()

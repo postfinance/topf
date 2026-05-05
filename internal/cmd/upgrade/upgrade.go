@@ -77,7 +77,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			return fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
 		}
 
-		upgradeRequired := node.TalosVersion() != talosVersion || node.RunningSchematic() != schematic
+		upgradeRequired := node.RunningVersion() != talosVersion || node.RunningSchematic() != schematic
 		if !upgradeRequired {
 			logger.Info("no upgrade required")
 			continue
@@ -86,7 +86,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		logger.Info("upgrade required",
 			"schematic_actual", node.RunningSchematic(),
 			"schematic_desired", schematic,
-			"version_actual", node.TalosVersion(),
+			"version_actual", node.RunningVersion(),
 			"version_desired", talosVersion,
 			"installer", installerImage)
 

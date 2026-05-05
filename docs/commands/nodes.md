@@ -36,4 +36,4 @@ topf nodes -o yaml
 ```
 
 !!! tip
-    To generate machine configs without connecting to a cluster, use the [`render`](render.md) command.
+    To generate machine configs without a running cluster, use the [`render`](render.md) command. Use `render --online` to generate configs using the actual running Talos version.

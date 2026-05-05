@@ -45,8 +45,8 @@ nodes:
 | `clusterName`       | Yes      | -       | Name of the Kubernetes cluster                                                           |
 | `clusterEndpoint`   | Yes      | -       | Kubernetes API endpoint URL                                                              |
 | `kubernetesVersion` | Yes      | -       | Kubernetes version to install                                                            |
-| `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image and for offline rendering via [`render`](commands/render.md) |
-| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID. When set alongside `talosVersion`, topf automatically generates a least-precedence `machine.install.image` patch |
+| `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image and as fallback for [`render`](commands/render.md) when not using `--online` |
+| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch |
 | `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |

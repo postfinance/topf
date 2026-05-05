@@ -41,6 +41,12 @@ func (n *Node) TalosVersion() string {
 	return strings.TrimPrefix(cmp.Or(n.runningVersion, n.t.Config().TalosVersion, version.Tag), "v")
 }
 
+// RunningVersion returns the Talos version reported by the live node.
+// Empty if collectNodeInfo has not been called.
+func (n *Node) RunningVersion() string {
+	return n.runningVersion
+}
+
 // RunningSchematic returns the schematic ID reported by the live node.
 // Empty if collectNodeInfo has not been called.
 func (n *Node) RunningSchematic() string {
@@ -59,7 +65,7 @@ func (n *Node) MarshalYAML() (any, error) {
 		Node:          n.Node,
 		MachineStatus: n.MachineStatus,
 		Schematic:     n.runningSchematic,
-		TalosVersion:  n.TalosVersion(),
+		TalosVersion:  n.runningVersion,
 	}
 
 	if n.Error != nil {
