@@ -1,0 +1,12 @@
+machine:
+  features:
+    kubernetesTalosAPIAccess:
+      enabled: true
+      allowedRoles:
+        - os:operator
+cluster:
+  coreDNS:
+    disabled: true
+  etcd:
+    advertisedSubnets:
+      - 192.168.1.0/24

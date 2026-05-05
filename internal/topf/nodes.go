@@ -13,14 +13,144 @@ import (
 	"github.com/postfinance/topf/pkg/config"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
+	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
+	"go.yaml.in/yaml/v4"
 )
 
-// Nodes gathers information about each configured node
-// Errors during gathering information for individual nodes are recorded in the Node.Error field
-//
-//nolint:funlen,gocognit // TODO: refactor and split into parts
+func installerImagePatch(image string) (configpatcher.Patch, error) {
+	patchBytes, err := yaml.Marshal(map[string]any{
+		"machine": map[string]any{
+			"install": map[string]any{
+				"image": image,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return configpatcher.LoadPatch(patchBytes)
+}
+
+// collectNodeInfo queries a live node via COSI to populate MachineStatus, Schematic, and TalosVersion.
+func (n *Node) collectNodeInfo(ctx context.Context) error {
+	nodeClient, err := n.Client(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+
+	machineStatus, err := safe.StateGetResource(ctx, nodeClient.COSI, runtime.NewMachineStatus())
+	if err != nil {
+		return fmt.Errorf("unable to get machine status: %w", err)
+	}
+
+	n.MachineStatus = *machineStatus.TypedSpec()
+
+	extensions, err := safe.StateListAll[*runtime.ExtensionStatus](ctx, nodeClient.COSI)
+	if err != nil {
+		return fmt.Errorf("couldn't list extensions: %w", err)
+	}
+
+	// it's possible that the schematic extension is not present
+	// in which case we have to assume the default one
+	n.runningSchematic = DefaultSchematic
+
+	for extension := range extensions.All() {
+		if extension.TypedSpec().Metadata.Name == "schematic" {
+			n.runningSchematic = extension.TypedSpec().Metadata.Version
+		}
+	}
+
+	// Collect Talos version via COSI client because it is also available on maintenance mode
+	versions, err := safe.StateListAll[*runtime.Version](ctx, nodeClient.COSI)
+	if err != nil {
+		return fmt.Errorf("couldn't list versions: %w", err)
+	}
+
+	for v := range versions.All() {
+		if v.Metadata().Type() == runtime.VersionType {
+			n.runningVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
+		}
+	}
+
+	return nil
+}
+
+// generateNodeConfig loads patches and builds the machine config bundle for a node.
+func (t *topf) generateNodeConfig(node *Node) error {
+	t.Logger().With(node.Attrs()).Debug("generating configuration bundle")
+
+	patchContext := &config.PatchContext{
+		ClusterName:       t.Config().ClusterName,
+		ClusterEndpoint:   t.Config().ClusterEndpoint.String(),
+		KubernetesVersion: t.Config().KubernetesVersion,
+		TalosVersion:      t.Config().TalosVersion,
+		SchematicID:       t.Config().SchematicID,
+		Node:              node.Node,
+		Data:              t.Config().Data,
+		ConfigDir:         t.configDir,
+	}
+
+	patches, patchSecrets, err := patchContext.Load()
+	if err != nil {
+		return fmt.Errorf("couldn't load patches: %w", err)
+	}
+
+	installPatch, err := installerImagePatch(t.Config().InstallerImage())
+	if err != nil {
+		return fmt.Errorf("failed to build installer image patch: %w", err)
+	}
+
+	patches = append([]configpatcher.Patch{installPatch}, patches...)
+
+	t.addSecrets(patchSecrets)
+
+	secretsBundle, err := t.Secrets()
+	if err != nil {
+		return fmt.Errorf("failed to get secrets bundle: %w", err)
+	}
+
+	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion())
+	if err != nil {
+		return err
+	}
+
+	configBundleOpts := []bundle.Option{
+		bundle.WithInputOptions(
+			&bundle.InputOptions{
+				ClusterName: t.Config().ClusterName,
+				Endpoint:    t.Config().ClusterEndpoint.String(),
+				KubeVersion: strings.TrimPrefix(t.Config().KubernetesVersion, "v"),
+				GenOptions: []generate.Option{
+					generate.WithSecretsBundle(secretsBundle),
+					generate.WithVersionContract(versionContract),
+				},
+			},
+		),
+		bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
+	}
+
+	switch node.Node.Role {
+	case config.RoleControlPlane:
+		configBundleOpts = append(configBundleOpts, bundle.WithPatchControlPlane(patches))
+	case config.RoleWorker:
+		configBundleOpts = append(configBundleOpts, bundle.WithPatchWorker(patches))
+	}
+
+	configBundle, err := bundle.NewBundle(configBundleOpts...)
+	if err != nil {
+		return err
+	}
+
+	node.ConfigBundle = configBundle
+
+	return nil
+}
+
+// Nodes gathers information about each configured node.
+// Errors during gathering information for individual nodes are recorded in the Node.Error field.
 func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 	cfg := t.Config()
 
@@ -38,121 +168,16 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 		go func(node *Node) {
 			defer wg.Done()
 
-			logger := t.Logger().With(node.Attrs())
+			t.Logger().With(node.Attrs()).Debug("collecting data")
 
-			logger.Debug("collecting data")
-
-			// Create client
-			nodeClient, err := node.Client(ctx)
-			if err != nil {
-				node.Error = fmt.Errorf("failed to create client: %w", err)
-				return
-			}
-
-			// Get machine status
-			machineStatus, err := safe.StateGetResource(ctx, nodeClient.COSI, runtime.NewMachineStatus())
-			if err != nil {
-				node.Error = fmt.Errorf("unable to get machine status: %w", err)
-				return
-			}
-
-			node.MachineStatus = *machineStatus.TypedSpec()
-
-			// Collect schematic
-			extensions, err := safe.StateListAll[*runtime.ExtensionStatus](ctx, nodeClient.COSI)
-			if err != nil {
-				node.Error = fmt.Errorf("couldn't list extensions: %w", err)
-				return
-			}
-
-			// it's possible that the schematic extension is not present
-			// in which case we have to assume the default one
-			node.Schematic = DefaultSchematic
-
-			for extension := range extensions.All() {
-				if extension.TypedSpec().Metadata.Name == "schematic" {
-					schematic := extension.TypedSpec()
-					node.Schematic = schematic.Metadata.Version
-				}
-			}
-
-			// Collect Talos version vis COSI client because it is also avaialable
-			// on maintenance mode
-			versions, err := safe.StateListAll[*runtime.Version](ctx, nodeClient.COSI)
-			if err != nil {
-				node.Error = fmt.Errorf("couldn't list versions: %w", err)
-				return
-			}
-
-			for v := range versions.All() {
-				if v.Metadata().Type() == runtime.VersionType {
-					node.TalosVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
-				}
-			}
-
-			// Generating Config bundle
-			logger.Debug("generating configuration bundle")
-
-			patchContext := &config.PatchContext{
-				ClusterName:       t.Config().ClusterName,
-				ClusterEndpoint:   t.Config().ClusterEndpoint.String(),
-				KubernetesVersion: t.Config().KubernetesVersion,
-				Node:              node.Node,
-				Data:              t.Config().Data,
-				ConfigDir:         t.configDir,
-			}
-
-			patches, patchSecrets, err := patchContext.Load()
-			if err != nil {
-				node.Error = fmt.Errorf("couldn't load patch: %w", err)
-				return
-			}
-
-			t.addSecrets(patchSecrets)
-
-			secretsBundle, err := t.Secrets()
-			if err != nil {
-				node.Error = fmt.Errorf("failed to get secrets bundle: %w", err)
-				return
-			}
-
-			versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion)
-			if err != nil {
+			if err := node.collectNodeInfo(ctx); err != nil {
 				node.Error = err
 				return
 			}
 
-			configBundleOpts := []bundle.Option{
-				bundle.WithInputOptions(
-					&bundle.InputOptions{
-						ClusterName: t.Config().ClusterName,
-						Endpoint:    t.Config().ClusterEndpoint.String(),
-						KubeVersion: strings.TrimPrefix(t.Config().KubernetesVersion, "v"),
-						GenOptions: []generate.Option{
-							generate.WithSecretsBundle(secretsBundle),
-							generate.WithVersionContract(versionContract),
-						},
-					},
-				),
-				bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
-			}
-
-			switch node.Node.Role {
-			case config.RoleControlPlane:
-				configBundleOpts = append(configBundleOpts, bundle.WithPatchControlPlane(patches))
-			case config.RoleWorker:
-				configBundleOpts = append(configBundleOpts, bundle.WithPatchWorker(patches))
-			}
-
-			configBundle, err := bundle.NewBundle(configBundleOpts...)
-			if err != nil {
+			if err := t.generateNodeConfig(node); err != nil {
 				node.Error = err
-				return
 			}
-
-			node.ConfigBundle = configBundle
-
-			logger.Debug("node information collected")
 		}(node)
 	}
 

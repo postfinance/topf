@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -15,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/postfinance/topf/internal/sops"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
@@ -26,6 +26,8 @@ type PatchContext struct {
 	ClusterName       string
 	ClusterEndpoint   string
 	KubernetesVersion string
+	TalosVersion      string
+	SchematicID       string
 	Data              map[string]any
 	Node              *Node
 	ConfigDir         string
@@ -160,7 +162,7 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 			return nil, nil, err
 		}
 
-		tmpl, err := template.New("config").Option("missingkey=error").Parse(string(content))
+		tmpl, err := template.New("config").Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
 		}

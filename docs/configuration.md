@@ -10,6 +10,10 @@ clusterName: mycluster
 clusterEndpoint: https://192.168.1.100:6443
 kubernetesVersion: 1.34.1
 
+# Optional: Talos version and schematic for installer image generation
+talosVersion: 1.12.7
+schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
+
 # Optional: Directory containing patches (default: ".")
 configDir: .
 
@@ -41,6 +45,8 @@ nodes:
 | `clusterName`       | Yes      | -       | Name of the Kubernetes cluster                                                           |
 | `clusterEndpoint`   | Yes      | -       | Kubernetes API endpoint URL                                                              |
 | `kubernetesVersion` | Yes      | -       | Kubernetes version to install                                                            |
+| `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image and as fallback for [`render`](commands/render.md) when not using `--online` |
+| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch |
 | `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |
