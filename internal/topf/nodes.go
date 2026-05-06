@@ -98,7 +98,7 @@ func (t *topf) generateNodeConfig(node *Node) error {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
 
-	installPatch, err := installerImagePatch(t.Config().InstallerImage())
+	installPatch, err := installerImagePatch(node.InstallerImage())
 	if err != nil {
 		return fmt.Errorf("failed to build installer image patch: %w", err)
 	}

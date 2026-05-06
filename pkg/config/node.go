@@ -18,6 +18,11 @@ type Node struct {
 	IP   *netip.Addr    `yaml:"ip,omitempty"`
 	Role NodeRole       `yaml:"role"`
 	Data map[string]any `yaml:"data,omitempty"`
+
+	// Factory overrides the cluster-level image factory address for this node
+	Factory string `yaml:"factory,omitempty"`
+	// Platform overrides the cluster-level platform identifier for this node
+	Platform string `yaml:"platform,omitempty"`
 }
 
 // Endpoint returns the IP address if set, otherwise returns the Host.
