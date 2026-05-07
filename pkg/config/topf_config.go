@@ -27,6 +27,8 @@ type TopfConfig struct {
 	Factory string `yaml:"factory,omitempty"`
 	// Platform is the Talos platform identifier (default: metal)
 	Platform string `yaml:"platform,omitempty"`
+	// SecureBoot enables the secure boot installer variant
+	SecureBoot bool `yaml:"secureboot,omitempty"`
 
 	// SecretsProvider can be optionally set to the path of a binary which is
 	// responsible for storing and retrieving secrets.yaml for a cluster. If not

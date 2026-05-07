@@ -17,6 +17,7 @@ schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 # Optional: Custom image factory and platform (defaults: factory.talos.dev, metal)
 # factory: factory.talos.dev
 # platform: metal
+# secureboot: false
 
 # Optional: Directory containing patches (default: ".")
 configDir: .
@@ -57,6 +58,7 @@ nodes:
 | `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch. Can be overridden per node |
 | `factory`           | No       | `factory.talos.dev` | Talos image factory address. Can be overridden per node |
 | `platform`          | No       | `metal` | Talos platform identifier (e.g. `metal`, `aws`, `gcp`). Can be overridden per node |
+| `secureboot`        | No       | `false` | Use the secure boot installer variant (`<platform>-installer-secureboot`). Can be overridden per node |
 | `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |
@@ -76,6 +78,7 @@ Each entry in the `nodes` list has the following fields:
 | `schematicId`  | No       | Overrides the cluster-level `schematicId` for this node                                                         |
 | `factory`      | No       | Overrides the cluster-level `factory` for this node                                                             |
 | `platform`     | No       | Overrides the cluster-level `platform` for this node                                                             |
+| `secureboot`   | No       | Overrides the cluster-level `secureboot` for this node                                                          |
 | `data`         | No       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>` |
 
 ## Global Flags

@@ -27,6 +27,8 @@ type Node struct {
 	Factory string `yaml:"factory,omitempty"`
 	// Platform overrides the cluster-level platform identifier for this node
 	Platform string `yaml:"platform,omitempty"`
+	// SecureBoot enables the secure boot installer variant for this node
+	SecureBoot bool `yaml:"secureboot,omitempty"`
 }
 
 // Endpoint returns the IP address if set, otherwise returns the Host.
