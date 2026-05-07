@@ -5,6 +5,7 @@ package topf
 
 import (
 	"cmp"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -16,10 +17,14 @@ import (
 )
 
 const (
-	// DefaultSchematic is the schematic version used by Talos when no
-	// extensions or command line flags are defined
-	// TODO (v1.13): replace with images.DefaultInstallerImageSchematic
+	// DefaultSchematic is the schematic used by Talos when no extensions are configured
+	// TODO (v1.14): replace with images.DefaultInstallerImageSchematic
 	DefaultSchematic = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	// DefaultFactory is the default Talos image factory address
+	// TODO (v1.14): replace with gendata.ImageFactory
+	DefaultFactory = "factory.talos.dev"
+	// DefaultPlatform is the default Talos platform identifier
+	DefaultPlatform = "metal"
 )
 
 // Node contains runtime state information about a Talos node
@@ -51,6 +56,18 @@ func (n *Node) RunningVersion() string {
 // Empty if collectNodeInfo has not been called.
 func (n *Node) RunningSchematic() string {
 	return n.runningSchematic
+}
+
+// InstallerImage returns the fully resolved installer image for this node.
+// All four components (factory, platform, schematic, talosVersion) resolve per node -> cluster config -> default.
+func (n *Node) InstallerImage() string {
+	cfg := n.t.Config()
+	factory := cmp.Or(n.Node.Factory, cfg.Factory, DefaultFactory)
+	platform := cmp.Or(n.Node.Platform, cfg.Platform, DefaultPlatform)
+	schematic := cmp.Or(n.Node.SchematicID, cfg.SchematicID, DefaultSchematic)
+	talosVersion := strings.TrimPrefix(cmp.Or(n.Node.TalosVersion, cfg.TalosVersion, version.Tag), "v")
+
+	return fmt.Sprintf("%s/%s-installer/%s:v%s", factory, platform, schematic, talosVersion)
 }
 
 // MarshalYAML implements custom YAML marshalling to properly serialize the Error field

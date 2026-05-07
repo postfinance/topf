@@ -33,7 +33,7 @@ talosVersion: 1.12.7
 schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 ```
 
-This generates `factory.talos.dev/installer/<schematicId>:v<talosVersion>` as the base installer image. Since this patch is applied first, any subsequent `machine.install.image` patch (shared or node-level) will override it.
+This generates `factory.talos.dev/metal-installer/<schematicId>:v<talosVersion>` as the base installer image. Since this patch is applied first, any subsequent `machine.install.image` patch (shared or node-level) will override it. The factory and platform can be customized via `factory` and `platform` in `topf.yaml` (or per node).
 
 ### Manual installer image patch
 
@@ -44,7 +44,7 @@ Alternatively, manage the installer image explicitly via a patch. The target ima
 ```yaml
 machine:
   install:
-    image: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0
 ```
 
 ### Per-node override
@@ -56,7 +56,7 @@ To upgrade a single node to a different version or schematic, add a node-specifi
 ```yaml
 machine:
   install:
-    image: factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0
+    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0
 ```
 
 Because node-level patches are merged last (see [Configuration Model](../configuration-model.md)), this override applies only to that host.
