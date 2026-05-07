@@ -59,7 +59,7 @@ nodes:
 | `clusterEndpoint`   | Yes      | -       | Kubernetes API endpoint URL                                                              |
 | `kubernetesVersion` | Yes      | -       | Kubernetes version to install                                                            |
 | `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image. Can be overridden per node |
-| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch. Can be overridden per node |
+| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID. Can be a hash string or an `@`-prefixed path to a schematic file (see [Schematic reference resolution](#schematic-reference-resolution)). Can be overridden per node |
 | `factory`           | No       | `factory.talos.dev` | Talos image factory address. Can be overridden per node |
 | `platform`          | No       | `metal` | Talos platform identifier (e.g. `metal`, `aws`, `gcp`). Can be overridden per node |
 | `secureboot`        | No       | `false` | Use the secure boot installer variant (`<platform>-installer-secureboot`). Can be overridden per node |
@@ -80,23 +80,88 @@ Each entry in the `nodes` list has the following fields:
 | `ip`           | No       | IP address used to connect to the node directly instead of resolving `host` via DNS                             |
 | `role`         | Yes      | Role of the node: `control-plane` or `worker`                                                                   |
 | `talosVersion` | No       | Overrides the cluster-level `talosVersion` for this node                                                         |
-| `schematicId`  | No       | Overrides the cluster-level `schematicId` for this node                                                         |
+| `schematicId`  | No       | Overrides the cluster-level `schematicId` for this node. Supports `@`-prefixed paths                         |
 | `factory`      | No       | Overrides the cluster-level `factory` for this node                                                             |
 | `platform`     | No       | Overrides the cluster-level `platform` for this node                                                             |
 | `secureboot`   | No       | Overrides the cluster-level `secureboot` for this node                                                          |
 | `data`         | No       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>` |
 
+## Schematic Reference Resolution
+
+Instead of hard-coding a schematic ID hash, you can reference a schematic definition file using the `@` prefix:
+
+```yaml
+schematicId: @schematic.yaml
+```
+
+Topf will:
+
+1. Read the file (relative to `configDir`)
+2. If the path ends in `.tpl`, render it through Go templates with the same data available as [patch templates](configuration-model.md#templating)
+3. Compute the schematic ID locally from the canonical YAML representation
+4. Use the schematic ID for config generation and installer image URLs
+
+This allows you to define your extensions declaratively:
+
+`topf.yaml`:
+
+```yaml
+schematicId: @schematic.yaml
+```
+
+`schematic.yaml`:
+
+```yaml
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+      - siderolabs/nvidia-container-toolkit
+```
+
+For templated schematics (`.yaml.tpl`), the full [patch context](configuration-model.md#templating) is available:
+
+`schematic.yaml.tpl`:
+
+```yaml
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+      {{- if eq .Node.Role "worker" }}
+      - siderolabs/nvidia-container-toolkit
+      {{- end }}
+```
+
+By default, schematic IDs are computed locally without network calls. This works for any schematic that has already been registered with the image factory, since the ID is a deterministic hash of the canonical YAML.
+
+For **new** schematics that the factory has never seen, you must use `--submit-to-factory` to register them — the factory cannot build images for an ID it doesn't know about. After the initial submission, local computation works for subsequent runs.
+
+!!! tip
+    You can check whether a schematic is already known to the factory:
+
+    ```bash
+    curl https://factory.talos.dev/schematics/<id>
+    ```
+
+    Returns the schematic YAML if found, or `schematic not found` if unknown.
+
+| Flag                  | Environment Variable      | Default | Description                                                          |
+| --------------------- | ------------------------- | ------- | -------------------------------------------------------------------- |
+| `--submit-to-factory` | `TOPF_SUBMIT_TO_FACTORY`  | `false` | Submit schematics to the image factory API (default: compute IDs locally) |
+
 ## Global Flags
 
 TOPF supports the following global flags that can be used with any command:
 
-| Flag             | Environment Variable | Default     | Description                                       |
-| ---------------- | -------------------- | ----------- | ------------------------------------------------- |
-| `--topfconfig`   | `TOPFCONFIG`         | `topf.yaml` | Path to the topf.yaml configuration file          |
-| `--nodes-filter` | `TOPF_NODES_FILTER`  | -           | Regex pattern to filter which nodes to operate on |
-| `--log-level`    | `LOG_LEVEL`          | `info`      | Logging level (debug, info, warn, error)          |
-| `--confirm`      | `TOPF_CONFIRM`       | `true`      | Confirm any changes before applying them          |
-| `--redact`       | `TOPF_REDACT`        | `true`      | Redact secrets and certificates from output       |
+| Flag                   | Environment Variable     | Default     | Description                                               |
+| ---------------------- | ------------------------ | ----------- | --------------------------------------------------------- |
+| `--topfconfig`         | `TOPFCONFIG`             | `topf.yaml` | Path to the topf.yaml configuration file                  |
+| `--nodes-filter`       | `TOPF_NODES_FILTER`      | -           | Regex pattern to filter which nodes to operate on        |
+| `--log-level`          | `LOG_LEVEL`              | `info`      | Logging level (debug, info, warn, error)                  |
+| `--confirm`            | `TOPF_CONFIRM`           | `true`      | Confirm any changes before applying them                  |
+| `--redact`             | `TOPF_REDACT`            | `true`      | Redact secrets and certificates from output               |
+| `--submit-to-factory`  | `TOPF_SUBMIT_TO_FACTORY` | `false`     | Submit schematics to the image factory API (default: compute IDs locally) |
 
 ### Filtering Nodes
 

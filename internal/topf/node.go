@@ -33,11 +33,12 @@ type Node struct {
 	t    Topf
 	Node *config.Node
 
-	MachineStatus    runtime.MachineStatusSpec
-	runningVersion   string
-	runningSchematic string
-	ConfigBundle     *bundle.Bundle `yaml:"-"`
-	Error            error          `yaml:",omitempty"`
+	MachineStatus     runtime.MachineStatusSpec
+	runningVersion    string
+	runningSchematic  string
+	resolvedSchematic string
+	ConfigBundle      *bundle.Bundle `yaml:"-"`
+	Error             error          `yaml:",omitempty"`
 }
 
 // TalosVersion returns the Talos version to use for config generation.
@@ -59,12 +60,13 @@ func (n *Node) RunningSchematic() string {
 }
 
 // InstallerImage returns the fully resolved installer image for this node.
-// All components resolve per node -> cluster config -> default.
+// The schematic ID is the resolved value (after @-prefixed references have been expanded).
+// Factory, platform, talosVersion, and secureboot resolve per node -> cluster config -> default.
 func (n *Node) InstallerImage() string {
 	cfg := n.t.Config()
 	factory := cmp.Or(n.Node.Factory, cfg.Factory, DefaultFactory)
 	platform := cmp.Or(n.Node.Platform, cfg.Platform, DefaultPlatform)
-	schematic := cmp.Or(n.Node.SchematicID, cfg.SchematicID, DefaultSchematic)
+	schematic := cmp.Or(n.resolvedSchematic, DefaultSchematic)
 	talosVersion := strings.TrimPrefix(cmp.Or(n.Node.TalosVersion, cfg.TalosVersion, version.Tag), "v")
 
 	installer := platform + "-installer"
