@@ -59,12 +59,12 @@ func (n *Node) RunningSchematic() string {
 }
 
 // InstallerImage returns the fully resolved installer image for this node.
-// All components resolve per node -> cluster config -> default.
-func (n *Node) InstallerImage() string {
+// resolvedSchematic is the schematic ID after @-prefixed references have been resolved.
+// Factory, platform, talosVersion, and secureboot resolve per node -> cluster config -> default.
+func (n *Node) InstallerImage(resolvedSchematic string) string {
 	cfg := n.t.Config()
 	factory := cmp.Or(n.Node.Factory, cfg.Factory, DefaultFactory)
 	platform := cmp.Or(n.Node.Platform, cfg.Platform, DefaultPlatform)
-	schematic := cmp.Or(n.Node.SchematicID, cfg.SchematicID, DefaultSchematic)
 	talosVersion := strings.TrimPrefix(cmp.Or(n.Node.TalosVersion, cfg.TalosVersion, version.Tag), "v")
 
 	installer := platform + "-installer"
@@ -72,7 +72,7 @@ func (n *Node) InstallerImage() string {
 		installer += "-secureboot"
 	}
 
-	return fmt.Sprintf("%s/%s/%s:v%s", factory, installer, schematic, talosVersion)
+	return fmt.Sprintf("%s/%s/%s:v%s", factory, installer, resolvedSchematic, talosVersion)
 }
 
 // MarshalYAML implements custom YAML marshalling to properly serialize the Error field

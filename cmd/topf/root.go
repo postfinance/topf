@@ -60,6 +60,11 @@ func main() {
 				Value:   true,
 				Sources: cli.EnvVars("TOPF_CONFIRM"),
 			},
+			&cli.BoolFlag{
+				Name:    "submit-to-factory",
+				Usage:   "submit schematics to the image factory API (default: compute IDs locally)",
+				Sources: cli.EnvVars("TOPF_SUBMIT_TO_FACTORY"),
+			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// passing down the Topf runtime to all commands via context
@@ -69,6 +74,8 @@ func main() {
 				LogLevel:         c.String("log-level"),
 				Redact:           c.Bool("redact"),
 				Confirm:          c.Bool("confirm"),
+				SubmitToFactory:  c.Bool("submit-to-factory"),
+				TopfVersion:      version,
 			})
 			if err != nil {
 				return ctx, err

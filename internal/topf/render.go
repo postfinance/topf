@@ -44,7 +44,7 @@ func (t *topf) Render(ctx context.Context, online bool) ([]*Node, error) {
 			continue
 		}
 
-		if err := t.generateNodeConfig(node); err != nil {
+		if err := t.generateNodeConfig(ctx, node); err != nil {
 			node.Error = err
 		}
 	}
