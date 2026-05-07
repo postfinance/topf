@@ -146,6 +146,29 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 	return patches, secrets, nil
 }
 
+// RenderTemplate renders a Go template file with the given data.
+// The template has access to the "env" function (wrapping os.Getenv) and uses "missingkey=error".
+func RenderTemplate(filename string, data any) ([]byte, error) {
+	//nolint:gosec // loading arbitrary template files is by design
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpl, err := template.New(filepath.Base(filename)).Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template %s: %w", filename, err)
+	}
+
+	var buf bytes.Buffer
+
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template %s: %w", filename, err)
+	}
+
+	return buf.Bytes(), nil
+}
+
 func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 	var (
 		content []byte
@@ -153,28 +176,12 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 		err     error
 	)
 
-	//nolint:nestif // complexity due to template vs SOPS handling
 	if strings.HasSuffix(filename, ".tpl") {
-		// Template files: read without SOPS decryption
-		//nolint:gosec // loading arbitrary patch files is by design
-		content, err = os.ReadFile(filename)
+		content, err = RenderTemplate(filename, p)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		tmpl, err := template.New("config").Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse template for patch %s: %w", filename, err)
-		}
-
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, p); err != nil {
-			return nil, nil, fmt.Errorf("failed to execute template for patch %s: %w", filename, err)
-		}
-
-		content = buf.Bytes()
 	} else {
-		// Non-template files: use SOPS auto-detection
 		content, secrets, err = sops.ReadFileWithSOPS(filename)
 		if err != nil {
 			return nil, nil, err

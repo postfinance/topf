@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/postfinance/topf/internal/maskedwriter"
+	"github.com/postfinance/topf/internal/schematic"
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
@@ -47,6 +48,9 @@ type Topf interface {
 
 	// Confirm returns whether confirmation prompts are enabled
 	Confirm() bool
+
+	// TopfVersion returns the topf version string
+	TopfVersion() string
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -66,6 +70,9 @@ type RuntimeConfig struct {
 
 	// Confirm controls whether confirmation prompts are shown before destructive actions
 	Confirm bool
+
+	// TopfVersion is the topf version string
+	TopfVersion string
 }
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
@@ -110,6 +117,8 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		logger:       logger,
 		maskedWriter: mw,
 		confirm:      cfg.Confirm,
+		version:      cfg.TopfVersion,
+		resolver:     schematic.NewResolver(topfConfig.ConfigDir, cfg.TopfVersion),
 	}, nil
 }
 
@@ -122,10 +131,16 @@ type topf struct {
 	logger        *slog.Logger
 	maskedWriter  *maskedwriter.Writer
 	confirm       bool
+	version       string
+	resolver      *schematic.Resolver
 }
 
 func (t *topf) Config() *config.TopfConfig {
 	return t.TopfConfig
+}
+
+func (t *topf) TopfVersion() string {
+	return t.version
 }
 
 // Logger returns the configured logger for this runtime

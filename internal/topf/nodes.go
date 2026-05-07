@@ -4,6 +4,7 @@
 package topf
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -101,27 +102,35 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 	return nil
 }
 
-// generateNodeConfig loads patches and builds the machine config bundle for a node.
-func (t *topf) generateNodeConfig(node *Node) error {
+func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	t.Logger().With(node.Attrs()).Debug("generating configuration bundle")
 
+	cfg := t.Config()
+
 	patchContext := &config.PatchContext{
-		ClusterName:       t.Config().ClusterName,
-		ClusterEndpoint:   t.Config().ClusterEndpoint.String(),
-		KubernetesVersion: t.Config().KubernetesVersion,
-		TalosVersion:      t.Config().TalosVersion,
-		SchematicID:       t.Config().SchematicID,
+		ClusterName:       cfg.ClusterName,
+		ClusterEndpoint:   cfg.ClusterEndpoint.String(),
+		KubernetesVersion: cfg.KubernetesVersion,
+		TalosVersion:      cfg.TalosVersion,
+		SchematicID:       cmp.Or(node.Node.SchematicID, cfg.SchematicID, DefaultSchematic),
 		Node:              node.Node,
-		Data:              t.Config().Data,
+		Data:              cfg.Data,
 		ConfigDir:         t.configDir,
 	}
+
+	resolvedSchematic, err := t.resolver.Resolve(ctx, cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory), patchContext.SchematicID, patchContext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve schematic ID: %w", err)
+	}
+
+	patchContext.SchematicID = resolvedSchematic
 
 	patches, patchSecrets, err := patchContext.Load()
 	if err != nil {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
 
-	installPatch, err := installerImagePatch(node.InstallerImage())
+	installPatch, err := installerImagePatch(node.InstallerImage(resolvedSchematic))
 	if err != nil {
 		return fmt.Errorf("failed to build installer image patch: %w", err)
 	}
@@ -198,7 +207,7 @@ func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
 				return
 			}
 
-			if err := t.generateNodeConfig(node); err != nil {
+			if err := t.generateNodeConfig(ctx, node); err != nil {
 				node.Error = err
 			}
 		}(node)
