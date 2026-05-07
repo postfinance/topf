@@ -53,8 +53,8 @@ nodes:
 | `clusterName`       | Yes      | -       | Name of the Kubernetes cluster                                                           |
 | `clusterEndpoint`   | Yes      | -       | Kubernetes API endpoint URL                                                              |
 | `kubernetesVersion` | Yes      | -       | Kubernetes version to install                                                            |
-| `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image and as fallback for [`render`](commands/render.md) when not using `--online` |
-| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch |
+| `talosVersion`      | No       | bundled Talos version | Talos version used to generate the installer image. Can be overridden per node |
+| `schematicId`       | No       | default (no extensions) | Talos image factory schematic ID used in the auto-generated `machine.install.image` patch. Can be overridden per node |
 | `factory`           | No       | `factory.talos.dev` | Talos image factory address. Can be overridden per node |
 | `platform`          | No       | `metal` | Talos platform identifier (e.g. `metal`, `aws`, `gcp`). Can be overridden per node |
 | `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
@@ -67,14 +67,16 @@ nodes:
 
 Each entry in the `nodes` list has the following fields:
 
-| Field      | Required | Description                                                                                                     |
-| ---------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| `host`     | Yes      | Name of the node. Can be a FQDN or short name. Used for display, logging, and certificate validation            |
-| `ip`       | No       | IP address used to connect to the node directly instead of resolving `host` via DNS                             |
-| `role`     | Yes      | Role of the node: `control-plane` or `worker`                                                                   |
-| `factory`  | No       | Overrides the cluster-level `factory` for this node                                                             |
-| `platform` | No       | Overrides the cluster-level `platform` for this node                                                            |
-| `data`     | No       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>` |
+| Field          | Required | Description                                                                                                     |
+| -------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `host`         | Yes      | Name of the node. Can be a FQDN or short name. Used for display, logging, and certificate validation            |
+| `ip`           | No       | IP address used to connect to the node directly instead of resolving `host` via DNS                             |
+| `role`         | Yes      | Role of the node: `control-plane` or `worker`                                                                   |
+| `talosVersion` | No       | Overrides the cluster-level `talosVersion` for this node                                                         |
+| `schematicId`  | No       | Overrides the cluster-level `schematicId` for this node                                                         |
+| `factory`      | No       | Overrides the cluster-level `factory` for this node                                                             |
+| `platform`     | No       | Overrides the cluster-level `platform` for this node                                                             |
+| `data`         | No       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>` |
 
 ## Global Flags
 

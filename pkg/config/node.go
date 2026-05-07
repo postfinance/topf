@@ -19,6 +19,10 @@ type Node struct {
 	Role NodeRole       `yaml:"role"`
 	Data map[string]any `yaml:"data,omitempty"`
 
+	// TalosVersion overrides the cluster-level Talos version for this node
+	TalosVersion string `yaml:"talosVersion,omitempty"`
+	// SchematicID overrides the cluster-level schematic ID for this node
+	SchematicID string `yaml:"schematicId,omitempty"`
 	// Factory overrides the cluster-level image factory address for this node
 	Factory string `yaml:"factory,omitempty"`
 	// Platform overrides the cluster-level platform identifier for this node
