@@ -9,12 +9,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/postfinance/topf/pkg/config"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	configresource "github.com/siderolabs/talos/pkg/machinery/resources/config"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"go.yaml.in/yaml/v4"
 )
@@ -47,6 +49,22 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 	}
 
 	n.MachineStatus = *machineStatus.TypedSpec()
+
+	// Fetch the current machine config from the node and add its
+	// sensitive values to the redaction pool. During a key rotation
+	// the old certs still live on the node; without this they would
+	// leak through the masked writer. Only available outside maintenance mode.
+	if n.MachineStatus.Stage != runtime.MachineStageMaintenance {
+		machineConfig, cfgErr := safe.StateGet[*configresource.MachineConfig](
+			ctx, nodeClient.COSI,
+			resource.NewMetadata(configresource.NamespaceName, configresource.MachineConfigType, configresource.ActiveID, resource.VersionUndefined),
+		)
+		if cfgErr == nil && machineConfig != nil {
+			if rt, ok := n.t.(*topf); ok {
+				rt.addSecrets(collectCurrentConfigSecrets(machineConfig.Provider()))
+			}
+		}
+	}
 
 	extensions, err := safe.StateListAll[*runtime.ExtensionStatus](ctx, nodeClient.COSI)
 	if err != nil {
