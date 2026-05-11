@@ -3,10 +3,10 @@ module github.com/postfinance/topf
 go 1.26.1
 
 require (
-	github.com/cosi-project/runtime v1.14.1
-	github.com/jedib0t/go-pretty/v6 v6.7.9
+	github.com/cosi-project/runtime v1.15.0
+	github.com/jedib0t/go-pretty/v6 v6.7.10
 	github.com/siderolabs/go-retry v0.3.3
-	github.com/siderolabs/talos/pkg/machinery v1.12.7
+	github.com/siderolabs/talos/pkg/machinery v1.13.0
 	github.com/urfave/cli/v3 v3.8.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	gopkg.in/yaml.v3 v3.0.1
@@ -66,7 +66,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20250313105119-ba97887b0a25 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.6 // indirect
-	github.com/siderolabs/crypto v0.6.5 // indirect
+	github.com/siderolabs/crypto v0.6.5
 	github.com/siderolabs/gen v0.8.6 // indirect
 	github.com/siderolabs/go-api-signature v0.3.12 // indirect
 	github.com/siderolabs/go-pointer v1.0.1 // indirect
