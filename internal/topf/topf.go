@@ -40,6 +40,10 @@ type Topf interface {
 	// created with Redact=true, secrets and certificates are replaced with
 	// "*** redacted ***" before being written.
 	Writer() io.Writer
+
+	// AddSecretsToMask registers additional sensitive strings for redaction.
+	// Has no effect when redaction is disabled.
+	AddSecretsToMask(sensitive []string)
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -89,18 +93,16 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	handler := slog.NewTextHandler(os.Stderr, opts)
 	logger := slog.New(handler)
 
-	var w io.Writer
+	var mw *maskedwriter.Writer
 	if cfg.Redact {
-		w = maskedwriter.New(os.Stdout, secrets)
-	} else {
-		w = os.Stdout
+		mw = maskedwriter.New(os.Stdout, secrets)
 	}
 
 	return &topf{
-		TopfConfig: topfConfig,
-		configDir:  topfConfig.ConfigDir,
-		logger:     logger,
-		writer:     w,
+		TopfConfig:   topfConfig,
+		configDir:    topfConfig.ConfigDir,
+		logger:       logger,
+		maskedWriter: mw,
 	}, nil
 }
 
@@ -111,7 +113,7 @@ type topf struct {
 	configDir     string
 	secretsBundle *secrets.Bundle
 	logger        *slog.Logger
-	writer        io.Writer
+	maskedWriter  *maskedwriter.Writer
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -124,13 +126,16 @@ func (t *topf) Logger() *slog.Logger {
 }
 
 func (t *topf) Writer() io.Writer {
-	return t.writer
+	if t.maskedWriter != nil {
+		return t.maskedWriter
+	}
+
+	return os.Stdout
 }
 
-// addSecrets registers additional sensitive strings when redaction is active.
-func (t *topf) addSecrets(sensitive []string) {
-	if mw, ok := t.writer.(*maskedwriter.Writer); ok {
-		mw.AddSecrets(sensitive)
+func (t *topf) AddSecretsToMask(sensitive []string) {
+	if t.maskedWriter != nil {
+		t.maskedWriter.AddSecrets(sensitive)
 	}
 }
 
