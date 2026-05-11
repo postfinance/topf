@@ -55,7 +55,7 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 
 	t.secretsBundle = bundle
 
-	t.addSecrets(collectSecrets(bundle))
+	t.AddSecretsToMask(collectSecrets(bundle))
 
 	return bundle, nil
 }

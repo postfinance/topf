@@ -5,6 +5,7 @@ package topf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -55,15 +56,19 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 	// the old certs still live on the node; without this they would
 	// leak through the masked writer. Only available outside maintenance mode.
 	if n.MachineStatus.Stage != runtime.MachineStageMaintenance {
-		machineConfig, cfgErr := safe.StateGet[*configresource.MachineConfig](
+		machineConfig, err := safe.StateGet[*configresource.MachineConfig](
 			ctx, nodeClient.COSI,
 			resource.NewMetadata(configresource.NamespaceName, configresource.MachineConfigType, configresource.ActiveID, resource.VersionUndefined),
 		)
-		if cfgErr == nil && machineConfig != nil {
-			if rt, ok := n.t.(*topf); ok {
-				rt.addSecrets(collectCurrentConfigSecrets(machineConfig.Provider()))
-			}
+		if err != nil {
+			return fmt.Errorf("couldn't get machine config: %w", err)
 		}
+
+		if machineConfig == nil {
+			return errors.New("retrieved a 'nil' machine config")
+		}
+
+		n.t.AddSecretsToMask(collectCurrentConfigSecrets(machineConfig.Provider()))
 	}
 
 	extensions, err := safe.StateListAll[*runtime.ExtensionStatus](ctx, nodeClient.COSI)
@@ -123,7 +128,7 @@ func (t *topf) generateNodeConfig(node *Node) error {
 
 	patches = append([]configpatcher.Patch{installPatch}, patches...)
 
-	t.addSecrets(patchSecrets)
+	t.AddSecretsToMask(patchSecrets)
 
 	secretsBundle, err := t.Secrets()
 	if err != nil {
