@@ -20,7 +20,6 @@ import (
 
 // Options contains the options for the upgrade execution
 type Options struct {
-	Confirm bool
 	// Only show what upgrades would be performed without actually upgrading
 	DryRun bool
 
@@ -96,7 +95,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 
 		// ask for user confirmation
-		if opts.Confirm {
+		if t.Confirm() {
 			if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)) == 'n' {
 				logger.Info("skipping upgrade")
 				continue

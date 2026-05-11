@@ -6,8 +6,10 @@ package topf
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/postfinance/topf/internal/interactive"
 	"github.com/postfinance/topf/pkg/providers"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"go.yaml.in/yaml/v4"
@@ -30,28 +32,46 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 
 	bundle, err := providers.LoadSecretsBundle(provider, t.ClusterName)
 	if errors.Is(err, providers.ErrSecretsNotFound) {
-		t.logger.Warn("generating new secrets.yaml", "cluster", t.ClusterName)
-
-		bundle, err = secrets.NewBundle(skewedClock, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		bytes, err := yaml.Marshal(bundle)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := provider.Put(t.ClusterName, bytes); err != nil {
-			return nil, err
-		}
-
-		t.logger.Info("secrets stored")
+		return t.generateAndStoreSecrets(provider, skewedClock)
 	} else if err != nil {
 		return nil, err
 	}
 
 	bundle.Clock = skewedClock
+
+	t.secretsBundle = bundle
+
+	t.AddSecretsToMask(collectSecrets(bundle))
+
+	return bundle, nil
+}
+
+func (t *topf) generateAndStoreSecrets(provider providers.SecretsProvider, clock secrets.Clock) (*secrets.Bundle, error) {
+	if t.Confirm() {
+		if interactive.ConfirmPrompt(fmt.Sprintf("No secrets.yaml found for cluster %s. Generate a new one?", t.ClusterName)) == 'n' {
+			return nil, fmt.Errorf("secrets.yaml not found for cluster %s", t.ClusterName)
+		}
+	}
+
+	t.logger.Warn("generating new secrets.yaml", "cluster", t.ClusterName)
+
+	bundle, err := secrets.NewBundle(clock, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := yaml.Marshal(bundle)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := provider.Put(t.ClusterName, bytes); err != nil {
+		return nil, err
+	}
+
+	t.logger.Info("secrets stored")
+
+	bundle.Clock = clock
 
 	t.secretsBundle = bundle
 

@@ -54,6 +54,12 @@ func main() {
 				Usage:   "redact sensitive values (secrets, certificates) from output",
 				Sources: cli.EnvVars("TOPF_REDACT"),
 			},
+			&cli.BoolFlag{
+				Name:    "confirm",
+				Usage:   "confirm any changes before applying them",
+				Value:   true,
+				Sources: cli.EnvVars("TOPF_CONFIRM"),
+			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// passing down the Topf runtime to all commands via context
@@ -62,6 +68,7 @@ func main() {
 				NodesRegexFilter: c.String("nodes-filter"),
 				LogLevel:         c.String("log-level"),
 				Redact:           c.Bool("redact"),
+				Confirm:          c.Bool("confirm"),
 			})
 			if err != nil {
 				return ctx, err
@@ -96,15 +103,6 @@ func MustGetRuntime(ctx context.Context) topf.Topf {
 	}
 
 	return t
-}
-
-func confirmFlag() *cli.BoolFlag {
-	return &cli.BoolFlag{
-		Name:    "confirm",
-		Usage:   "confirm any changes before applying them",
-		Value:   true,
-		Sources: cli.EnvVars("TOPF_CONFIRM"),
-	}
 }
 
 // noPositionalArgs is a Before hook that rejects any positional arguments.

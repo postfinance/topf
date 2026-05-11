@@ -90,6 +90,7 @@ TOPF supports the following global flags that can be used with any command:
 | `--topfconfig`   | `TOPFCONFIG`         | `topf.yaml` | Path to the topf.yaml configuration file          |
 | `--nodes-filter` | `TOPF_NODES_FILTER`  | -           | Regex pattern to filter which nodes to operate on |
 | `--log-level`    | `LOG_LEVEL`          | `info`      | Logging level (debug, info, warn, error)          |
+| `--confirm`      | `TOPF_CONFIRM`       | `true`      | Confirm any changes before applying them          |
 | `--redact`       | `TOPF_REDACT`        | `true`      | Redact secrets and certificates from output       |
 
 ### Filtering Nodes

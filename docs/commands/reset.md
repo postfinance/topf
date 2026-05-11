@@ -10,7 +10,6 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--confirm` | `true` | Ask for user confirmation before resetting |
 | `--full` | `true` | Wipe the entire disk. If `false`, only STATE and EPHEMERAL partitions are wiped |
 | `--graceful` | `false` | Attempt to cordon/drain the node and leave etcd before resetting |
 | `--shutdown` | `false` | Shut down the machine after reset instead of rebooting |

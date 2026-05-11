@@ -44,6 +44,9 @@ type Topf interface {
 	// AddSecretsToMask registers additional sensitive strings for redaction.
 	// Has no effect when redaction is disabled.
 	AddSecretsToMask(sensitive []string)
+
+	// Confirm returns whether confirmation prompts are enabled
+	Confirm() bool
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -60,6 +63,9 @@ type RuntimeConfig struct {
 
 	// Redact controls whether sensitive values are masked in output
 	Redact bool
+
+	// Confirm controls whether confirmation prompts are shown before destructive actions
+	Confirm bool
 }
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
@@ -103,6 +109,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		configDir:    topfConfig.ConfigDir,
 		logger:       logger,
 		maskedWriter: mw,
+		confirm:      cfg.Confirm,
 	}, nil
 }
 
@@ -114,6 +121,7 @@ type topf struct {
 	secretsBundle *secrets.Bundle
 	logger        *slog.Logger
 	maskedWriter  *maskedwriter.Writer
+	confirm       bool
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -137,6 +145,10 @@ func (t *topf) AddSecretsToMask(sensitive []string) {
 	if t.maskedWriter != nil {
 		t.maskedWriter.AddSecrets(sensitive)
 	}
+}
+
+func (t *topf) Confirm() bool {
+	return t.confirm
 }
 
 // parseLogLevel converts a string log level to slog.Level

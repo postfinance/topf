@@ -8,7 +8,6 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--confirm` | `true` | Ask for user confirmation before upgrading |
 | `--dry-run` | `false` | Only show what upgrades would be performed without actually upgrading |
 | `--force` | `false` | Force the upgrade (skip checks on etcd health and members, might lead to data loss) |
 | `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
@@ -18,7 +17,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 1. **Pre-flight checks**: Ensures all nodes are in the `Running` stage
 2. **Version comparison**: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state
-3. **Per-node confirmation**: Before each upgrade (unless `--confirm=false`)
+3. **Per-node confirmation**: Before each upgrade (unless `--confirm=false`, see [global flags](../configuration.md#global-flags))
 4. **Upgrade**: Issues the upgrade command with the selected reboot mode (default: kexec)
 5. **Stabilization**: Waits 30 seconds after upgrade for the node to stabilize
 
