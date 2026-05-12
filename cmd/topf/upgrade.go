@@ -22,7 +22,6 @@ func newUpgradeCmd() *cli.Command {
 		Usage:       "upgrades talos on each node to the desired version",
 		Description: `Issues upgrade commands to each node to upgrade Talos to the desired version specified in the installer image.`,
 		Flags: []cli.Flag{
-			confirmFlag(),
 			&cli.BoolFlag{
 				Name:    "dry-run",
 				Usage:   "only show what upgrades would be performed without actually upgrading",
@@ -52,7 +51,6 @@ func newUpgradeCmd() *cli.Command {
 			}
 
 			return upgrade.Execute(ctx, t, upgrade.Options{
-				Confirm:    c.Bool("confirm"),
 				DryRun:     c.Bool("dry-run"),
 				Force:      c.Bool("force"),
 				RebootMode: rebootMode,

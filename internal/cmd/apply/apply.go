@@ -19,8 +19,6 @@ import (
 
 // Options contains the options for the apply execution
 type Options struct {
-	// Ask for user input before applying
-	Confirm bool
 	// Only show what changes would be applied without actually applying them
 	DryRun bool
 	// Automatically bootstrap etcd
@@ -125,7 +123,7 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
-		applied, err := node.Apply(ctx, logger, opts.Confirm, opts.DryRun, opts.Mode)
+		applied, err := node.Apply(ctx, logger, opts.DryRun, opts.Mode)
 		if errors.Is(err, topf.ErrDryRunChangesDetected) {
 			changesDetected = true
 			continue

@@ -19,10 +19,10 @@ The `apply` command is the primary way to apply configuration changes to a runni
 4. **Apply Configurations** (for each healthy node):
    - Dry-run apply to check for changes
    - If changes detected in `--dry-run` mode: print diff and **exit with code 2**
-   - If changes detected in normal mode:
-     - Show diff (if `--confirm` enabled)
-     - Ask for confirmation (if `--confirm` enabled)
-     - Apply configuration
+    - If changes detected in normal mode:
+      - Show diff (if `--confirm` enabled, see [global flags](../configuration.md#global-flags))
+      - Ask for confirmation (if `--confirm` enabled)
+      - Apply configuration
    - If config applied AND not `--skip-post-apply-checks`: Stabilize (wait 30s for node to be ready)
 
 5. **Bootstrap** (if `--auto-bootstrap` enabled):
@@ -36,7 +36,6 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 | Flag                       | Default | Description                                                        |
 | -------------------------- | ------- | ------------------------------------------------------------------ |
-| `--confirm`                | `true`  | Ask for confirmation before applying changes to each node          |
 | `--dry-run`                | `false` | Only show changes without actually applying them                   |
 | `--mode`                   | `auto`  | Apply mode: `auto`, `reboot`, `no-reboot`, `staged`, `try`        |
 | `--auto-bootstrap`         | `false` | Automatically bootstrap ETCD after applying configurations         |

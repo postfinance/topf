@@ -21,7 +21,7 @@ var ErrDryRunChangesDetected = errors.New("dry-run: changes detected")
 
 // Apply applies the configuration bundle to the node.
 // If dryRun is true, only shows what changes would be applied without actually applying them.
-func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
+func (n *Node) Apply(ctx context.Context, logger *slog.Logger, dryRun bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
 	logger = logger.With(n.Attrs())
 
 	if n.ConfigBundle == nil {
@@ -71,7 +71,7 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, confirm, dryRun b
 	}
 
 	// ask for user confirmation
-	if confirm {
+	if n.t.Confirm() {
 		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
 
 		if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to apply the above changes to %s (Mode: %s)?", n.Node.Host, applyResponse.GetMode().String())) == 'n' {

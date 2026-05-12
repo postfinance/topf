@@ -24,7 +24,6 @@ func newApplyCmd() *cli.Command {
 		Usage:       "apply configuration changes to a running cluster",
 		Description: `This command applies configuration changes to nodes in a running Talos cluster.`,
 		Flags: []cli.Flag{
-			confirmFlag(),
 			&cli.BoolFlag{
 				Name:    "dry-run",
 				Usage:   "only show what changes would be applied without actually applying them",
@@ -72,7 +71,6 @@ func newApplyCmd() *cli.Command {
 			}
 
 			err = apply.Execute(ctx, t, apply.Options{
-				Confirm:              c.Bool("confirm"),
 				DryRun:               c.Bool("dry-run"),
 				AutoBootstrap:        c.Bool("auto-bootstrap"),
 				SkipProblematicNodes: c.Bool("skip-problematic-nodes"),

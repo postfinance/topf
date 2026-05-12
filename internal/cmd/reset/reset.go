@@ -18,8 +18,6 @@ import (
 
 // Options contains the options for the reset execution
 type Options struct {
-	// Ask for user input before resetting
-	Confirm bool
 	// Whether to perform a full wipe of the installation disk. If false, only
 	// STATE and EPHEMERAL partitions are wiped.
 	Full               bool
@@ -85,7 +83,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 
 		// ask for user confirmation
-		if opts.Confirm {
+		if t.Confirm() {
 			message := fmt.Sprintf("Do you want to reset %s ?", n.Node.Host)
 			if interactive.ConfirmPrompt(message) == 'n' {
 				logger.Info("skipping")
