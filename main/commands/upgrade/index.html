@@ -1106,11 +1106,6 @@
 </thead>
 <tbody>
 <tr>
-<td><code>--confirm</code></td>
-<td><code>true</code></td>
-<td>Ask for user confirmation before upgrading</td>
-</tr>
-<tr>
 <td><code>--dry-run</code></td>
 <td><code>false</code></td>
 <td>Only show what upgrades would be performed without actually upgrading</td>
@@ -1136,7 +1131,7 @@
 <ol>
 <li><strong>Pre-flight checks</strong>: Ensures all nodes are in the <code>Running</code> stage</li>
 <li><strong>Version comparison</strong>: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state</li>
-<li><strong>Per-node confirmation</strong>: Before each upgrade (unless <code>--confirm=false</code>)</li>
+<li><strong>Per-node confirmation</strong>: Before each upgrade (unless <code>--confirm=false</code>, see <a href="../../configuration/#global-flags">global flags</a>)</li>
 <li><strong>Upgrade</strong>: Issues the upgrade command with the selected reboot mode (default: kexec)</li>
 <li><strong>Stabilization</strong>: Waits 30 seconds after upgrade for the node to stabilize</li>
 </ol>

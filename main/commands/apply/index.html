@@ -1085,11 +1085,13 @@
 <p><strong>Apply Configurations</strong> (for each healthy node):</p>
 <ul>
 <li>Dry-run apply to check for changes</li>
-<li>If changes detected in <code>--dry-run</code> mode: print diff and <strong>exit with code 2</strong></li>
+<li>If changes detected in <code>--dry-run</code> mode: print diff and <strong>exit with code 2</strong><ul>
 <li>If changes detected in normal mode:<ul>
-<li>Show diff (if <code>--confirm</code> enabled)</li>
+<li>Show diff (if <code>--confirm</code> enabled, see <a href="../../configuration/#global-flags">global flags</a>)</li>
 <li>Ask for confirmation (if <code>--confirm</code> enabled)</li>
 <li>Apply configuration</li>
+</ul>
+</li>
 </ul>
 </li>
 <li>If config applied AND not <code>--skip-post-apply-checks</code>: Stabilize (wait 30s for node to be ready)</li>
@@ -1115,11 +1117,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><code>--confirm</code></td>
-<td><code>true</code></td>
-<td>Ask for confirmation before applying changes to each node</td>
-</tr>
 <tr>
 <td><code>--dry-run</code></td>
 <td><code>false</code></td>
