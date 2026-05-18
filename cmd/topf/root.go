@@ -69,6 +69,7 @@ func main() {
 				LogLevel:         c.String("log-level"),
 				Redact:           c.Bool("redact"),
 				Confirm:          c.Bool("confirm"),
+				TopfVersion:      version,
 			})
 			if err != nil {
 				return ctx, err
