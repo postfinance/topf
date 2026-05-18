@@ -118,7 +118,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 		ConfigDir:         t.configDir,
 	}
 
-	resolvedSchematic, err := t.resolver.Resolve(ctx, cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory), patchContext.SchematicID, patchContext)
+	resolvedSchematic, err := t.resolver.Resolve(ctx, patchContext.SchematicID, patchContext)
 	if err != nil {
 		return fmt.Errorf("failed to resolve schematic ID: %w", err)
 	}

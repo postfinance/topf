@@ -5,13 +5,10 @@ package schematic
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/postfinance/topf/pkg/config"
@@ -39,7 +36,7 @@ func TestResolve_DefaultSchematicOnFactory(t *testing.T) {
 
 	r := NewResolver(tmpDir, "test")
 
-	got, err := r.Resolve(context.Background(), "factory.talos.dev", "@schematic.yaml", nil)
+	got, err := r.Resolve(context.Background(), "@schematic.yaml", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +50,7 @@ func TestResolve_DefaultSchematicOnFactory(t *testing.T) {
 func TestResolve_PlainID(t *testing.T) {
 	r := NewResolver(".", "test")
 
-	got, err := r.Resolve(context.Background(), "factory.talos.dev", "SOME_PLAIN_ID", nil)
+	got, err := r.Resolve(context.Background(), "SOME_PLAIN_ID", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,7 +72,7 @@ func TestResolve_AtPrefixedFile(t *testing.T) {
 
 	r := NewResolver(tmpDir, "test")
 
-	got, err := r.Resolve(context.Background(), "factory.talos.dev", "@schematic.yaml", nil)
+	got, err := r.Resolve(context.Background(), "@schematic.yaml", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -107,7 +104,7 @@ func TestResolve_TemplateFile(t *testing.T) {
 
 	r := NewResolver(tmpDir, "test")
 
-	got, err := r.Resolve(context.Background(), "factory.talos.dev", "@schematic.yaml.tpl", tmplData)
+	got, err := r.Resolve(context.Background(), "@schematic.yaml.tpl", tmplData)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -117,45 +114,10 @@ func TestResolve_TemplateFile(t *testing.T) {
 	}
 }
 
-func TestResolve_CachedResult(t *testing.T) {
-	var requests atomic.Int32
-
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests.Add(1)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
-	}))
-	defer srv.Close()
-
-	dir := t.TempDir()
-	r := NewResolver(dir, "test", WithClient(srv.Client()))
-
-	content := "customization: {}"
-	writeSchematicFile(t, dir, "schematic.yaml", content)
-
-	got1, err := r.Resolve(context.Background(), testFactory(srv), "@schematic.yaml", nil)
-	if err != nil {
-		t.Fatalf("first call: unexpected error: %v", err)
-	}
-
-	got2, err := r.Resolve(context.Background(), testFactory(srv), "@schematic.yaml", nil)
-	if err != nil {
-		t.Fatalf("second call: unexpected error: %v", err)
-	}
-
-	if got1 != got2 {
-		t.Errorf("expected same ID for same content (cache hit), got %s and %s", got1, got2)
-	}
-
-	if requests.Load() != 1 {
-		t.Errorf("expected 1 server request (cache hit on second call), got %d", requests.Load())
-	}
-}
-
 func TestResolve_FileNotFound(t *testing.T) {
 	r := NewResolver(".", "test")
 
-	_, err := r.Resolve(context.Background(), "factory.talos.dev", "@nonexistent.yaml", nil)
+	_, err := r.Resolve(context.Background(), "@nonexistent.yaml", nil)
 	if err == nil {
 		t.Fatal("expected error for missing file")
 	}
