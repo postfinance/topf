@@ -59,7 +59,7 @@ nodes:
 | `factory`           | No       | `factory.talos.dev` | Talos image factory address. Can be overridden per node |
 | `platform`          | No       | `metal` | Talos platform identifier (e.g. `metal`, `aws`, `gcp`). Can be overridden per node |
 | `secureboot`        | No       | `false` | Use the secure boot installer variant (`<platform>-installer-secureboot`). Can be overridden per node |
-| `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
+| `configDir`         | No       | `.`     | Directory containing secrets.yaml, patch files and node-specific configs                 |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |
 | `data`              | No       | -       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) |

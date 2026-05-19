@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/postfinance/topf/internal/sops"
 )
 
 // NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes secrets.yaml files with optional SOPS support
-func NewFilesystemSecretsProvider() SecretsProvider {
+func NewFilesystemSecretsProvider(configDir string) SecretsProvider {
 	path := "secrets.yaml"
 
 	return &filesystemSecrets{
-		path: path,
+		path: filepath.Join(configDir, path),
 	}
 }
 
