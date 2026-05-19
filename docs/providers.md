@@ -56,7 +56,7 @@ The secrets provider manages the Talos secrets bundle (`secrets.yaml`) which con
 
 ### Default Behavior (no provider)
 
-Without a `secretsProvider`, TOPF reads from and writes to a local `secrets.yaml` file. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext.
+Without a `secretsProvider`, TOPF reads from and writes to a local `secrets.yaml` file (stored in `configDir`). It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext.
 
 ### Binary Contract
 

@@ -124,5 +124,5 @@ func (t *TopfConfig) GetSecretsProvider() providers.SecretsProvider {
 		return providers.NewBinarySecretsProvider(t.SecretsProvider)
 	}
 
-	return providers.NewFilesystemSecretsProvider()
+	return providers.NewFilesystemSecretsProvider(t.ConfigDir)
 }
