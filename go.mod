@@ -1,11 +1,12 @@
 module github.com/postfinance/topf
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/cosi-project/runtime v1.15.0
 	github.com/jedib0t/go-pretty/v6 v6.7.10
 	github.com/siderolabs/go-retry v0.3.3
+	github.com/siderolabs/image-factory v1.3.1
 	github.com/siderolabs/talos/pkg/machinery v1.13.0
 	github.com/urfave/cli/v3 v3.8.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
@@ -13,15 +14,10 @@ require (
 )
 
 require (
-	github.com/go-openapi/jsonreference v0.21.5 // indirect
+	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/siderolabs/image-factory v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
-	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/tools v0.44.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260304202019-5b3e3fdb0acf // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
