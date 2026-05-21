@@ -1186,7 +1186,7 @@
 <h2 id="secrets-provider">Secrets Provider</h2>
 <p>The secrets provider manages the Talos secrets bundle (<code>secrets.yaml</code>) which contains cluster certificates, keys, and tokens.</p>
 <h3 id="default-behavior-no-provider">Default Behavior (no provider)</h3>
-<p>Without a <code>secretsProvider</code>, TOPF reads from and writes to a local <code>secrets.yaml</code> file. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext.</p>
+<p>Without a <code>secretsProvider</code>, TOPF reads from and writes to a local <code>secrets.yaml</code> file. The location defaults to <code>secrets.yaml</code> next to the config file and can be overridden with <code>secretsPath</code>. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext.</p>
 <h3 id="binary-contract_1">Binary Contract</h3>
 <p>When <code>secretsProvider</code> is set, the binary is invoked with two subcommands:</p>
 <p><strong>Get secrets:</strong></p>
