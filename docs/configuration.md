@@ -19,8 +19,12 @@ schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 # platform: metal
 # secureboot: false
 
-# Optional: Directory containing patches (default: ".")
-configDir: .
+# Optional: Directory containing patches (default: same directory as topf.yaml)
+# patchesDir: .
+
+# Optional: Path to secrets.yaml (default: <dir of topf.yaml>/secrets.yaml)
+# Relative paths are resolved against the directory containing topf.yaml.
+# secretsPath: secrets.yaml
 
 # Optional: Provider binaries for dynamic configuration
 secretsProvider: /path/to/secrets-provider
@@ -59,7 +63,8 @@ nodes:
 | `factory`           | No       | `factory.talos.dev` | Talos image factory address. Can be overridden per node |
 | `platform`          | No       | `metal` | Talos platform identifier (e.g. `metal`, `aws`, `gcp`). Can be overridden per node |
 | `secureboot`        | No       | `false` | Use the secure boot installer variant (`<platform>-installer-secureboot`). Can be overridden per node |
-| `configDir`         | No       | `.`     | Directory containing patch files and node-specific configs                               |
+| `patchesDir`        | No       | directory of topf.yaml | Directory containing patch files and node-specific configurations. Relative paths are resolved against the directory containing topf.yaml |
+| `secretsPath`       | No       | `<dir of topf.yaml>/secrets.yaml` | Path to secrets.yaml. Relative paths are resolved against the directory containing topf.yaml |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |
 | `data`              | No       | -       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) |

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,26 +29,20 @@ type PatchContext struct {
 	SchematicID       string
 	Data              map[string]any
 	Node              *Node
-	ConfigDir         string
+	PatchesDir        string
 }
 
 // Load loads all patches applicable for the node This includes general patches,
 // role (worker/control-plane) specific patches and node specific patches in
 // that order. It also returns any secrets discovered from SOPS-encrypted patch files.
 func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, err error) {
-	// warn about legacy patches/ directory
-	oldDir := filepath.Join(p.ConfigDir, "patches")
-	if info, statErr := os.Stat(oldDir); statErr == nil && info.IsDir() {
-		slog.Warn("legacy patches/ directory found, rename it to all/", "path", oldDir)
-	}
-
-	patches, secrets, err = p.loadFolder(filepath.Join(p.ConfigDir, "all"))
+	patches, secrets, err = p.loadFolder(filepath.Join(p.PatchesDir, "all"))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// patches relating to role of node, control-plane or worker
-	rolePatches, roleSecrets, err := p.loadFolder(filepath.Join(p.ConfigDir, string(p.Node.Role)))
+	rolePatches, roleSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, string(p.Node.Role)))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -58,7 +51,7 @@ func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, 
 	secrets = append(secrets, roleSecrets...)
 
 	// patches relating to single specific node
-	nodePatches, nodeSecrets, err := p.loadFolder(filepath.Join(p.ConfigDir, "node", p.Node.Host))
+	nodePatches, nodeSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, "node", p.Node.Host))
 	if err != nil {
 		return nil, nil, err
 	}

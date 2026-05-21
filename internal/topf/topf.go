@@ -75,15 +75,15 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		return nil, err
 	}
 
-	// Validate configDir exists and is a directory
-	if stat, err := os.Stat(topfConfig.ConfigDir); err != nil {
+	// Validate patchesDir exists and is a directory
+	if stat, err := os.Stat(topfConfig.PatchesDir); err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("config directory does not exist: %s", topfConfig.ConfigDir)
+			return nil, fmt.Errorf("patches directory does not exist: %s", topfConfig.PatchesDir)
 		}
 
-		return nil, fmt.Errorf("failed to access config directory: %w", err)
+		return nil, fmt.Errorf("failed to access patches directory: %w", err)
 	} else if !stat.IsDir() {
-		return nil, fmt.Errorf("config path is not a directory: %s", topfConfig.ConfigDir)
+		return nil, fmt.Errorf("patches path is not a directory: %s", topfConfig.PatchesDir)
 	}
 
 	// Parse log level
@@ -106,7 +106,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 
 	return &topf{
 		TopfConfig:   topfConfig,
-		configDir:    topfConfig.ConfigDir,
+		patchesDir:   topfConfig.PatchesDir,
 		logger:       logger,
 		maskedWriter: mw,
 		confirm:      cfg.Confirm,
@@ -117,7 +117,7 @@ type topf struct {
 	*config.TopfConfig
 	mu sync.Mutex
 
-	configDir     string
+	patchesDir    string
 	secretsBundle *secrets.Bundle
 	logger        *slog.Logger
 	maskedWriter  *maskedwriter.Writer

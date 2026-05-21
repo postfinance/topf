@@ -12,12 +12,11 @@ import (
 	"github.com/postfinance/topf/internal/sops"
 )
 
-// NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes secrets.yaml files with optional SOPS support
-func NewFilesystemSecretsProvider() SecretsProvider {
-	path := "secrets.yaml"
-
+// NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes
+// secrets.yaml at the given path with optional SOPS support.
+func NewFilesystemSecretsProvider(secretsPath string) SecretsProvider {
 	return &filesystemSecrets{
-		path: path,
+		path: secretsPath,
 	}
 }
 
