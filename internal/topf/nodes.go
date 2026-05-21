@@ -113,7 +113,7 @@ func (t *topf) generateNodeConfig(node *Node) error {
 		SchematicID:       t.Config().SchematicID,
 		Node:              node.Node,
 		Data:              t.Config().Data,
-		ConfigDir:         t.configDir,
+		PatchesDir:        t.patchesDir,
 	}
 
 	patches, patchSecrets, err := patchContext.Load()
