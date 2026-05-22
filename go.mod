@@ -7,7 +7,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.7.10
 	github.com/siderolabs/go-retry v0.3.3
 	github.com/siderolabs/image-factory v1.3.1
-	github.com/siderolabs/talos/pkg/machinery v1.13.0
+	github.com/siderolabs/talos/pkg/machinery v1.13.2
 	github.com/urfave/cli/v3 v3.8.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	gopkg.in/yaml.v3 v3.0.1
@@ -77,7 +77,7 @@ require (
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
