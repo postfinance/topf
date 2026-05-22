@@ -15,7 +15,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/postfinance/topf/internal/sops"
+	"github.com/postfinance/topf/internal/decryption"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"gopkg.in/yaml.v3"
 )
@@ -175,7 +175,7 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 			return nil, nil, err
 		}
 	} else {
-		content, secrets, err = sops.ReadFileWithSOPS(filename)
+		content, secrets, err = decryption.ReadFile(filename)
 		if err != nil {
 			return nil, nil, err
 		}
