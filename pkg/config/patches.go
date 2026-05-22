@@ -179,10 +179,6 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-
-		if content == nil {
-			return nil, nil, fmt.Errorf("patch file not found: %s", filename)
-		}
 	}
 
 	return content, secrets, nil

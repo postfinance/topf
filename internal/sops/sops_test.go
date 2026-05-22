@@ -8,110 +8,74 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 )
 
-func TestCollectEncryptedPaths(t *testing.T) {
-	data := map[string]any{
-		"plain":  "hello",
-		"secret": "ENC[AES256_GCM,data:abc,type:str]",
-		"nested": map[string]any{
-			"deep":   "ENC[AES256_GCM,data:xyz,type:str]",
-			"normal": "world",
-		},
-		"list": []any{
-			"normal",
-			"ENC[AES256_GCM,data:123,type:str]",
-			map[string]any{
-				"inner": "ENC[AES256_GCM,data:456,type:str]",
-			},
-		},
-		"empty":   "",
-		"numeric": 42,
-		"nil_val": nil,
+func TestIsEncrypted(t *testing.T) {
+	out, err := exec.Command("age-keygen").CombinedOutput()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var paths [][]any
-	collectEncryptedPaths(data, nil, &paths)
-
-	got := make([]string, len(paths))
-	for i, p := range paths {
-		parts := make([]string, len(p))
-		for j, seg := range p {
-			parts[j] = fmt.Sprintf("%v", seg)
+	var publicKey, secretKey string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "# public key: ") {
+			publicKey = strings.TrimPrefix(line, "# public key: ")
 		}
-		got[i] = strings.Join(parts, ".")
-	}
-	sort.Strings(got)
-
-	want := []string{
-		"list.1",
-		"list.2.inner",
-		"nested.deep",
-		"secret",
-	}
-
-	if len(got) != len(want) {
-		t.Fatalf("expected %d paths, got %d: %v", len(want), len(got), got)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("path[%d]: want %q, got %q", i, want[i], got[i])
+		if strings.HasPrefix(line, "AGE-SECRET-KEY-") {
+			secretKey = strings.TrimSpace(line)
 		}
 	}
+	t.Setenv("SOPS_AGE_KEY", secretKey)
+
+	t.Run("plaintext file returns false", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "plain.yaml")
+		if err := os.WriteFile(path, []byte("foo: bar\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		encrypted, err := IsEncrypted(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if encrypted {
+			t.Error("plaintext file should not be detected as encrypted")
+		}
+	})
+
+	t.Run("encrypted file returns true", func(t *testing.T) {
+		dir := t.TempDir()
+
+		sopsConfig := fmt.Sprintf("creation_rules:\n  - age: %s\n", publicKey)
+		if err := os.WriteFile(filepath.Join(dir, ".sops.yaml"), []byte(sopsConfig), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		content := "secret: myvalue\n"
+		path := filepath.Join(dir, "secrets.yaml")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		configPath := filepath.Join(dir, ".sops.yaml")
+		cmd := exec.Command("sops", "--config", configPath, "encrypt", "--in-place", path)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("sops encrypt: %s: %s", err, out)
+		}
+
+		encrypted, err := IsEncrypted(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !encrypted {
+			t.Error("encrypted file should be detected as encrypted")
+		}
+	})
 }
 
-func TestResolvePath(t *testing.T) {
-	data := map[string]any{
-		"a": map[string]any{
-			"b": "deep-value",
-		},
-		"list": []any{
-			"first",
-			map[string]any{"key": "nested-in-list"},
-		},
-		"top": "top-value",
-	}
-
-	tests := []struct {
-		name   string
-		path   []any
-		want   any
-		wantOk bool
-	}{
-		{"nested map", []any{"a", "b"}, "deep-value", true},
-		{"top level", []any{"top"}, "top-value", true},
-		{"list index", []any{"list", 0}, "first", true},
-		{"list nested map", []any{"list", 1, "key"}, "nested-in-list", true},
-		{"missing key", []any{"nonexistent"}, nil, false},
-		{"index on map", []any{"a", 0}, nil, false},
-		{"key on list", []any{"list", "nope"}, nil, false},
-		{"index out of bounds", []any{"list", 99}, nil, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := resolvePath(data, tt.path)
-			if ok != tt.wantOk {
-				t.Fatalf("ok = %v, want %v", ok, tt.wantOk)
-			}
-			if ok && got != tt.want {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestReadFileWithSOPS(t *testing.T) {
-	if _, err := exec.LookPath("sops"); err != nil {
-		t.Skip("sops not in PATH")
-	}
-	if _, err := exec.LookPath("age-keygen"); err != nil {
-		t.Skip("age-keygen not in PATH")
-	}
-
+func TestDecrypt(t *testing.T) {
 	out, err := exec.Command("age-keygen").CombinedOutput()
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +135,7 @@ certs:
 			t.Fatalf("sops encrypt: %s: %s", err, out)
 		}
 
-		content, secrets, err := ReadFileWithSOPS(secretsPath)
+		content, secrets, err := Decrypt(secretsPath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -239,7 +203,7 @@ nodes:
 			t.Fatalf("sops encrypt: %s: %s", err, out)
 		}
 
-		content, secrets, err := ReadFileWithSOPS(topfPath)
+		content, secrets, err := Decrypt(topfPath)
 		if err != nil {
 			t.Fatal(err)
 		}
