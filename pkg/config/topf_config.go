@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/postfinance/topf/internal/sops"
+	"github.com/postfinance/topf/internal/decryption"
 	"github.com/postfinance/topf/pkg/providers"
 	"go.yaml.in/yaml/v4"
 )
@@ -65,7 +65,7 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, sec
 	// Read file with automatic SOPS decryption if needed
 	var content []byte
 
-	content, secrets, err = sops.ReadFileWithSOPS(path)
+	content, secrets, err = decryption.ReadFile(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/postfinance/topf/internal/sops"
+	"github.com/postfinance/topf/internal/decryption"
 )
 
 // NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes
@@ -25,7 +25,7 @@ type filesystemSecrets struct {
 }
 
 func (s *filesystemSecrets) Get(_ string) ([]byte, error) {
-	content, _, err := sops.ReadFileWithSOPS(s.path)
+	content, _, err := decryption.ReadFile(s.path)
 	return content, err
 }
 
