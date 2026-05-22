@@ -70,10 +70,6 @@ func LoadFromFile(path string, nodesRegexFilter string) (config *TopfConfig, sec
 		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if content == nil {
-		return nil, nil, fmt.Errorf("config file not found: %s", path)
-	}
-
 	config = &TopfConfig{}
 
 	err = yaml.Unmarshal(content, config)

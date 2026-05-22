@@ -32,5 +32,12 @@ jobs:
           curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz" | tar xz
           sudo mv age/age age/age-keygen /usr/local/bin/
           age --version
+      - name: Install vals
+        env:
+          VALS_VERSION: "0.44.0"
+        run: |
+          curl -fsSL "https://github.com/helmfile/vals/releases/download/v${VALS_VERSION}/vals_${VALS_VERSION}_linux_amd64.tar.gz" | tar xz vals
+          sudo mv vals /usr/local/bin/
+          vals version
       - name: Run tests
         run: go test -v -race ./...

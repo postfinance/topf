@@ -4,22 +4,21 @@
 package decryption
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestReadFile(t *testing.T) {
-	t.Run("non-existent file returns nil", func(t *testing.T) {
-		content, secrets, err := ReadFile("/nonexistent/path/file.yaml")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+	t.Run("non-existent file returns fs.ErrNotExist", func(t *testing.T) {
+		_, _, err := ReadFile("/nonexistent/path/file.yaml")
+		if err == nil {
+			t.Fatal("expected error, got nil")
 		}
-		if content != nil {
-			t.Errorf("expected nil content, got %s", content)
-		}
-		if secrets != nil {
-			t.Errorf("expected nil secrets, got %v", secrets)
+		if !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("expected fs.ErrNotExist, got: %v", err)
 		}
 	})
 
