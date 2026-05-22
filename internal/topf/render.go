@@ -39,15 +39,25 @@ func (t *topf) Render(ctx context.Context, online bool) ([]*Node, error) {
 		wg.Wait()
 	}
 
+	var wg sync.WaitGroup
+
 	for _, node := range nodes {
 		if node.Error != nil {
 			continue
 		}
 
-		if err := t.generateNodeConfig(ctx, node); err != nil {
-			node.Error = err
-		}
+		wg.Add(1)
+
+		go func(node *Node) {
+			defer wg.Done()
+
+			if err := t.generateNodeConfig(ctx, node); err != nil {
+				node.Error = err
+			}
+		}(node)
 	}
+
+	wg.Wait()
 
 	return nodes, nil
 }
