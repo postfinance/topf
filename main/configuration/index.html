@@ -415,6 +415,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schematic-reference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schematic Reference Resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#global-flags" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1022,6 +1033,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schematic-reference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schematic Reference Resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#global-flags" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1167,7 +1189,7 @@
 <td><code>schematicId</code></td>
 <td>No</td>
 <td>default (no extensions)</td>
-<td>Talos image factory schematic ID used in the auto-generated <code>machine.install.image</code> patch. Can be overridden per node</td>
+<td>Talos image factory schematic ID. Can be a hash string or an <code>@</code>-prefixed path to a schematic file (see <a href="#schematic-reference-resolution">Schematic reference resolution</a>). Can be overridden per node</td>
 </tr>
 <tr>
 <td><code>factory</code></td>
@@ -1259,7 +1281,7 @@
 <tr>
 <td><code>schematicId</code></td>
 <td>No</td>
-<td>Overrides the cluster-level <code>schematicId</code> for this node</td>
+<td>Overrides the cluster-level <code>schematicId</code> for this node. Supports <code>@</code>-prefixed paths</td>
 </tr>
 <tr>
 <td><code>factory</code></td>
@@ -1280,6 +1302,65 @@
 <td><code>data</code></td>
 <td>No</td>
 <td>Arbitrary key-value data for use in <a href="../configuration-model/#templating">patch templates</a> via <code>.Node.Data.&lt;key&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="schematic-reference-resolution">Schematic Reference Resolution</h2>
+<p>Instead of hard-coding a schematic ID hash, you can reference a schematic definition file using the <code>@</code> prefix:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">schematicId</span><span class="p">:</span><span class="w"> </span><span class="err">@</span><span class="l l-Scalar l-Scalar-Plain">schematic.yaml</span>
+</code></pre></div>
+<p>Topf will:</p>
+<ol>
+<li>Read the file (relative to <code>configDir</code>)</li>
+<li>If the path ends in <code>.tpl</code>, render it through Go templates with the same data available as <a href="../configuration-model/#templating">patch templates</a></li>
+<li>Compute the schematic ID locally from the canonical YAML representation</li>
+<li>Use the schematic ID for config generation and installer image URLs</li>
+</ol>
+<p>This allows you to define your extensions declaratively:</p>
+<p><code>topf.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">schematicId</span><span class="p">:</span><span class="w"> </span><span class="err">@</span><span class="l l-Scalar l-Scalar-Plain">schematic.yaml</span>
+</code></pre></div>
+<p><code>schematic.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">customization</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">systemExtensions</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">officialExtensions</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">siderolabs/qemu-guest-agent</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">siderolabs/nvidia-container-toolkit</span>
+</code></pre></div>
+<p>For templated schematics (<code>.yaml.tpl</code>), the full <a href="../configuration-model/#templating">patch context</a> is available:</p>
+<p><code>schematic.yaml.tpl</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">customization</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">systemExtensions</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">officialExtensions</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">siderolabs/qemu-guest-agent</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="p p-Indicator">{{</span><span class="nv">- if eq .Node.Role &quot;worker&quot;</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">siderolabs/nvidia-container-toolkit</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+</code></pre></div>
+<p>By default, schematic IDs are computed locally without network calls. This works for any schematic that has already been registered with the image factory, since the ID is a deterministic hash of the canonical YAML.</p>
+<p>For <strong>new</strong> schematics that the factory has never seen, you must use <code>--submit-to-factory</code> to register them — the factory cannot build images for an ID it doesn't know about. After the initial submission, local computation works for subsequent runs.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can check whether a schematic is already known to the factory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>https://factory.talos.dev/schematics/&lt;id&gt;
+</code></pre></div>
+<p>Returns the schematic YAML if found, or <code>schematic not found</code> if unknown.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Environment Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--submit-to-factory</code></td>
+<td><code>TOPF_SUBMIT_TO_FACTORY</code></td>
+<td><code>false</code></td>
+<td>Submit schematics to the image factory API (default: compute IDs locally)</td>
 </tr>
 </tbody>
 </table>
@@ -1325,25 +1406,31 @@
 <td><code>true</code></td>
 <td>Redact secrets and certificates from output</td>
 </tr>
+<tr>
+<td><code>--submit-to-factory</code></td>
+<td><code>TOPF_SUBMIT_TO_FACTORY</code></td>
+<td><code>false</code></td>
+<td>Submit schematics to the image factory API (default: compute IDs locally)</td>
+</tr>
 </tbody>
 </table>
 <h3 id="filtering-nodes">Filtering Nodes</h3>
 <p>The <code>--nodes-filter</code> flag accepts a <strong>Go regular expression</strong> and applies to all commands. Only nodes whose <code>host</code> matches the pattern will be targeted. This is useful for operating on a subset of your cluster.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Target a single node</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>topf<span class="w"> </span>apply<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node1&quot;</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Target nodes 1 through 3</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>topf<span class="w"> </span>apply<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node[1-3]&quot;</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Target all control plane nodes by naming convention</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>topf<span class="w"> </span>reset<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;cp-.*&quot;</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Target a specific FQDN</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node1.company.tld&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Target a single node</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>topf<span class="w"> </span>apply<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node1&quot;</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Target nodes 1 through 3</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>topf<span class="w"> </span>apply<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node[1-3]&quot;</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Target all control plane nodes by naming convention</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>topf<span class="w"> </span>reset<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;cp-.*&quot;</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Target a specific FQDN</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;node1.company.tld&quot;</span>
 </code></pre></div>
 <p>The filter can also be set via the <code>TOPF_NODES_FILTER</code> environment variable:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TOPF_NODES_FILTER</span><span class="o">=</span><span class="s2">&quot;node[1-3]&quot;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>topf<span class="w"> </span>apply
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TOPF_NODES_FILTER</span><span class="o">=</span><span class="s2">&quot;node[1-3]&quot;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>topf<span class="w"> </span>apply
 </code></pre></div>
 <h3 id="redacting-sensitive-output">Redacting Sensitive Output</h3>
 <p>When <code>--redact</code> is enabled (the default), topf replaces secrets and certificate data with <code>*** redacted ***</code> in any command output. The following values are redacted:</p>
@@ -1352,7 +1439,7 @@
 <li><strong>SOPS-encrypted values</strong>: any value that was encrypted with SOPS in <code>topf.yaml</code> or in patch files is decrypted internally and its plaintext is redacted from output</li>
 </ul>
 <p>Disable it only when you need to inspect the raw diff for debugging:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>topf<span class="w"> </span>apply<span class="w"> </span>--dry-run<span class="w"> </span>--redact<span class="o">=</span><span class="nb">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>topf<span class="w"> </span>apply<span class="w"> </span>--dry-run<span class="w"> </span>--redact<span class="o">=</span><span class="nb">false</span>
 </code></pre></div>
 
 
