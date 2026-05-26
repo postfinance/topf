@@ -421,6 +421,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quickstart" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1071,6 +1082,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quickstart" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1141,6 +1163,26 @@
 <h3 id="container-image">Container Image</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>pull<span class="w"> </span>ghcr.io/postfinance/topf
 </code></pre></div>
+<h2 id="optional-dependencies">Optional Dependencies</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/getsops/sops">SOPS</a> + <a href="https://github.com/FiloSottile/age">age</a></td>
+<td>Decrypt SOPS-encrypted config and patch files</td>
+</tr>
+<tr>
+<td><a href="https://github.com/helmfile/vals">vals</a></td>
+<td>Resolve vals references (<code>ref+&lt;provider&gt;://</code>) in config and patches</td>
+</tr>
+</tbody>
+</table>
+<p>These are only needed if your configuration uses SOPS encryption or vals references. Without them, plaintext configs work normally.</p>
 <h2 id="quickstart">Quickstart</h2>
 <p>Boot at least one Talos machine to maintenance mode.</p>
 <p>Create a new folder for you cluster with a <code>topf.yaml</code> file:</p>
@@ -1163,11 +1205,12 @@
 <div class="admonition info">
 <p class="admonition-title">Obtaining the schematic ID</p>
 <p>The long hash in the installer URL (<code>376567988a...</code>) is a <strong>schematic ID</strong> — a content-addressable
-hash of your extensions and overlay configuration. TOPF does not resolve extensions to schematic IDs;
-you must obtain the ID yourself.</p>
-<p>Use the <a href="https://factory.talos.dev">Image Factory UI</a> to select your desired system extensions and
-generate the schematic ID, or see the <a href="https://www.talos.dev/v1.12/learn-more/image-factory/">Talos Image Factory docs</a>
-for the full API reference. For details on how this image is used during upgrades, see <a href="../commands/upgrade/#installer-image">Installer Image</a>.</p>
+hash of your extensions and overlay configuration. You can either:</p>
+<ul>
+<li>Use the <a href="https://factory.talos.dev">Image Factory UI</a> to select extensions and copy the ID, or</li>
+<li>Reference a schematic file using the <code>@</code> prefix (see <a href="../configuration/#schematic-reference-resolution">Schematic reference resolution</a>): <code>schematicId: @schematic.yaml</code></li>
+</ul>
+<p>For details on how this image is used during upgrades, see <a href="../commands/upgrade/#installer-image">Installer Image</a>.</p>
 </div>
 <p>Then run <code>topf apply --auto-bootstrap</code> to provision the cluster.</p>
 <p>Once finished use <code>topf kubeconfig</code> to create an admin kubeconfig for the cluster and use <code>topf talosconfig</code> to create a valid talosconfig.</p>

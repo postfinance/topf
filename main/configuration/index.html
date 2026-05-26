@@ -1311,7 +1311,7 @@
 </code></pre></div>
 <p>Topf will:</p>
 <ol>
-<li>Read the file (relative to <code>configDir</code>)</li>
+<li>Read the file (relative to the directory containing <code>topf.yaml</code>)</li>
 <li>If the path ends in <code>.tpl</code>, render it through Go templates with the same data available as <a href="../configuration-model/#templating">patch templates</a></li>
 <li>Compute the schematic ID locally from the canonical YAML representation</li>
 <li>Use the schematic ID for config generation and installer image URLs</li>
@@ -1437,6 +1437,7 @@
 <ul>
 <li><strong>Talos secrets bundle</strong>: private keys, CA certificates, bootstrap tokens, encryption secrets, and trustd tokens from <code>secrets.yaml</code></li>
 <li><strong>SOPS-encrypted values</strong>: any value that was encrypted with SOPS in <code>topf.yaml</code> or in patch files is decrypted internally and its plaintext is redacted from output</li>
+<li><strong>vals-resolved values</strong>: any value that was resolved from a <a href="https://github.com/helmfile/vals">vals</a> reference (e.g. <code>ref+vault://</code>, <code>ref+file://</code>) has its plaintext redacted from output</li>
 </ul>
 <p>Disable it only when you need to inspect the raw diff for debugging:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>topf<span class="w"> </span>apply<span class="w"> </span>--dry-run<span class="w"> </span>--redact<span class="o">=</span><span class="nb">false</span>

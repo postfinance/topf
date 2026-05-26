@@ -1084,6 +1084,7 @@
 <li>The <code>schematicId</code> from <code>topf.yaml</code> (falls back to the default no-extensions schematic)</li>
 <li>All applicable patches from <code>all/</code>, <code>&lt;role&gt;/</code>, and <code>node/&lt;host&gt;/</code></li>
 </ol>
+<p>SOPS-encrypted files are automatically decrypted, and vals references are resolved (see <a href="../../configuration-model/#secret-resolution">Secret Resolution</a>).</p>
 <p>Each node's config is written to <code>&lt;output&gt;/&lt;hostname&gt;.yaml</code>. If config generation fails for a node (e.g. a template error), the error is reported and the other nodes are still processed.</p>
 <h3 id="online-mode">Online mode</h3>
 <p>With <code>--online</code>, topf connects to each node and retrieves the actually running Talos version. This ensures the generated config uses the correct version contract for the node's current state — useful when nodes may be at different versions.</p>

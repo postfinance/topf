@@ -1072,7 +1072,7 @@
 <p><strong>TOPF</strong> uses Go templates (<code>.yaml.tpl</code> files) with data from <code>topf.yaml</code>, offering conditionals, loops, and per-node data via <code>.Node.Data</code>.</p>
 <h2 id="secrets">Secrets</h2>
 <p><strong>talhelper</strong> uses a separate <code>talenv.sops.yaml</code> file for encrypted variables.</p>
-<p><strong>TOPF</strong> encrypts the <code>data</code> fields directly in <code>topf.yaml</code> with SOPS.</p>
+<p><strong>TOPF</strong> supports two approaches: encrypt fields directly in <code>topf.yaml</code> with SOPS, or reference external secrets using <a href="https://github.com/helmfile/vals">vals</a> (<code>ref+vault://</code>, <code>ref+file://</code>, etc.).</p>
 <h2 id="summary">Summary</h2>
 <table>
 <thead>
@@ -1112,6 +1112,11 @@
 <td>SOPS integration</td>
 <td><code>talenv.sops.yaml</code></td>
 <td>Directly in <code>topf.yaml</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/helmfile/vals">vals</a> references</td>
+<td>No</td>
+<td>Yes (<code>ref+&lt;provider&gt;://</code>)</td>
 </tr>
 <tr>
 <td>Node filtering</td>

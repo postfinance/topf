@@ -731,10 +731,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#encryption" class="md-nav__link">
+  <a href="#secret-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Encryption
+        Secret Resolution
       
     </span>
   </a>
@@ -999,10 +999,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#encryption" class="md-nav__link">
+  <a href="#secret-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Encryption
+        Secret Resolution
       
     </span>
   </a>
@@ -1112,16 +1112,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>.yaml</code></td>
+<td><code>.yaml</code> / <code>.yml</code></td>
 <td>Strategic merge patch</td>
 </tr>
 <tr>
-<td><code>.yaml.tpl</code></td>
+<td><code>.yaml.tpl</code> / <code>.yml.tpl</code></td>
 <td>Go-templated strategic merge patch</td>
-</tr>
-<tr>
-<td><code>.enc.yaml</code></td>
-<td>SOPS-encrypted strategic merge patch</td>
 </tr>
 </tbody>
 </table>
@@ -1130,9 +1126,14 @@
 <p>JSON patches (RFC 6902) are <strong>not supported</strong>. They have been deprecated in Talos starting from v1.12.</p>
 </div>
 <p>Empty patches (comments only, whitespace, <code>{}</code>, <code>[]</code>, <code>null</code>) are automatically skipped.</p>
-<h2 id="encryption">Encryption</h2>
-<p>TOPF attempts to decrypt every file it loads — both <code>topf.yaml</code> and all patch files — using <a href="https://github.com/getsops/sops">SOPS</a>. If a file is not SOPS-encrypted, it is loaded as-is. This means any patch file can be encrypted, except template files (ending with <code>.tpl</code>).</p>
-<p>This is useful for patches that contain sensitive values (e.g. private keys, credentials, tokens) that should not be stored in plaintext and for which you don't want to write a template.</p>
+<h2 id="secret-resolution">Secret Resolution</h2>
+<p>TOPF reads all non-template files (including <code>topf.yaml</code> itself) through a two-stage pipeline:</p>
+<ol>
+<li><strong>SOPS decryption</strong> — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.</li>
+<li><strong>vals evaluation</strong> — after decryption, any <a href="https://github.com/helmfile/vals">vals</a> references (e.g. <code>ref+vault://</code>, <code>ref+file://</code>) are resolved. If no vals references are present, this step is skipped. The <code>vals</code> binary must be on <code>PATH</code> when vals references are used.</li>
+</ol>
+<p>Template files (ending with <code>.tpl</code>) skip this pipeline entirely and are rendered through <a href="#templating">Go templates</a> instead.</p>
+<p>This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via <a href="https://github.com/helmfile/vals">vals</a>.</p>
 <h2 id="templating">Templating</h2>
 <p>Patches ending with <code>.yaml.tpl</code> support <a href="https://pkg.go.dev/text/template">Go templating</a>. The following context fields are available:</p>
 <table>

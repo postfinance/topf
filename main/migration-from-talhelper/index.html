@@ -1241,7 +1241,7 @@
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">certSANs</span><span class="p">:</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="w"> </span><span class="nv">.Data.additionalControlPlaneEndpoint</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </code></pre></div>
-<p>No separate secrets file needed — sensitive values live directly in <code>topf.yaml</code> under <code>data</code>, encrypted with SOPS.</p>
+<p>No separate secrets file needed — sensitive values can live directly in <code>topf.yaml</code> under <code>data</code>, encrypted with SOPS, or be referenced via <a href="https://github.com/helmfile/vals">vals</a> (see <a href="../configuration-model/#secret-resolution">Secret Resolution</a>).</p>
 <h2 id="step-5-migrate-secrets">Step 5: Migrate secrets</h2>
 <p>Move your existing Talos secrets bundle <code>talsecret.sops.yaml</code> to <code>secrets.yaml</code>. It is compatible with TOPF. Simply keep it in the same directory.</p>
 <h2 id="step-6-apply">Step 6: Apply</h2>
