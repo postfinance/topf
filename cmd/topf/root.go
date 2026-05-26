@@ -89,6 +89,7 @@ func main() {
 			newResetCmd(),
 			newClusterInfoCmd(),
 			newNodesCmd(),
+			newSchematicIDsCmd(),
 			newRenderCmd(),
 			newSecretsCmd(),
 			newKubeconfigCmd(),

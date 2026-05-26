@@ -52,6 +52,12 @@ type Topf interface {
 
 	// TopfVersion returns the topf version string
 	TopfVersion() string
+
+	// ResolveSchematic resolves a schematic ID string. If the ID starts with @,
+	// it is treated as a path to a schematic file (relative to the directory
+	// containing topf.yaml) and the resolved hash is returned. Non-@-prefixed
+	// IDs are returned unchanged.
+	ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error)
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -169,6 +175,10 @@ func (t *topf) AddSecretsToMask(sensitive []string) {
 
 func (t *topf) Confirm() bool {
 	return t.confirm
+}
+
+func (t *topf) ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error) {
+	return t.resolver.Resolve(ctx, factory, schematicID, patchCtx)
 }
 
 // parseLogLevel converts a string log level to slog.Level
