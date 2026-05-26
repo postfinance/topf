@@ -96,7 +96,7 @@ schematicId: @schematic.yaml
 
 Topf will:
 
-1. Read the file (relative to `configDir`)
+1. Read the file (relative to the directory containing `topf.yaml`)
 2. If the path ends in `.tpl`, render it through Go templates with the same data available as [patch templates](configuration-model.md#templating)
 3. Compute the schematic ID locally from the canonical YAML representation
 4. Use the schematic ID for config generation and installer image URLs
@@ -194,6 +194,7 @@ When `--redact` is enabled (the default), topf replaces secrets and certificate 
 
 - **Talos secrets bundle**: private keys, CA certificates, bootstrap tokens, encryption secrets, and trustd tokens from `secrets.yaml`
 - **SOPS-encrypted values**: any value that was encrypted with SOPS in `topf.yaml` or in patch files is decrypted internally and its plaintext is redacted from output
+- **vals-resolved values**: any value that was resolved from a [vals](https://github.com/helmfile/vals) reference (e.g. `ref+vault://`, `ref+file://`) has its plaintext redacted from output
 
 Disable it only when you need to inspect the raw diff for debugging:
 

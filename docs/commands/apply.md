@@ -43,7 +43,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs      |
 | `--allow-not-ready`        | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag)    |
-| [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, certificates, and SOPS-encrypted values from output (global flag) |
+| [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, certificates, SOPS-encrypted values, and vals-resolved values from output (global flag) |
 
 ## Example Usage
 

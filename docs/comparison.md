@@ -30,7 +30,7 @@ TOPF does not support JSON patches — they are incompatible with multi-document
 
 **talhelper** uses a separate `talenv.sops.yaml` file for encrypted variables.
 
-**TOPF** encrypts the `data` fields directly in `topf.yaml` with SOPS.
+**TOPF** supports two approaches: encrypt fields directly in `topf.yaml` with SOPS, or reference external secrets using [vals](https://github.com/helmfile/vals) (`ref+vault://`, `ref+file://`, etc.).
 
 ## Summary
 
@@ -42,4 +42,5 @@ TOPF does not support JSON patches — they are incompatible with multi-document
 | Strategic merge patches | Yes                                | Yes                                 |
 | Templating              | envsubst                           | Go templates                        |
 | SOPS integration        | `talenv.sops.yaml`                 | Directly in `topf.yaml`             |
+| [vals](https://github.com/helmfile/vals) references | No                  | Yes (`ref+<provider>://`)           |
 | Node filtering          | No                                 | Yes (`--nodes-filter`)              |

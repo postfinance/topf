@@ -32,6 +32,15 @@ Download the latest binary from [GitHub Releases](https://github.com/postfinance
 docker pull ghcr.io/postfinance/topf
 ```
 
+## Optional Dependencies
+
+| Tool   | Purpose |
+| ------ | ------- |
+| [SOPS](https://github.com/getsops/sops) + [age](https://github.com/FiloSottile/age) | Decrypt SOPS-encrypted config and patch files |
+| [vals](https://github.com/helmfile/vals) | Resolve vals references (`ref+<provider>://`) in config and patches |
+
+These are only needed if your configuration uses SOPS encryption or vals references. Without them, plaintext configs work normally.
+
 ## Quickstart
 
 Boot at least one Talos machine to maintenance mode.
@@ -63,12 +72,12 @@ machine:
 !!! info "Obtaining the schematic ID"
 
     The long hash in the installer URL (`376567988a...`) is a **schematic ID** — a content-addressable
-    hash of your extensions and overlay configuration. TOPF does not resolve extensions to schematic IDs;
-    you must obtain the ID yourself.
+    hash of your extensions and overlay configuration. You can either:
 
-    Use the [Image Factory UI](https://factory.talos.dev) to select your desired system extensions and
-    generate the schematic ID, or see the [Talos Image Factory docs](https://www.talos.dev/v1.12/learn-more/image-factory/)
-    for the full API reference. For details on how this image is used during upgrades, see [Installer Image](commands/upgrade.md#installer-image).
+    - Use the [Image Factory UI](https://factory.talos.dev) to select extensions and copy the ID, or
+    - Reference a schematic file using the `@` prefix (see [Schematic reference resolution](configuration.md#schematic-reference-resolution)): `schematicId: @schematic.yaml`
+
+    For details on how this image is used during upgrades, see [Installer Image](commands/upgrade.md#installer-image).
 
 Then run `topf apply --auto-bootstrap` to provision the cluster.
 

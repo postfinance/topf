@@ -2,7 +2,7 @@
 
 The `secrets` command retrieves or generates the `secrets.yaml` bundle for the cluster.
 
-The secrets bundle contains all sensitive cluster material including private keys, tokens, and certificates.
+The secrets bundle contains all sensitive cluster material including private keys, tokens, and certificates. If the file is SOPS-encrypted, it is decrypted automatically. [vals](https://github.com/helmfile/vals) references are also resolved if present.
 
 ## Confirmation
 

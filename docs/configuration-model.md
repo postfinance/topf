@@ -40,22 +40,26 @@ A typical cluster folder looks like this:
 
 Patches can be provided in several formats:
 
-| Extension   | Format                               |
-| ----------- | ------------------------------------ |
-| `.yaml`     | Strategic merge patch                |
-| `.yaml.tpl` | Go-templated strategic merge patch   |
-| `.enc.yaml` | SOPS-encrypted strategic merge patch |
+| Extension            | Format                             |
+| -------------------- | ---------------------------------- |
+| `.yaml` / `.yml`     | Strategic merge patch              |
+| `.yaml.tpl` / `.yml.tpl` | Go-templated strategic merge patch |
 
 !!! warning
     JSON patches (RFC 6902) are **not supported**. They have been deprecated in Talos starting from v1.12.
 
 Empty patches (comments only, whitespace, `{}`, `[]`, `null`) are automatically skipped.
 
-## Encryption
+## Secret Resolution
 
-TOPF attempts to decrypt every file it loads — both `topf.yaml` and all patch files — using [SOPS](https://github.com/getsops/sops). If a file is not SOPS-encrypted, it is loaded as-is. This means any patch file can be encrypted, except template files (ending with `.tpl`).
+TOPF reads all non-template files (including `topf.yaml` itself) through a two-stage pipeline:
 
-This is useful for patches that contain sensitive values (e.g. private keys, credentials, tokens) that should not be stored in plaintext and for which you don't want to write a template.
+1. **SOPS decryption** — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.
+2. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
+
+Template files (ending with `.tpl`) skip this pipeline entirely and are rendered through [Go templates](#templating) instead.
+
+This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via [vals](https://github.com/helmfile/vals).
 
 ## Templating
 

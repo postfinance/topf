@@ -149,7 +149,7 @@ cluster:
       - { { .Data.additionalControlPlaneEndpoint } }
 ```
 
-No separate secrets file needed — sensitive values live directly in `topf.yaml` under `data`, encrypted with SOPS.
+No separate secrets file needed — sensitive values can live directly in `topf.yaml` under `data`, encrypted with SOPS, or be referenced via [vals](https://github.com/helmfile/vals) (see [Secret Resolution](configuration-model.md#secret-resolution)).
 
 ## Step 5: Migrate secrets
 

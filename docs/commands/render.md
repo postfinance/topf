@@ -18,6 +18,8 @@ For each node, `render` assembles the full machine configuration using:
 2. The `schematicId` from `topf.yaml` (falls back to the default no-extensions schematic)
 3. All applicable patches from `all/`, `<role>/`, and `node/<host>/`
 
+SOPS-encrypted files are automatically decrypted, and vals references are resolved (see [Secret Resolution](../configuration-model.md#secret-resolution)).
+
 Each node's config is written to `<output>/<hostname>.yaml`. If config generation fails for a node (e.g. a template error), the error is reported and the other nodes are still processed.
 
 ### Online mode
