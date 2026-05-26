@@ -34,12 +34,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute previous stable tag
+        id: prev-tag
+        run: |
+          CURRENT_TAG="${{ github.ref_name }}"
+          STABLE_TAGS=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+          PREV_TAG=$(echo "$STABLE_TAGS" | grep -B1 "^${CURRENT_TAG}$" | head -1)
+          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
+            PREV_TAG=$(echo "$STABLE_TAGS" | grep -v "^${CURRENT_TAG}$" | tail -1)
+          fi
+          echo "range=${PREV_TAG}..${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Generate release notes
         uses: orhun/git-cliff-action@v4
         id: git-cliff
         with:
           config: cliff.toml
-          args: --latest --strip header
+          args: --strip header --tag ${{ github.ref_name }} ${{ steps.prev-tag.outputs.range }}
         env:
           OUTPUT: CHANGES.md
           GITHUB_REPO: ${{ github.repository }}
