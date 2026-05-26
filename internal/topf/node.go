@@ -59,6 +59,12 @@ func (n *Node) RunningSchematic() string {
 	return n.runningSchematic
 }
 
+// ResolvedSchematic returns the schematic ID after @-prefixed references
+// have been expanded. Empty if generateNodeConfig has not been called.
+func (n *Node) ResolvedSchematic() string {
+	return n.resolvedSchematic
+}
+
 // InstallerImage returns the fully resolved installer image for this node.
 // The schematic ID is the resolved value (after @-prefixed references have been expanded).
 // Factory, platform, talosVersion, and secureboot resolve per node -> cluster config -> default.
