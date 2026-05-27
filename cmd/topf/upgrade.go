@@ -6,12 +6,14 @@ package main
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
 	"github.com/postfinance/topf/internal/cmd/upgrade"
+	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
 )
@@ -50,11 +52,16 @@ func newUpgradeCmd() *cli.Command {
 				return err
 			}
 
-			return upgrade.Execute(ctx, t, upgrade.Options{
+			err = upgrade.Execute(ctx, t, upgrade.Options{
 				DryRun:     c.Bool("dry-run"),
 				Force:      c.Bool("force"),
 				RebootMode: rebootMode,
 			})
+			if errors.Is(err, topf.ErrDryRunChangesDetected) {
+				return cli.Exit(err.Error(), 2)
+			}
+
+			return err
 		},
 	}
 }

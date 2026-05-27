@@ -66,6 +66,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return errors.New("aborting due to errors with some nodes")
 	}
 
+	var upgradeRequired bool
+
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
@@ -76,8 +78,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			return fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
 		}
 
-		upgradeRequired := node.RunningVersion() != talosVersion || node.RunningSchematic() != schematic
-		if !upgradeRequired {
+		nodeNeedsUpgrade := node.RunningVersion() != talosVersion || node.RunningSchematic() != schematic
+		if !nodeNeedsUpgrade {
 			logger.Info("no upgrade required")
 			continue
 		}
@@ -88,6 +90,8 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			"version_actual", node.RunningVersion(),
 			"version_desired", talosVersion,
 			"installer", installerImage)
+
+		upgradeRequired = true
 
 		// in dry-run mode, skip the actual upgrade
 		if opts.DryRun {
@@ -123,6 +127,10 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
 			return fmt.Errorf("node didn't stabilize: %w", err)
 		}
+	}
+
+	if upgradeRequired && opts.DryRun {
+		return topf.ErrDryRunChangesDetected
 	}
 
 	return nil
