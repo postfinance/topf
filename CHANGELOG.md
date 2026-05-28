@@ -1,16 +1,33 @@
 # Changelog
 
-## [0.3.0] - 2026-05-12
+## [0.4.0] - 2026-05-27
+
+### Features
+
+- **secrets**: Store secrets.yaml in configDir if specified ([cd42cf7](https://github.com/postfinance/topf/commit/cd42cf770706cc3a0220af19b83ea50d79601f61))
+- **BREAKING**: Rename configDir to patchesDir and add secretsPath field ([dd8fc17](https://github.com/postfinance/topf/commit/dd8fc17307637ae7872d93012f21b5d6ca14e5c8))
+- Implement @path/schematic.yaml resolution ([dc795bc](https://github.com/postfinance/topf/commit/dc795bc7e766e34405ee8a74f38b187affd7d699))
+- Implement vals-based file processing ([a8b555e](https://github.com/postfinance/topf/commit/a8b555e836eae7d99125396a3cd86138d7946d4e))
+- Add 'schematic-ids' cmd ([81385f7](https://github.com/postfinance/topf/commit/81385f78c00cf58ccd59d7706722837fd8ebc0e1))
+- **upgrade-dry-run**: Return exitCode=2 when an upgrade is due ([98a5b3e](https://github.com/postfinance/topf/commit/98a5b3eed66b1d6a7ed1ee72b8e493d6b3586f3f))
 
 ### Bug Fixes
 
-- Also redact current/running node secrets (#62) ([e99c3c1](https://github.com/postfinance/topf/commit/e99c3c1872a6d436cf323c143d8102c944308148))
+- **render**: Generate node configs concurrently ([b77389e](https://github.com/postfinance/topf/commit/b77389e2580ad94b308166d6d0aa460e01561bc3))
+
+### Documentation
+
+- Add vals decryption and make recent changes clearer ([ddd5eb4](https://github.com/postfinance/topf/commit/ddd5eb4644ee88ef434653e5a33e5fbad74cad49))
 
 ### Miscellaneous
 
-- Dependency upgrade (talos > 1.13.0) ([e99bcba](https://github.com/postfinance/topf/commit/e99bcba4116307f39ec48926a0f0788f0006ff85))
-- Ask confirmation before creating secrets (#63) ([05c442b](https://github.com/postfinance/topf/commit/05c442b01abd60be2bd16b1490843a25f59019fe))
-## [0.3.0-rc.0] - 2026-05-08
+- Update changelog ([6ec2b7b](https://github.com/postfinance/topf/commit/6ec2b7bb292220af1fa889e3a609bebda3e3f6c6))
+
+### Build
+
+- Refactor secret collection into yamlutils ([2397fd3](https://github.com/postfinance/topf/commit/2397fd343ae1db27486baa61c18b977139d42361))
+- Ignore RC builds in changelog ([5209ce4](https://github.com/postfinance/topf/commit/5209ce418ec0f81ffe88a208c1f43a7a5a5b9b87))
+## [0.3.0] - 2026-05-12
 
 ### Features
 
@@ -18,32 +35,17 @@
 - Add factory/platform/version/schematicId config surface (#56) ([afb9d1b](https://github.com/postfinance/topf/commit/afb9d1bd48c102b1b2bb99d135a6996fafc1ac04))
 - Permit specifying secureboot for images ([3b97283](https://github.com/postfinance/topf/commit/3b97283fe3ba76f4e30869d0c93ed4a954ef87e4))
 
+### Bug Fixes
+
+- Also redact current/running node secrets (#62) ([e99c3c1](https://github.com/postfinance/topf/commit/e99c3c1872a6d436cf323c143d8102c944308148))
+
 ### Miscellaneous
 
 - Update changelog ([62700b7](https://github.com/postfinance/topf/commit/62700b71e1175ebe35f81a9a9c718afc626fa1fc))
 - Re-generate changelog with correct config ([9f73cf2](https://github.com/postfinance/topf/commit/9f73cf278dc57b98494a91aa45064c3ffbb88252))
+- Dependency upgrade (talos > 1.13.0) ([e99bcba](https://github.com/postfinance/topf/commit/e99bcba4116307f39ec48926a0f0788f0006ff85))
+- Ask confirmation before creating secrets (#63) ([05c442b](https://github.com/postfinance/topf/commit/05c442b01abd60be2bd16b1490843a25f59019fe))
 ## [0.2.3] - 2026-04-22
-
-### Features
-
-- Add multi-version doc with 'mike' ([f084f70](https://github.com/postfinance/topf/commit/f084f7002a76075088d6d93d0e7de4b9ba580eb4))
-- Permit specifying flags as TOPF_ env vars ([ce24a23](https://github.com/postfinance/topf/commit/ce24a23f6e815264c9fe70ecbaee55ac79c3fa96))
-## [0.2.3-rc.3] - 2026-04-22
-
-### Documentation
-
-- Update according to latest changes ([408173b](https://github.com/postfinance/topf/commit/408173becce37fee243fbe9f4d39de2bea715d27))
-
-### Build
-
-- **deps**: Bump goreleaser/goreleaser-action from 6 to 7 (#28) ([3dacb07](https://github.com/postfinance/topf/commit/3dacb0706590f4666da7019f7bb0de78e0cb8dc4))
-- **deps**: Bump docker/setup-buildx-action from 3 to 4 (#30) ([f9e7ba5](https://github.com/postfinance/topf/commit/f9e7ba550055ce847bdcf47da458183271da039d))
-- **deps**: Bump docker/login-action from 3 to 4 (#29) ([5797495](https://github.com/postfinance/topf/commit/5797495babede5ed082cf1e24ef38c3bb3f7598c))
-- **deps**: Bump actions/upload-pages-artifact from 4 to 5 (#46) ([5c799f1](https://github.com/postfinance/topf/commit/5c799f1660db1129c1315a9e86591acf2b792939))
-- Add pre-release builds support ([c29cade](https://github.com/postfinance/topf/commit/c29cadedfd94146af83dda8698ecd14c3f007ff3))
-- Fix goreleaser config field ([0718664](https://github.com/postfinance/topf/commit/07186643473496fcaf5289c6f7873ea7abbb0cfe))
-- Prevent changelog generation with pre-release builds ([1263d8a](https://github.com/postfinance/topf/commit/1263d8aac7410bef1ed6305252393c5f2e14be1e))
-## [0.2.3-rc.1] - 2026-04-20
 
 ### Features
 
@@ -51,12 +53,18 @@
 - Permit specifying custom apply mode (#48) ([3399b9c](https://github.com/postfinance/topf/commit/3399b9c24eb91a0a10ae4c32bc8f5af8f7b9cec5))
 - Add --wait-for-maintenance flag to reset (#42) ([1cc03e0](https://github.com/postfinance/topf/commit/1cc03e0c1f7e9daa6d3c0e90e6bca15b8ac7b205))
 - Dry-run returns exitCode=2 when changes are detected ([41b1804](https://github.com/postfinance/topf/commit/41b1804aafe86cedc7c6eaefa39bcc80f99ac377))
+- Add multi-version doc with 'mike' ([f084f70](https://github.com/postfinance/topf/commit/f084f7002a76075088d6d93d0e7de4b9ba580eb4))
+- Permit specifying flags as TOPF_ env vars ([ce24a23](https://github.com/postfinance/topf/commit/ce24a23f6e815264c9fe70ecbaee55ac79c3fa96))
 
 ### Bug Fixes
 
 - **readme**: Rename old 'patches' folder to 'all' ([8403519](https://github.com/postfinance/topf/commit/8403519927f46e939dbf2beecb2a9161b97f3f60))
 - Process yaml files with leading empty doc ([3d1649c](https://github.com/postfinance/topf/commit/3d1649ce4e5a24b267b13e3beb4e01886dde9e4b))
 - **documentation**: Patches folder has been renamed to all ([6de1469](https://github.com/postfinance/topf/commit/6de14690f0de80f2e576020add579e2553cd212b))
+
+### Documentation
+
+- Update according to latest changes ([408173b](https://github.com/postfinance/topf/commit/408173becce37fee243fbe9f4d39de2bea715d27))
 
 ### Miscellaneous
 
@@ -68,6 +76,13 @@
 ### Build
 
 - **deps**: Bump actions/deploy-pages from 4 to 5 (#38) ([e6cc23e](https://github.com/postfinance/topf/commit/e6cc23ea0df8c01ba291dd7b44de1fd54daf0296))
+- **deps**: Bump goreleaser/goreleaser-action from 6 to 7 (#28) ([3dacb07](https://github.com/postfinance/topf/commit/3dacb0706590f4666da7019f7bb0de78e0cb8dc4))
+- **deps**: Bump docker/setup-buildx-action from 3 to 4 (#30) ([f9e7ba5](https://github.com/postfinance/topf/commit/f9e7ba550055ce847bdcf47da458183271da039d))
+- **deps**: Bump docker/login-action from 3 to 4 (#29) ([5797495](https://github.com/postfinance/topf/commit/5797495babede5ed082cf1e24ef38c3bb3f7598c))
+- **deps**: Bump actions/upload-pages-artifact from 4 to 5 (#46) ([5c799f1](https://github.com/postfinance/topf/commit/5c799f1660db1129c1315a9e86591acf2b792939))
+- Add pre-release builds support ([c29cade](https://github.com/postfinance/topf/commit/c29cadedfd94146af83dda8698ecd14c3f007ff3))
+- Fix goreleaser config field ([0718664](https://github.com/postfinance/topf/commit/07186643473496fcaf5289c6f7873ea7abbb0cfe))
+- Prevent changelog generation with pre-release builds ([1263d8a](https://github.com/postfinance/topf/commit/1263d8aac7410bef1ed6305252393c5f2e14be1e))
 ## [0.2.2] - 2026-04-01
 
 ### Bug Fixes
