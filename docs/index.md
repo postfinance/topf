@@ -1,5 +1,9 @@
 # TOPF - Talos Orchestrator by PostFinance
 
+<p align="center">
+  <img src="assets/topf.png" alt="TOPF logo" width="200">
+</p>
+
 [![Go Version](https://img.shields.io/github/go-mod/go-version/postfinance/topf)](https://go.dev/)
 [![License](https://img.shields.io/github/license/postfinance/topf)](https://github.com/postfinance/topf/blob/main/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/postfinance/topf)](https://goreportcard.com/report/github.com/postfinance/topf)
