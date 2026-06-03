@@ -139,8 +139,28 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 	return patches, secrets, nil
 }
 
+var (
+	dns1123InvalidChars = regexp.MustCompile(`[^A-Za-z0-9_.-]`)
+	dns1123EdgeChars    = regexp.MustCompile(`^[^A-Za-z0-9]+|[^A-Za-z0-9]+$`)
+)
+
+// dns1123Label normalizes s into a valid Kubernetes label value (RFC 1123):
+// disallowed characters are replaced with '-', the result is truncated to 63
+// characters, and leading/trailing non-alphanumeric characters are trimmed.
+// This makes values such as git refs (e.g. "feat/foo") safe to use as labels.
+func dns1123Label(s string) string {
+	s = dns1123InvalidChars.ReplaceAllString(s, "-")
+	if len(s) > 63 {
+		s = s[:63]
+	}
+
+	return dns1123EdgeChars.ReplaceAllString(s, "")
+}
+
 // RenderTemplate renders a Go template file with the given data.
-// The template has access to the "env" function (wrapping os.Getenv) and uses "missingkey=error".
+// The template has access to the "env" function (wrapping os.Getenv), the
+// "dns1123" function (normalizing a string into a valid label value), and uses
+// "missingkey=error".
 func RenderTemplate(filename string, data any) ([]byte, error) {
 	//nolint:gosec // loading arbitrary template files is by design
 	content, err := os.ReadFile(filename)
@@ -148,7 +168,10 @@ func RenderTemplate(filename string, data any) ([]byte, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New(filepath.Base(filename)).Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
+	tmpl, err := template.New(filepath.Base(filename)).Funcs(template.FuncMap{
+		"env":     os.Getenv,
+		"dns1123": dns1123Label,
+	}).Option("missingkey=error").Parse(string(content))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template %s: %w", filename, err)
 	}
