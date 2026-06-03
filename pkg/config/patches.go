@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/postfinance/topf/internal/decryption"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"gopkg.in/yaml.v3"
@@ -140,7 +141,8 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 }
 
 // RenderTemplate renders a Go template file with the given data.
-// The template has access to the "env" function (wrapping os.Getenv) and uses "missingkey=error".
+// The template has access to the sprig function library (http://masterminds.github.io/sprig/)
+// and uses "missingkey=error".
 func RenderTemplate(filename string, data any) ([]byte, error) {
 	//nolint:gosec // loading arbitrary template files is by design
 	content, err := os.ReadFile(filename)
@@ -148,7 +150,7 @@ func RenderTemplate(filename string, data any) ([]byte, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.New(filepath.Base(filename)).Funcs(template.FuncMap{"env": os.Getenv}).Option("missingkey=error").Parse(string(content))
+	tmpl, err := template.New(filepath.Base(filename)).Funcs(sprig.TxtFuncMap()).Option("missingkey=error").Parse(string(content))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template %s: %w", filename, err)
 	}
