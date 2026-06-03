@@ -13,6 +13,8 @@ extra:
 
 theme:
   name: material
+  logo: assets/topf.png
+  favicon: assets/topf.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
