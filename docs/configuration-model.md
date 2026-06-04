@@ -80,11 +80,15 @@ Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/
 
 ### Template Functions
 
-In addition to the [built-in Go template functions](https://pkg.go.dev/text/template#hdr-Functions), the following functions are available:
+In addition to the [built-in Go template functions](https://pkg.go.dev/text/template#hdr-Functions), the full [sprig](https://masterminds.github.io/sprig/) function library is available. This provides `env`, `default`, `b64enc`/`b64dec`, `toYaml`, `indent`/`nindent`, `regexReplaceAll`, `trunc`, `trimAll`, and many more.
+
+A few commonly used functions:
 
 | Function | Description |
 |----------|-------------|
 | `env "VAR"` | Returns the value of the environment variable `VAR`, or an empty string if unset |
+| `default "x" .Val` | Returns `.Val`, falling back to `"x"` if `.Val` is empty |
+| `b64enc` / `b64dec` | Base64 encode / decode |
 
 ### Examples
 

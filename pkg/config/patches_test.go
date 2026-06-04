@@ -99,6 +99,19 @@ func TestLoadFileTemplate(t *testing.T) {
 		}
 	})
 
+	t.Run("sprig function is available", func(t *testing.T) {
+		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ .Data.region | upper | trunc 2 }}\n")
+
+		content, _, err := ctx.loadFile(f)
+		if err != nil {
+			t.Fatalf("loadFile() error: %v", err)
+		}
+
+		if !bytes.Contains(content, []byte("hostname: EU")) {
+			t.Errorf("expected rendered sprig functions, got:\n%s", content)
+		}
+	})
+
 	t.Run("missing key returns error", func(t *testing.T) {
 		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ .Data.nonexistent }}\n")
 
