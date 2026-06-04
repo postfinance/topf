@@ -31,6 +31,7 @@ type PatchContext struct {
 	Data              map[string]any
 	Node              *Node
 	PatchesDir        string
+	DecryptCache      *decryption.Cache
 }
 
 // Load loads all patches applicable for the node This includes general patches,
@@ -177,7 +178,7 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 			return nil, nil, err
 		}
 	} else {
-		content, secrets, err = decryption.ReadFile(filename)
+		content, secrets, err = p.DecryptCache.ReadFile(filename)
 		if err != nil {
 			return nil, nil, err
 		}

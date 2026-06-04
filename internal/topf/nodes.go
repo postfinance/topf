@@ -116,6 +116,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 		Node:              node.Node,
 		Data:              cfg.Data,
 		PatchesDir:        t.patchesDir,
+		DecryptCache:      t.decryptCache,
 	}
 
 	resolvedSchematic, err := t.resolver.Resolve(ctx, cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory), patchContext.SchematicID, patchContext)
