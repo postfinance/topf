@@ -1185,7 +1185,8 @@
 </tbody>
 </table>
 <h3 id="template-functions">Template Functions</h3>
-<p>In addition to the <a href="https://pkg.go.dev/text/template#hdr-Functions">built-in Go template functions</a>, the following functions are available:</p>
+<p>In addition to the <a href="https://pkg.go.dev/text/template#hdr-Functions">built-in Go template functions</a>, the full <a href="https://masterminds.github.io/sprig/">sprig</a> function library is available. This provides <code>env</code>, <code>default</code>, <code>b64enc</code>/<code>b64dec</code>, <code>toYaml</code>, <code>indent</code>/<code>nindent</code>, <code>regexReplaceAll</code>, <code>trunc</code>, <code>trimAll</code>, and many more.</p>
+<p>A few commonly used functions:</p>
 <table>
 <thead>
 <tr>
@@ -1197,6 +1198,14 @@
 <tr>
 <td><code>env "VAR"</code></td>
 <td>Returns the value of the environment variable <code>VAR</code>, or an empty string if unset</td>
+</tr>
+<tr>
+<td><code>default "x" .Val</code></td>
+<td>Returns <code>.Val</code>, falling back to <code>"x"</code> if <code>.Val</code> is empty</td>
+</tr>
+<tr>
+<td><code>b64enc</code> / <code>b64dec</code></td>
+<td>Base64 encode / decode</td>
 </tr>
 </tbody>
 </table>
