@@ -14,18 +14,20 @@ import (
 
 // NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes
 // secrets.yaml at the given path with optional SOPS support.
-func NewFilesystemSecretsProvider(secretsPath string) SecretsProvider {
+func NewFilesystemSecretsProvider(secretsPath string, cache *decryption.Cache) SecretsProvider {
 	return &filesystemSecrets{
-		path: secretsPath,
+		path:  secretsPath,
+		cache: cache,
 	}
 }
 
 type filesystemSecrets struct {
-	path string
+	path  string
+	cache *decryption.Cache
 }
 
 func (s *filesystemSecrets) Get(_ string) ([]byte, error) {
-	content, _, err := decryption.ReadFile(s.path)
+	content, _, err := s.cache.ReadFile(s.path)
 	return content, err
 }
 

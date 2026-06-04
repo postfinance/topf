@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/postfinance/topf/internal/decryption"
 )
 
 func writeTestConfig(t *testing.T, dir, content string) string {
@@ -84,7 +86,7 @@ func TestLoadFromFile(t *testing.T) {
 				}
 				yaml += "nodes:\n  - host: n1\n    role: worker\n"
 
-				cfg, _, err := LoadFromFile(writeTestConfig(t, sub, yaml), "")
+				cfg, _, err := LoadFromFile(writeTestConfig(t, sub, yaml), "", decryption.NewCache())
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -106,7 +108,7 @@ configDir: _config
 nodes:
   - host: n1
     role: worker
-`), "")
+`), "", decryption.NewCache())
 		if err == nil {
 			t.Fatal("expected error for deprecated configDir field")
 		}

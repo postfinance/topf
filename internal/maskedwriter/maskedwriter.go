@@ -27,13 +27,14 @@ type Writer struct {
 	mu      sync.Mutex
 	inner   io.Writer
 	secrets [][]byte
+	set     map[string]struct{}
 	pending []byte // bytes not yet written; might be part of a secret
 }
 
 // New returns a Writer that replaces any occurrence of the sensitive
 // strings with "*** redacted ***" before writing to the underlying writer.
 func New(writer io.Writer, sensitive []string) *Writer {
-	w := &Writer{inner: writer}
+	w := &Writer{inner: writer, set: make(map[string]struct{})}
 	w.AddSecrets(sensitive)
 
 	return w
@@ -46,7 +47,10 @@ func (w *Writer) AddSecrets(sensitive []string) {
 
 	for _, s := range sensitive {
 		if len(s) > 0 {
-			w.secrets = append(w.secrets, []byte(s))
+			if _, exists := w.set[s]; !exists {
+				w.secrets = append(w.secrets, []byte(s))
+				w.set[s] = struct{}{}
+			}
 		}
 	}
 }

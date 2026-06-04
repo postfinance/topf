@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/postfinance/topf/internal/decryption"
 	"github.com/postfinance/topf/internal/maskedwriter"
 	"github.com/postfinance/topf/internal/schematic"
 	"github.com/postfinance/topf/pkg/config"
@@ -88,7 +89,9 @@ type RuntimeConfig struct {
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
-	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter)
+	decryptCache := decryption.NewCache()
+
+	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter, decryptCache)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +133,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		confirm:      cfg.Confirm,
 		version:      cfg.TopfVersion,
 		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(logger)),
+		decryptCache: decryptCache,
 	}, nil
 }
 
@@ -144,6 +148,7 @@ type topf struct {
 	confirm       bool
 	version       string
 	resolver      *schematic.Resolver
+	decryptCache  *decryption.Cache
 }
 
 func (t *topf) Config() *config.TopfConfig {
