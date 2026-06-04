@@ -71,8 +71,8 @@ func tryBootstrap(ctx context.Context, logger *slog.Logger, node *topf.Node) (al
 	logger.Debug("etcd service state", "state", etcdState)
 
 	switch etcdState {
-	case "Preparing":
-		logger.Info("etcd is in Preparing state, attempting bootstrap")
+	case "Preparing", "Waiting":
+		logger.Info("etcd is not yet running, attempting bootstrap", "state", etcdState)
 
 		if _, err = nodeClient.MachineClient.Bootstrap(ctx, &machine.BootstrapRequest{}); err != nil {
 			return false, retry.ExpectedError(err)
