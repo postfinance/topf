@@ -1,7 +1,0 @@
-machine:
-  kubelet:
-    extraConfig:
-      registerWithTaints:
-        - key: node.kubernetes.io/not-ready
-          value: "true"
-          effect: NoExecute
