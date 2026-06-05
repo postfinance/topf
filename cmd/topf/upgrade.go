@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/postfinance/topf/internal/cmd/upgrade"
+	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
@@ -29,6 +30,12 @@ func newUpgradeCmd() *cli.Command {
 				Usage:   "only show what upgrades would be performed without actually upgrading",
 				Value:   false,
 				Sources: cli.EnvVars("TOPF_DRY_RUN"),
+			},
+			&cli.StringFlag{
+				Name:    "batch-size",
+				Value:   "1",
+				Usage:   "number of worker nodes to upgrade concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always upgraded one at a time",
+				Sources: cli.EnvVars("TOPF_BATCH_SIZE"),
 			},
 			&cli.BoolFlag{
 				Name:    "force",
@@ -52,10 +59,16 @@ func newUpgradeCmd() *cli.Command {
 				return err
 			}
 
+			batchSize, err := nodepool.ParseBatchSize(c.String("batch-size"))
+			if err != nil {
+				return err
+			}
+
 			err = upgrade.Execute(ctx, t, upgrade.Options{
 				DryRun:     c.Bool("dry-run"),
 				Force:      c.Bool("force"),
 				RebootMode: rebootMode,
+				BatchSize:  batchSize,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
