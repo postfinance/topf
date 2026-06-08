@@ -141,7 +141,7 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 		concurrency := opts.BatchSize.Resolve(len(nodes))
 		logger.Info("applying to worker nodes", "count", len(workers), "concurrency", concurrency)
 
-		return nodepool.RunRolling(ctx, workers, concurrency,
+		return nodepool.RunConcurrent(ctx, workers, concurrency,
 			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
 				return applyNode(ctx, node, opts, logger)
 			}, logger)

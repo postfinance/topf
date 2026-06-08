@@ -80,7 +80,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		concurrency := opts.BatchSize.Resolve(len(nodes))
 		logger.Info("upgrading worker nodes", "count", len(workers), "concurrency", concurrency)
 
-		return nodepool.RunRolling(ctx, workers, concurrency,
+		return nodepool.RunConcurrent(ctx, workers, concurrency,
 			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
 				return upgradeNode(ctx, node, opts, logger)
 			}, logger)
