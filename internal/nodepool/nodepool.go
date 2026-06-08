@@ -89,12 +89,14 @@ func PartitionByRole(nodes []*topf.Node) (controlPlane, workers []*topf.Node) {
 // node's attributes.
 type NodeFunc func(ctx context.Context, node *topf.Node, logger *slog.Logger) error
 
-// RunRolling runs fn over nodes using a rolling pool of at most n concurrent
-// operations: as soon as one operation finishes the next node is started. If any
-// operation fails, no new operations are started, the in-flight operations are
-// allowed to complete, and the joined errors are returned. The provided context
-// is not cancelled on failure, so in-flight operations run to completion.
-func RunRolling(ctx context.Context, nodes []*topf.Node, n int, fn NodeFunc, logger *slog.Logger) error {
+// RunConcurrent runs fn over nodes using a fixed pool of n worker goroutines that pull
+// from a shared work queue: all nodes are enqueued up front, and each of the n
+// workers processes the next available node until the queue is drained, keeping
+// up to n operations in flight at once. If any operation fails, workers stop
+// pulling new nodes, the in-flight operations are allowed to complete, and the
+// joined errors are returned. The provided context is not cancelled on failure,
+// so in-flight operations run to completion.
+func RunConcurrent(ctx context.Context, nodes []*topf.Node, n int, fn NodeFunc, logger *slog.Logger) error {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -103,40 +105,42 @@ func RunRolling(ctx context.Context, nodes []*topf.Node, n int, fn NodeFunc, log
 		n = 1
 	}
 
+	if n > len(nodes) {
+		n = len(nodes)
+	}
+
+	queue := make(chan *topf.Node, len(nodes))
+	for _, node := range nodes {
+		queue <- node
+	}
+
+	close(queue)
+
 	var (
 		wg   sync.WaitGroup
 		stop atomic.Bool
 	)
 
-	sem := make(chan struct{}, n)
 	errs := make(chan error, len(nodes))
 
-	for _, node := range nodes {
-		if stop.Load() {
-			break
-		}
+	for range n {
+		wg.Go(func() {
+			for node := range queue {
+				// A previous operation may have failed; if so, stop pulling new
+				// nodes from the queue.
+				if stop.Load() {
+					return
+				}
 
-		sem <- struct{}{}
+				if err := fn(ctx, node, logger.With(node.Attrs())); err != nil {
+					errs <- err
 
-		// A previously launched operation may have failed while we waited for a
-		// free slot; if so, don't start any new operations.
-		if stop.Load() {
-			<-sem
-			break
-		}
+					stop.Store(true)
 
-		wg.Add(1)
-
-		go func(node *topf.Node) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			if err := fn(ctx, node, logger.With(node.Attrs())); err != nil {
-				errs <- err
-
-				stop.Store(true)
+					return
+				}
 			}
-		}(node)
+		})
 	}
 
 	wg.Wait()
