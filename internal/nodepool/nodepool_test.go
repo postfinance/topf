@@ -80,7 +80,6 @@ func TestRunStopsAfterFailure(t *testing.T) {
 			return wantErr
 		}
 
-
 		return nil
 	}
 

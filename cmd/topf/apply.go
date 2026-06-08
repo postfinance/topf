@@ -62,10 +62,10 @@ func newApplyCmd() *cli.Command {
 				Sources: cli.EnvVars("TOPF_MODE"),
 			},
 			&cli.StringFlag{
-				Name:    "batch-size",
+				Name:    "max-parallel",
 				Value:   "1",
 				Usage:   "number of worker nodes to apply to concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always applied to one at a time",
-				Sources: cli.EnvVars("TOPF_BATCH_SIZE"),
+				Sources: cli.EnvVars("TOPF_MAX_PARALLEL"),
 			},
 		},
 		Before: noPositionalArgs,
@@ -77,7 +77,7 @@ func newApplyCmd() *cli.Command {
 				return err
 			}
 
-			batchSize, err := nodepool.ParseBatchSize(c.String("batch-size"))
+			maxParallel, err := nodepool.ParseMaxParallel(c.String("max-parallel"))
 			if err != nil {
 				return err
 			}
@@ -89,7 +89,7 @@ func newApplyCmd() *cli.Command {
 				SkipPostApplyChecks:  c.Bool("skip-post-apply-checks"),
 				AllowNotReady:        c.Bool("allow-not-ready"),
 				Mode:                 mode,
-				BatchSize:            batchSize,
+				MaxParallel:          maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)

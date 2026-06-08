@@ -32,10 +32,10 @@ func newUpgradeCmd() *cli.Command {
 				Sources: cli.EnvVars("TOPF_DRY_RUN"),
 			},
 			&cli.StringFlag{
-				Name:    "batch-size",
+				Name:    "max-parallel",
 				Value:   "1",
 				Usage:   "number of worker nodes to upgrade concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always upgraded one at a time",
-				Sources: cli.EnvVars("TOPF_BATCH_SIZE"),
+				Sources: cli.EnvVars("TOPF_MAX_PARALLEL"),
 			},
 			&cli.BoolFlag{
 				Name:    "force",
@@ -59,16 +59,16 @@ func newUpgradeCmd() *cli.Command {
 				return err
 			}
 
-			batchSize, err := nodepool.ParseBatchSize(c.String("batch-size"))
+			maxParallel, err := nodepool.ParseMaxParallel(c.String("max-parallel"))
 			if err != nil {
 				return err
 			}
 
 			err = upgrade.Execute(ctx, t, upgrade.Options{
-				DryRun:     c.Bool("dry-run"),
-				Force:      c.Bool("force"),
-				RebootMode: rebootMode,
-				BatchSize:  batchSize,
+				DryRun:      c.Bool("dry-run"),
+				Force:       c.Bool("force"),
+				RebootMode:  rebootMode,
+				MaxParallel: maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)

@@ -32,9 +32,9 @@ type Options struct {
 	AllowNotReady bool
 	// Apply mode passed to Talos (auto, reboot, no-reboot, staged, try)
 	Mode machine.ApplyConfigurationRequest_Mode
-	// BatchSize controls how many worker nodes are applied to concurrently.
+	// MaxParallel controls how many worker nodes are applied to concurrently.
 	// Control-plane nodes are always applied to one at a time.
-	BatchSize nodepool.BatchSize
+	MaxParallel nodepool.MaxParallel
 }
 
 // Execute applies the Talos configurations to all nodes in the cluster
@@ -123,7 +123,7 @@ func runPreflightChecks(logger *slog.Logger, nodes []*topf.Node, opts *Options) 
 // applyConfigs applies configuration to all filtered nodes. In dry-run mode all
 // nodes are processed sequentially. Otherwise control-plane nodes are applied to
 // one at a time (to preserve etcd quorum and keep the bootstrap node first), and
-// worker nodes are applied to using a rolling pool of at most BatchSize nodes.
+// worker nodes are applied to using a rolling pool of at most MaxParallel nodes.
 func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, opts Options) error {
 	if opts.DryRun {
 		return applyDryRun(ctx, logger, nodes, opts)
@@ -138,7 +138,7 @@ func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, 
 	}
 
 	if len(workers) > 0 {
-		concurrency := opts.BatchSize.Resolve(len(nodes))
+		concurrency := opts.MaxParallel.Resolve(len(nodes))
 		logger.Info("applying to worker nodes", "count", len(workers), "concurrency", concurrency)
 
 		return nodepool.RunConcurrent(ctx, workers, concurrency,
