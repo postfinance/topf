@@ -21,39 +21,39 @@ import (
 	"github.com/postfinance/topf/pkg/config"
 )
 
-// BatchSize describes how many nodes may be processed concurrently. It is either
-// an absolute count or a percentage of the total node count.
-type BatchSize struct {
+// MaxParallel describes how many nodes may be processed concurrently. It is
+// either an absolute count or a percentage of the total node count.
+type MaxParallel struct {
 	Value   int
 	Percent bool
 }
 
-// ParseBatchSize parses a batch-size flag value, which is either a positive
+// ParseMaxParallel parses a max-parallel flag value, which is either a positive
 // integer (e.g. "5") or a percentage of the total node count (e.g. "25%").
-func ParseBatchSize(value string) (BatchSize, error) {
+func ParseMaxParallel(value string) (MaxParallel, error) {
 	value = strings.TrimSpace(value)
 
 	if pct, ok := strings.CutSuffix(value, "%"); ok {
 		n, err := strconv.Atoi(strings.TrimSpace(pct))
 		if err != nil || n <= 0 || n > 100 {
-			return BatchSize{}, fmt.Errorf("invalid batch-size %q: percentage must be an integer between 1 and 100", value)
+			return MaxParallel{}, fmt.Errorf("invalid max-parallel %q: percentage must be an integer between 1 and 100", value)
 		}
 
-		return BatchSize{Value: n, Percent: true}, nil
+		return MaxParallel{Value: n, Percent: true}, nil
 	}
 
 	n, err := strconv.Atoi(value)
 	if err != nil || n <= 0 {
-		return BatchSize{}, fmt.Errorf("invalid batch-size %q: must be a positive integer or a percentage (e.g. \"5\" or \"25%%\")", value)
+		return MaxParallel{}, fmt.Errorf("invalid max-parallel %q: must be a positive integer or a percentage (e.g. \"5\" or \"25%%\")", value)
 	}
 
-	return BatchSize{Value: n}, nil
+	return MaxParallel{Value: n}, nil
 }
 
 // Resolve returns the effective concurrency for the given total node count. For
 // percentages the result is rounded up, and the result is always at least 1 and
 // never exceeds the total.
-func (b BatchSize) Resolve(total int) int {
+func (b MaxParallel) Resolve(total int) int {
 	n := b.Value
 
 	if b.Percent {

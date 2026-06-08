@@ -29,9 +29,9 @@ type Options struct {
 	Force      bool
 	RebootMode machine.UpgradeRequest_RebootMode
 
-	// BatchSize controls how many worker nodes are upgraded concurrently.
+	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
-	BatchSize nodepool.BatchSize
+	MaxParallel nodepool.MaxParallel
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -77,7 +77,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	// Worker nodes are upgraded using a rolling pool: up to n upgrades are kept
 	// in flight, and as soon as one finishes the next node is started.
 	if len(workers) > 0 {
-		concurrency := opts.BatchSize.Resolve(len(nodes))
+		concurrency := opts.MaxParallel.Resolve(len(nodes))
 		logger.Info("upgrading worker nodes", "count", len(workers), "concurrency", concurrency)
 
 		return nodepool.RunConcurrent(ctx, workers, concurrency,
