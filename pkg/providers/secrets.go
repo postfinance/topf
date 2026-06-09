@@ -6,6 +6,7 @@ package providers
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
@@ -29,6 +30,10 @@ type SecretsProvider interface {
 func LoadSecretsBundle(provider SecretsProvider, clusterName string) (*secrets.Bundle, error) {
 	bytes, err := provider.Get(clusterName)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%w for cluster %s", ErrSecretsNotFound, clusterName)
+		}
+
 		return nil, err
 	}
 
