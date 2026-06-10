@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/client"
+	"github.com/siderolabs/talos/pkg/machinery/client/dialer"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
@@ -21,7 +22,7 @@ import (
 // mode) or authenticated (if bootstrapped already) by probing the node endpoint
 // for mTLS.
 func (n *Node) Client(ctx context.Context) (*client.Client, error) {
-	mTLSRequired, err := checkForMTLS(net.JoinHostPort(n.Node.Endpoint(), "50000"))
+	mTLSRequired, err := checkForMTLS(ctx, net.JoinHostPort(n.Node.Endpoint(), "50000"))
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +66,7 @@ func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundl
 	c, err := client.New(ctx,
 		client.WithConfig(talosConfig),
 		client.WithEndpoints(endpoints...),
+		client.WithDefaultGRPCDialOptions(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create talos client: %w", err)
@@ -83,6 +85,7 @@ func createInsecureClient(ctx context.Context, endpoint string) (*client.Client,
 	c, err := client.New(ctx,
 		client.WithTLSConfig(tlsConfig),
 		client.WithEndpoints(endpoint),
+		client.WithDefaultGRPCDialOptions(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create insecure talos client: %w", err)
@@ -93,7 +96,8 @@ func createInsecureClient(ctx context.Context, endpoint string) (*client.Client,
 
 // checkForMTLS checks if the given endpoint requires mTLS by attempting a TLS
 // connection and seeing if a client certificate is requested.
-func checkForMTLS(endpoint string) (bool, error) {
+// It respects HTTPS_PROXY/HTTP_PROXY environment variables.
+func checkForMTLS(ctx context.Context, endpoint string) (bool, error) {
 	certRequested := false
 
 	tlsConfig := &tls.Config{
@@ -104,24 +108,24 @@ func checkForMTLS(endpoint string) (bool, error) {
 		},
 	}
 
-	// Create dialer with context
-	dialer := &net.Dialer{
-		Timeout: 3 * time.Second,
+	dialCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	conn, err := dialer.DynamicProxyDialer(dialCtx, endpoint)
+	if err != nil {
+		return false, fmt.Errorf("connection failed: %w", err)
 	}
 
-	// Attempt TLS connection
-	conn, err := tls.DialWithDialer(dialer, "tcp", endpoint, tlsConfig)
-	if err != nil {
-		// Check if error is due to missing client cert
-		// If so, we know mTLS is required
+	tlsConn := tls.Client(conn, tlsConfig)
+	defer tlsConn.Close()
+
+	if err := tlsConn.HandshakeContext(dialCtx); err != nil {
 		if certRequested {
 			return true, nil
 		}
-		// Other error - might be network, might be other TLS issue
+
 		return false, fmt.Errorf("connection failed: %w", err)
 	}
-	defer conn.Close()
 
-	// Connection succeeded
 	return certRequested, nil
 }
