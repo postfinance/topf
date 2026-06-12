@@ -8,7 +8,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.8.0
 	github.com/siderolabs/go-retry v0.3.3
 	github.com/siderolabs/image-factory v1.3.2
-	github.com/siderolabs/talos/pkg/machinery v1.13.3
+	github.com/siderolabs/talos/pkg/machinery v1.13.4
 	github.com/urfave/cli/v3 v3.9.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	gopkg.in/yaml.v3 v3.0.1
