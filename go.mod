@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/cosi-project/runtime v1.16.1
-	github.com/jedib0t/go-pretty/v6 v6.8.0
+	github.com/jedib0t/go-pretty/v6 v6.8.1
 	github.com/siderolabs/go-retry v0.3.3
 	github.com/siderolabs/image-factory v1.3.2
 	github.com/siderolabs/talos/pkg/machinery v1.13.3
