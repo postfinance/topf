@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.1] - 2026-06-10
+
+### Features
+
+- **templates**: Register sprig functions in patch template FuncMap ([5ceb732](https://github.com/postfinance/topf/commit/5ceb7320d1f212929dd7bf8b25d23c893a71bf15))
+- Cache decrypted files and deduplicates secrets in maskedwriter ([e36a5d1](https://github.com/postfinance/topf/commit/e36a5d12735c12319cbca05752accd9a94f712d2))
+- Enable UPX and add back symbols table ([ee31fc3](https://github.com/postfinance/topf/commit/ee31fc327105237f06ea4bbbf6e06a0d1fc8c2c2))
+
+### Bug Fixes
+
+- **bootstrap**: Also attempt bootstrap if etcd is in 'Waiting' state ([454cae7](https://github.com/postfinance/topf/commit/454cae74227e5b9126a68d1225aac7eb094ce36f))
+- **secrets-provider**: Missing secrets.yaml prompts to generate one ([c8ed227](https://github.com/postfinance/topf/commit/c8ed227c6f4354c5fb87aee73f466b845731842c))
+- **client**: Respect proxy env variables (like talosctl does) ([f2752b2](https://github.com/postfinance/topf/commit/f2752b235d38c800b576f79c816dd3e80c427529))
+
+### Miscellaneous
+
+- Update changelog ([1554f58](https://github.com/postfinance/topf/commit/1554f585a2c163972c90d7751abbc4f3d882445d))
+- Add logo ([f16ef32](https://github.com/postfinance/topf/commit/f16ef3255584eb96ece3ee9a9cb393bc6fe0208a))
+- Switch documentation color to brown ([9781ecb](https://github.com/postfinance/topf/commit/9781ecb385d9b9f102e282dcd2a9e394e652218f))
+- Update example/ with saner defaults ([7998fb6](https://github.com/postfinance/topf/commit/7998fb6b996ba687de60eef50a743ded90a731be))
+
+### Build
+
+- Upgrade all go modules and bump to talos/v1.13.3 ([cc89f48](https://github.com/postfinance/topf/commit/cc89f48fb28587c0f8c8d5e93a49a1a189a51f34))
 ## [0.4.0] - 2026-05-27
 
 ### Features
