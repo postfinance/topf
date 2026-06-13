@@ -43,7 +43,7 @@ docker pull ghcr.io/postfinance/topf
 
 Boot at least one Talos machine to maintenance mode.
 
-Create a new folder for you cluster with a `topf.yaml` file:
+Create a new folder for your cluster with a `topf.yaml` file:
 
 ```yaml
 kubernetesVersion: 1.35.3
