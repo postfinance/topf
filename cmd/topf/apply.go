@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/postfinance/topf/internal/cmd/apply"
+	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
@@ -60,12 +61,23 @@ func newApplyCmd() *cli.Command {
 				Usage:   "apply mode: " + strings.Join(validApplyModes(), ", "),
 				Sources: cli.EnvVars("TOPF_MODE"),
 			},
+			&cli.StringFlag{
+				Name:    "max-parallel",
+				Value:   "1",
+				Usage:   "number of worker nodes to apply to concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always applied to one at a time",
+				Sources: cli.EnvVars("TOPF_MAX_PARALLEL"),
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
 			mode, err := parseApplyMode(c.String("mode"))
+			if err != nil {
+				return err
+			}
+
+			maxParallel, err := nodepool.ParseMaxParallel(c.String("max-parallel"))
 			if err != nil {
 				return err
 			}
@@ -77,6 +89,7 @@ func newApplyCmd() *cli.Command {
 				SkipPostApplyChecks:  c.Bool("skip-post-apply-checks"),
 				AllowNotReady:        c.Bool("allow-not-ready"),
 				Mode:                 mode,
+				MaxParallel:          maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
