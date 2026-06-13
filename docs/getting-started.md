@@ -45,7 +45,7 @@ These are only needed if your configuration uses SOPS encryption or vals referen
 
 Boot at least one Talos machine to maintenance mode.
 
-Create a new folder for you cluster with a `topf.yaml` file:
+Create a new folder for your cluster with a `topf.yaml` file:
 
 ```yaml
 kubernetesVersion: 1.34.1
