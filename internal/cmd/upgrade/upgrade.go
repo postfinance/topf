@@ -8,11 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"time"
 
 	"github.com/postfinance/topf/internal/interactive"
+	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
@@ -26,6 +28,10 @@ type Options struct {
 	// Talos upgrade options
 	Force      bool
 	RebootMode machine.UpgradeRequest_RebootMode
+
+	// MaxParallel controls how many worker nodes are upgraded concurrently.
+	// Control-plane nodes are always upgraded one at a time.
+	MaxParallel nodepool.MaxParallel
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -38,8 +44,54 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
-	// Pre Checks
-	// collect all errors to report them all at once
+	if err := preChecks(logger, nodes); err != nil {
+		return err
+	}
+
+	// Plan phase: determine which nodes require an upgrade. Interactive
+	// confirmations happen here, sequentially, before any concurrent work.
+	worklist, upgradeRequired, err := plan(t, logger, nodes, opts)
+	if err != nil {
+		return err
+	}
+
+	if opts.DryRun {
+		if upgradeRequired {
+			return topf.ErrDryRunChangesDetected
+		}
+
+		return nil
+	}
+
+	controlPlane, workers := nodepool.PartitionByRole(worklist)
+
+	// Control-plane nodes are upgraded strictly one at a time to preserve etcd
+	// quorum; this also satisfies "control-plane upgrades cannot be scheduled
+	// concurrently".
+	for _, node := range controlPlane {
+		if err := upgradeNode(ctx, node, opts, logger.With(node.Attrs())); err != nil {
+			return err
+		}
+	}
+
+	// Worker nodes are upgraded using a rolling pool: up to n upgrades are kept
+	// in flight, and as soon as one finishes the next node is started.
+	if len(workers) > 0 {
+		concurrency := opts.MaxParallel.Resolve(len(nodes))
+		logger.Info("upgrading worker nodes", "count", len(workers), "concurrency", concurrency)
+
+		return nodepool.RunConcurrent(ctx, workers, concurrency,
+			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
+				return upgradeNode(ctx, node, opts, logger)
+			}, logger)
+	}
+
+	return nil
+}
+
+// preChecks verifies that every node is reachable and running before any
+// upgrade is attempted, reporting all problems at once.
+func preChecks(logger *slog.Logger, nodes []*topf.Node) error {
 	abort := false
 
 	for _, node := range nodes {
@@ -66,8 +118,12 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return errors.New("aborting due to errors with some nodes")
 	}
 
-	var upgradeRequired bool
+	return nil
+}
 
+// plan determines which nodes require an upgrade, performing interactive
+// confirmations sequentially before any concurrent work.
+func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (worklist []*topf.Node, upgradeRequired bool, err error) {
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
@@ -75,7 +131,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 		schematic, talosVersion, err := extractSchematicAndVersion(installerImage)
 		if err != nil {
-			return fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
+			return nil, false, fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
 		}
 
 		nodeNeedsUpgrade := node.RunningVersion() != talosVersion || node.RunningSchematic() != schematic
@@ -106,31 +162,39 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 			}
 		}
 
-		nodeClient, err := node.Client(ctx)
-		if err != nil {
-			return err
-		}
-		defer nodeClient.Close()
-
-		_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
-			Image:      installerImage,
-			Preserve:   true, // talos default since v1.8+
-			Force:      opts.Force,
-			RebootMode: opts.RebootMode,
-		})
-		if err != nil {
-			return err
-		}
-
-		logger.Info("upgrade initiated")
-
-		if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
-			return fmt.Errorf("node didn't stabilize: %w", err)
-		}
+		worklist = append(worklist, node)
 	}
 
-	if upgradeRequired && opts.DryRun {
-		return topf.ErrDryRunChangesDetected
+	return worklist, upgradeRequired, nil
+}
+
+// upgradeNode issues the upgrade RPC to a single node and waits for it to
+// stabilize. The provided logger is expected to already carry the node's
+// attributes.
+func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.Logger) error {
+	installerImage := node.ConfigProvider().Machine().Install().Image()
+
+	nodeClient, err := node.Client(ctx)
+	if err != nil {
+		return err
+	}
+	defer nodeClient.Close()
+
+	//nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) is a streaming RPC; migrating is tracked separately
+	_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
+		Image:      installerImage,
+		Preserve:   true, // talos default since v1.8+
+		Force:      opts.Force,
+		RebootMode: opts.RebootMode,
+	})
+	if err != nil {
+		return err
+	}
+
+	logger.Info("upgrade initiated")
+
+	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
 	return nil

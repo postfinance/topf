@@ -12,6 +12,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
@@ -31,6 +32,9 @@ type Options struct {
 	AllowNotReady bool
 	// Apply mode passed to Talos (auto, reboot, no-reboot, staged, try)
 	Mode machine.ApplyConfigurationRequest_Mode
+	// MaxParallel controls how many worker nodes are applied to concurrently.
+	// Control-plane nodes are always applied to one at a time.
+	MaxParallel nodepool.MaxParallel
 }
 
 // Execute applies the Talos configurations to all nodes in the cluster
@@ -116,35 +120,83 @@ func runPreflightChecks(logger *slog.Logger, nodes []*topf.Node, opts *Options) 
 	return filteredNodes, nil
 }
 
-// applyConfigs applies configuration to all filtered nodes
+// applyConfigs applies configuration to all filtered nodes. In dry-run mode all
+// nodes are processed sequentially. Otherwise control-plane nodes are applied to
+// one at a time (to preserve etcd quorum and keep the bootstrap node first), and
+// worker nodes are applied to using a rolling pool of at most MaxParallel nodes.
 func applyConfigs(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, opts Options) error {
+	if opts.DryRun {
+		return applyDryRun(ctx, logger, nodes, opts)
+	}
+
+	controlPlane, workers := nodepool.PartitionByRole(nodes)
+
+	for _, node := range controlPlane {
+		if err := applyNode(ctx, node, opts, logger.With(node.Attrs())); err != nil {
+			return err
+		}
+	}
+
+	if len(workers) > 0 {
+		concurrency := opts.MaxParallel.Resolve(len(nodes))
+		logger.Info("applying to worker nodes", "count", len(workers), "concurrency", concurrency)
+
+		return nodepool.RunConcurrent(ctx, workers, concurrency,
+			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
+				return applyNode(ctx, node, opts, logger)
+			}, logger)
+	}
+
+	return nil
+}
+
+// applyDryRun applies the configuration to all nodes sequentially in dry-run
+// mode, aggregating whether any changes were detected.
+func applyDryRun(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, opts Options) error {
 	var changesDetected bool
 
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
-		applied, err := node.Apply(ctx, logger, opts.DryRun, opts.Mode)
+		err := applyNode(ctx, node, opts, logger)
 		if errors.Is(err, topf.ErrDryRunChangesDetected) {
 			changesDetected = true
 			continue
 		}
 
 		if err != nil {
-			return fmt.Errorf("failed to apply config to node %v: %w", node.Node.Host, err)
-		}
-
-		// if nothing was applied or dry-run mode, skip healthchecks
-		if !applied || opts.DryRun || opts.SkipPostApplyChecks {
-			continue
-		}
-
-		if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
-			return fmt.Errorf("node didn't stabilize: %w", err)
+			return err
 		}
 	}
 
 	if changesDetected {
 		return topf.ErrDryRunChangesDetected
+	}
+
+	return nil
+}
+
+// applyNode applies the configuration to a single node and, unless skipped,
+// waits for it to stabilize. The provided logger is expected to already carry
+// the node's attributes. In dry-run mode it returns ErrDryRunChangesDetected
+// when changes are detected.
+func applyNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.Logger) error {
+	applied, err := node.Apply(ctx, logger, opts.DryRun, opts.Mode)
+	if errors.Is(err, topf.ErrDryRunChangesDetected) {
+		return err
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to apply config to node %v: %w", node.Node.Host, err)
+	}
+
+	// if nothing was applied or dry-run mode, skip healthchecks
+	if !applied || opts.DryRun || opts.SkipPostApplyChecks {
+		return nil
+	}
+
+	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
 	return nil
