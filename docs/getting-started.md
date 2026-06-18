@@ -4,9 +4,9 @@
 
 | TOPF Version  | Talos Version |
 | ------------- | ------------- |
-| v0.x (latest) | v1.12.x       |
+| v0.x (latest) | v1.13.x       |
 
-TOPF is built against the Talos v1.12 machinery libraries. It should work with older Talos versions, but only v1.12.x is officially supported and tested.
+TOPF is built against the Talos v1.13 machinery libraries.
 
 ## Installation
 
@@ -48,36 +48,41 @@ Boot at least one Talos machine to maintenance mode.
 Create a new folder for your cluster with a `topf.yaml` file:
 
 ```yaml
-kubernetesVersion: 1.34.1
+kubernetesVersion: 1.35.5
+talosVersion: 1.13.4
 clusterEndpoint: https://192.168.1.100:6443
 clusterName: mycluster
 
 nodes:
   - host: node1
-    ip: 172.20.10.2
+    ip: 192.168.1.100
     role: control-plane
 ```
 
-Create a new patch to specify the install disk and desired talos version:
+Create a new patch to specify the install disk:
 
-`all/01-installation.yaml`:
+`all/00-installation.yaml`:
 
 ```yaml
 machine:
   install:
     disk: /dev/vda
-    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.3
 ```
 
-!!! info "Obtaining the schematic ID"
+### Set the node hostname
 
-    The long hash in the installer URL (`376567988a...`) is a **schematic ID** — a content-addressable
-    hash of your extensions and overlay configuration. You can either:
+By default, Talos generates hostnames automatically (e.g. `talos-XXX-XXX`). The `host` value in `topf.yaml` is used by TOPF for display, logging, and node selection — it is **not** automatically applied as the Talos hostname.
 
-    - Use the [Image Factory UI](https://factory.talos.dev) to select extensions and copy the ID, or
-    - Reference a schematic file using the `@` prefix (see [Schematic reference resolution](configuration.md#schematic-reference-resolution)): `schematicId: @schematic.yaml`
+To use the configured `host` value as the hostname, add a `HostnameConfig` patch. Create `all/01-hostname.yaml.tpl`:
 
-    For details on how this image is used during upgrades, see [Installer Image](commands/upgrade.md#installer-image).
+```yaml
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: {{ .Node.Host }}
+```
+
+This patch is applied to every node and sets the hostname from `nodes[].host`. For details on how patches are layered, see [Configuration Model](configuration-model.md).
 
 Then run `topf apply --auto-bootstrap` to provision the cluster.
 
