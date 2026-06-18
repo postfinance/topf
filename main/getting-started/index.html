@@ -438,6 +438,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Quickstart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-the-node-hostname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set the node hostname
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1099,6 +1116,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Quickstart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-the-node-hostname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set the node hostname
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1144,11 +1178,11 @@
 <tbody>
 <tr>
 <td>v0.x (latest)</td>
-<td>v1.12.x</td>
+<td>v1.13.x</td>
 </tr>
 </tbody>
 </table>
-<p>TOPF is built against the Talos v1.12 machinery libraries. It should work with older Talos versions, but only v1.12.x is officially supported and tested.</p>
+<p>TOPF is built against the Talos v1.13 machinery libraries.</p>
 <h2 id="installation">Installation</h2>
 <h3 id="homebrew">Homebrew</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brew<span class="w"> </span>install<span class="w"> </span>postfinance/tap/topf
@@ -1184,32 +1218,31 @@
 <h2 id="quickstart">Quickstart</h2>
 <p>Boot at least one Talos machine to maintenance mode.</p>
 <p>Create a new folder for your cluster with a <code>topf.yaml</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">kubernetesVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.34.1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">clusterEndpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://192.168.1.100:6443</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">clusterName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mycluster</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">nodes</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node1</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">172.20.10.2</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">kubernetesVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.35.5</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">talosVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.13.4</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">clusterEndpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://192.168.1.100:6443</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">clusterName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mycluster</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">nodes</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node1</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.100</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
 </code></pre></div>
-<p>Create a new patch to specify the install disk and desired talos version:</p>
-<p><code>all/01-installation.yaml</code>:</p>
+<p>Create a new patch to specify the install disk:</p>
+<p><code>all/00-installation.yaml</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">machine</span><span class="p">:</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/vda</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.3</span>
 </code></pre></div>
-<div class="admonition info">
-<p class="admonition-title">Obtaining the schematic ID</p>
-<p>The long hash in the installer URL (<code>376567988a...</code>) is a <strong>schematic ID</strong> — a content-addressable
-hash of your extensions and overlay configuration. You can either:</p>
-<ul>
-<li>Use the <a href="https://factory.talos.dev">Image Factory UI</a> to select extensions and copy the ID, or</li>
-<li>Reference a schematic file using the <code>@</code> prefix (see <a href="../configuration/#schematic-reference-resolution">Schematic reference resolution</a>): <code>schematicId: @schematic.yaml</code></li>
-</ul>
-<p>For details on how this image is used during upgrades, see <a href="../commands/upgrade/#installer-image">Installer Image</a>.</p>
-</div>
+<h3 id="set-the-node-hostname">Set the node hostname</h3>
+<p>By default, Talos generates hostnames automatically (e.g. <code>talos-XXX-XXX</code>). The <code>host</code> value in <code>topf.yaml</code> is used by TOPF for display, logging, and node selection — it is <strong>not</strong> automatically applied as the Talos hostname.</p>
+<p>To use the configured <code>host</code> value as the hostname, add a <code>HostnameConfig</code> patch. Create <code>all/01-hostname.yaml.tpl</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HostnameConfig</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">auto</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;off&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">.Node.Host</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+</code></pre></div>
+<p>This patch is applied to every node and sets the hostname from <code>nodes[].host</code>. For details on how patches are layered, see <a href="../configuration-model/">Configuration Model</a>.</p>
 <p>Then run <code>topf apply --auto-bootstrap</code> to provision the cluster.</p>
 <p>Once finished use <code>topf kubeconfig</code> to create an admin kubeconfig for the cluster and use <code>topf talosconfig</code> to create a valid talosconfig.</p>
 <h2 id="next-steps">Next Steps</h2>
