@@ -42,6 +42,11 @@ tasks:
     cmds:
       - git-cliff -o CHANGELOG.md
 
+  docs:install:
+    desc: Install documentation dependencies
+    cmds:
+      - pip install -r docs/requirements.txt
+
   docs:
     desc: Serve documentation locally
     cmds:
