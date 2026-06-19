@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.x"
 
-      - run: pip install mkdocs-material mdx-truly-sane-lists mike
+      - run: pip install -r docs/requirements.txt
 
       - name: Configure git
         run: |
