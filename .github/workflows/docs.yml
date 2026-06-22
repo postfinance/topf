@@ -2,6 +2,11 @@ name: docs
 on:
   push:
     branches: [main]
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
 
 permissions:
   contents: write
@@ -18,12 +23,17 @@ jobs:
         with:
           python-version: "3.x"
 
-      - run: pip install mkdocs-material mdx-truly-sane-lists mike
+      - run: pip install -r docs/requirements.txt
+
+      - name: Build docs (validation)
+        run: mkdocs build --strict
 
       - name: Configure git
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Deploy main docs
+        if: github.ref == 'refs/heads/main'
         run: mike deploy --push --update-aliases main
