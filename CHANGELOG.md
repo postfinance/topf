@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.2] - 2026-06-22
+
+### Features
+
+- Concurrent upgrade/apply with --max-parallel=... flag ([c0bebc7](https://github.com/postfinance/topf/commit/c0bebc7b736d1017a94d428afc5e70806fd5910c))
+
+### Documentation
+
+- Fixed typo 'you cluster' to 'your cluster' in documentation ([66f0e32](https://github.com/postfinance/topf/commit/66f0e32ccdf966871be3c198982af5531e2f7390))
+- Improve README.md and getting-started example ([df22bb6](https://github.com/postfinance/topf/commit/df22bb6dc0f026bcb0188e8dd7e9e456aa706950))
+- Extract mkdocs deps to requirements.txt and validate build on PRs (#99) ([6c4328d](https://github.com/postfinance/topf/commit/6c4328d254637dbcf009ecdb3e4d2d32977960f4))
+
+### Miscellaneous
+
+- Update changelog ([c85d2f1](https://github.com/postfinance/topf/commit/c85d2f100e370dbec7944bd635a819f79a0214c8))
+
+### Build
+
+- **gh-actions**: Pin gh actions ([af6fbfb](https://github.com/postfinance/topf/commit/af6fbfb979b37ccd00774a11289f5ad934e48f6b))
+- **deps**: Bump golangci/golangci-lint-action (#97) ([589b417](https://github.com/postfinance/topf/commit/589b417f79a26824a467144298fdf93f7c51a4d3))
+- **deps**: Bump actions/checkout from 6.0.3 to 7.0.0 (#98) ([2b2ac2c](https://github.com/postfinance/topf/commit/2b2ac2cd23342d14211db6bc56d08708f9b77174))
 ## [0.4.1] - 2026-06-10
 
 ### Features
