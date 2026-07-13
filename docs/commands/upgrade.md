@@ -9,8 +9,10 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--dry-run` | `false` | Only show what upgrades would be performed without actually upgrading |
-| `--force` | `false` | Force the upgrade (skip checks on etcd health and members, might lead to data loss) |
+| `--max-parallel` | `1` | Number of worker nodes to upgrade concurrently, as an integer (e.g. `5`) or a percentage of the total node count (e.g. `25%`); control-plane nodes are always upgraded one at a time |
 | `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
+| `--drain` | `true` | Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization |
+| `--drain-timeout` | `5m` | Maximum time to wait for pod evictions to complete during drain |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
 ## Behavior
@@ -18,8 +20,12 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 1. **Pre-flight checks**: Ensures all nodes are in the `Running` stage
 2. **Version comparison**: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state
 3. **Per-node confirmation**: Before each upgrade (unless `--confirm=false`, see [global flags](../configuration.md#global-flags))
-4. **Upgrade**: Issues the upgrade command with the selected reboot mode (default: kexec)
-5. **Stabilization**: Waits 30 seconds after upgrade for the node to stabilize
+4. **Image pull**: Pre-pulls the installer image via the `ImageService.Pull` streaming RPC
+5. **Upgrade**: Installs the upgrade artifacts via the `LifecycleService.Upgrade` streaming RPC
+6. **Drain**: Cordons and drains the Kubernetes node (evicts pods gracefully) if `--drain` is enabled
+7. **Reboot**: Issues a separate `Reboot` with the selected reboot mode (default: kexec)
+8. **Stabilization**: Waits 30 seconds after the reboot for the node to stabilize
+9. **Uncordon**: Uncordons the Kubernetes node so the scheduler can place pods on it again
 
 ## Installer Image
 
@@ -72,6 +78,12 @@ topf upgrade --confirm=false
 # Preview what would be upgraded
 topf upgrade --dry-run
 
-# Force upgrade (skip etcd health checks)
-topf upgrade --force
+# Upgrade without draining the Kubernetes node
+topf upgrade --drain=false
+
+# Upgrade up to 3 worker nodes concurrently
+topf upgrade --max-parallel=3
+
+# Upgrade with a custom drain timeout
+topf upgrade --drain-timeout=10m
 ```

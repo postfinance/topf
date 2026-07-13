@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"slices"
@@ -16,8 +17,13 @@ import (
 	"github.com/postfinance/topf/internal/interactive"
 	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
+	taloskubeclient "github.com/siderolabs/talos/cmd/talosctl/pkg/talos/kubeclient"
+	talosnodedrain "github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
+	"github.com/siderolabs/talos/pkg/machinery/api/common"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
+	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
+	"github.com/siderolabs/talos/pkg/reporter"
 )
 
 // Options contains the options for the upgrade execution
@@ -25,9 +31,17 @@ type Options struct {
 	// Only show what upgrades would be performed without actually upgrading
 	DryRun bool
 
-	// Talos upgrade options
-	Force      bool
-	RebootMode machine.UpgradeRequest_RebootMode
+	// RebootMode controls how the node is rebooted after the upgrade artifacts
+	// are installed. It maps to machine.RebootRequest_Mode (used by the
+	// Reboot RPC).
+	RebootMode machine.RebootRequest_Mode
+
+	// Drain controls whether the Kubernetes node is cordoned and drained
+	// before the reboot and uncordoned after the node becomes Ready again.
+	Drain bool
+
+	// DrainTimeout is the maximum time to wait for pod evictions to complete.
+	DrainTimeout time.Duration
 
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
@@ -168,9 +182,18 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 	return worklist, upgradeRequired, nil
 }
 
-// upgradeNode issues the upgrade RPC to a single node and waits for it to
-// stabilize. The provided logger is expected to already carry the node's
-// attributes.
+// upgradeNode performs a Talos OS upgrade on a single node using the
+// LifecycleService.Upgrade streaming RPC. The flow is:
+//
+//  1. Pre-pull the installer image via ImageService.Pull.
+//  2. Stream LifecycleService.Upgrade, draining progress messages and
+//     verifying the final exit code is zero.
+//  3. Drain the Kubernetes node (cordon + evict pods) if draining is enabled.
+//  4. Issue a Reboot with the configured reboot mode.
+//  5. Wait for the node to stabilize.
+//  6. Uncordon the Kubernetes node after it becomes Ready again.
+//
+// The provided logger is expected to already carry the node's attributes.
 func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.Logger) error {
 	installerImage := node.ConfigProvider().Machine().Install().Image()
 
@@ -180,15 +203,50 @@ func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slo
 	}
 	defer nodeClient.Close()
 
-	//nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) is a streaming RPC; migrating is tracked separately
-	_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
-		Image:      installerImage,
-		Preserve:   true, // talos default since v1.8+
-		Force:      opts.Force,
-		RebootMode: opts.RebootMode,
-	})
-	if err != nil {
-		return err
+	containerdInstance := systemContainerdInstance()
+
+	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
+		return fmt.Errorf("pulling installer image: %w", err)
+	}
+
+	if err := runUpgrade(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
+		return fmt.Errorf("upgrade: %w", err)
+	}
+
+	// Resolve the Kubernetes node name and drain the node before rebooting,
+	// so that pods are evicted gracefully.
+	var k8sNodeName string
+
+	if opts.Drain {
+		k8sNodeName, err = talosnodedrain.GetKubernetesNodeName(ctx, nodeClient)
+		if err != nil {
+			return fmt.Errorf("resolving kubernetes node name: %w", err)
+		}
+
+		clientset, err := taloskubeclient.FromTalosClient(ctx, nodeClient)
+		if err != nil {
+			return fmt.Errorf("creating kubernetes client: %w", err)
+		}
+
+		reportFn := func(u reporter.Update) {
+			logger.Info("drain", "k8s_node", k8sNodeName, "status", int(u.Status), "message", u.Message)
+		}
+
+		logger.Info("draining kubernetes node", "k8s_node", k8sNodeName)
+
+		if err := talosnodedrain.CordonAndDrain(ctx, clientset, k8sNodeName, talosnodedrain.Options{
+			DrainTimeout: opts.DrainTimeout,
+		}, reportFn); err != nil {
+			return fmt.Errorf("draining node: %w", err)
+		}
+
+		logger.Info("kubernetes node drained", "k8s_node", k8sNodeName)
+	}
+
+	logger.Info("upgrade artifacts installed, rebooting node", "reboot_mode", opts.RebootMode.String())
+
+	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil {
+		return fmt.Errorf("reboot: %w", err)
 	}
 
 	logger.Info("upgrade initiated")
@@ -197,7 +255,116 @@ func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slo
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
+	// After the node has stabilized, uncordon it so that the Kubernetes
+	// scheduler can place pods on it again.
+	if opts.Drain {
+		clientset, err := taloskubeclient.FromTalosClient(ctx, nodeClient)
+		if err != nil {
+			return fmt.Errorf("creating kubernetes client for uncordon: %w", err)
+		}
+
+		reportFn := func(u reporter.Update) {
+			logger.Info("uncordon", "k8s_node", k8sNodeName, "status", int(u.Status), "message", u.Message)
+		}
+
+		if err := talosnodedrain.Uncordon(ctx, clientset, k8sNodeName, reportFn); err != nil {
+			return fmt.Errorf("uncordoning node: %w", err)
+		}
+
+		logger.Info("kubernetes node uncordoned", "k8s_node", k8sNodeName)
+	}
+
 	return nil
+}
+
+// systemContainerdInstance returns the containerd instance used for pulling
+// and running installer artifacts: the CRI driver against the system
+// namespace. This matches talosctl's default for upgrades ("system").
+func systemContainerdInstance() *common.ContainerdInstance {
+	return &common.ContainerdInstance{
+		Driver:    common.ContainerDriver_CRI,
+		Namespace: common.ContainerdNamespace_NS_SYSTEM,
+	}
+}
+
+// pullInstallerImage pre-pulls the installer image via the
+// ImageService.Pull streaming RPC. Progress messages are logged at debug
+// level; the stream completes when the server sends the image name.
+func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
+	stream, err := c.ImageClient.Pull(ctx, &machine.ImageServicePullRequest{
+		Containerd: containerdInstance,
+		ImageRef:   imageRef,
+	})
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return errors.New("image pull stream ended without confirmation")
+		}
+
+		if err != nil {
+			return err
+		}
+
+		switch payload := resp.GetResponse().(type) {
+		case *machine.ImageServicePullResponse_PullProgress:
+			logger.Debug("image pull progress",
+				"layer", payload.PullProgress.GetLayerId(),
+				"progress", payload.PullProgress.GetProgress())
+		case *machine.ImageServicePullResponse_Name:
+			// final message: server reports the resolved image name
+			logger.Info("installer image pulled", "image", payload.Name)
+
+			return nil
+		}
+	}
+}
+
+// runUpgrade invokes the LifecycleService.Upgrade streaming RPC and
+// drains progress messages until the server sends a terminal exit code. A
+// non-zero exit code is surfaced as an error.
+func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
+	stream, err := c.LifecycleClient.Upgrade(ctx, &machine.LifecycleServiceUpgradeRequest{
+		Containerd: containerdInstance,
+		Source: &machine.InstallArtifactsSource{
+			ImageName: imageRef,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return errors.New("upgrade stream ended without exit code")
+		}
+
+		if err != nil {
+			return err
+		}
+
+		progress := resp.GetProgress()
+		if progress == nil {
+			continue
+		}
+
+		switch p := progress.GetResponse().(type) {
+		case *machine.LifecycleServiceInstallProgress_Message:
+			logger.Info("upgrade progress", "message", p.Message)
+		case *machine.LifecycleServiceInstallProgress_ExitCode:
+			if p.ExitCode != 0 {
+				return fmt.Errorf("upgrade failed with exit code %d", p.ExitCode)
+			}
+
+			logger.Info("upgrade artifacts installed", "exit_code", p.ExitCode)
+
+			return nil
+		}
+	}
 }
 
 func extractSchematicAndVersion(input string) (schematic, version string, err error) {
