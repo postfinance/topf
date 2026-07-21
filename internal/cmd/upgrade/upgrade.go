@@ -53,7 +53,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	logger := t.Logger().With("command", "upgrade")
 
 	// Gather node information
-	nodes, err := t.Nodes(ctx)
+	nodes, err := t.FilteredNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	// quorum; this also satisfies "control-plane upgrades cannot be scheduled
 	// concurrently".
 	for _, node := range controlPlane {
-		if err := upgradeNode(ctx, node, opts, logger.With(node.Attrs())); err != nil {
+		if err := upgradeNode(ctx, t, node, opts, logger.With(node.Attrs())); err != nil {
 			return err
 		}
 	}
@@ -96,7 +96,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 		return nodepool.RunConcurrent(ctx, workers, concurrency,
 			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
-				return upgradeNode(ctx, node, opts, logger)
+				return upgradeNode(ctx, t, node, opts, logger)
 			}, logger)
 	}
 
@@ -193,8 +193,13 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 //  5. Wait for the node to stabilize.
 //  6. Uncordon the Kubernetes node after it becomes Ready again.
 //
+// The kubeconfig for drain/uncordon operations is fetched via a control-plane
+// node client (t.ControlPlaneClient), because the Kubeconfig RPC is only
+// available on control-plane nodes. GetKubernetesNodeName uses the node's own
+// client, as the Nodename resource is available on all nodes.
+//
 // The provided logger is expected to already carry the node's attributes.
-func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.Logger) error {
+func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
 	installerImage := node.ConfigProvider().Machine().Install().Image()
 
 	nodeClient, err := node.Client(ctx)
@@ -223,7 +228,14 @@ func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slo
 			return fmt.Errorf("resolving kubernetes node name: %w", err)
 		}
 
-		clientset, err := taloskubeclient.FromTalosClient(ctx, nodeClient)
+		cpClient, err := t.ControlPlaneClient(ctx)
+		if err != nil {
+			return fmt.Errorf("creating control-plane client: %w", err)
+		}
+
+		clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
+		_ = cpClient.Close()
+
 		if err != nil {
 			return fmt.Errorf("creating kubernetes client: %w", err)
 		}
@@ -258,7 +270,14 @@ func upgradeNode(ctx context.Context, node *topf.Node, opts Options, logger *slo
 	// After the node has stabilized, uncordon it so that the Kubernetes
 	// scheduler can place pods on it again.
 	if opts.Drain {
-		clientset, err := taloskubeclient.FromTalosClient(ctx, nodeClient)
+		cpClient, err := t.ControlPlaneClient(ctx)
+		if err != nil {
+			return fmt.Errorf("creating control-plane client for uncordon: %w", err)
+		}
+
+		clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
+		_ = cpClient.Close()
+
 		if err != nil {
 			return fmt.Errorf("creating kubernetes client for uncordon: %w", err)
 		}

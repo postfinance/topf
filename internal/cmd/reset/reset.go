@@ -39,7 +39,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	result := &Result{}
 
 	// Gather node information
-	nodes, err := t.Nodes(ctx)
+	nodes, err := t.FilteredNodes(ctx)
 	if err != nil {
 		return err
 	}

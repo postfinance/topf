@@ -183,16 +183,31 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	return nil
 }
 
-// Nodes gathers information about each configured node.
-// Errors during gathering information for individual nodes are recorded in the Node.Error field.
-func (t *topf) Nodes(ctx context.Context) ([]*Node, error) {
+// filterNodes returns topf.Node wrappers for all configured nodes matching
+// the nodes-filter regex.
+func (t *topf) filterNodes() []*Node {
 	cfg := t.Config()
 
 	nodes := make([]*Node, 0, len(cfg.Nodes))
 
-	for _, node := range cfg.Nodes {
-		nodes = append(nodes, &Node{Node: &node, t: t})
+	for i := range cfg.Nodes {
+		nodeCfg := &cfg.Nodes[i]
+
+		if !t.nodesFilter.MatchString(nodeCfg.Host) {
+			continue
+		}
+
+		nodes = append(nodes, &Node{Node: nodeCfg, t: t})
 	}
+
+	return nodes
+}
+
+// FilteredNodes gathers information about each configured node matching the
+// nodes-filter regex.
+// Errors during gathering information for individual nodes are recorded in the Node.Error field.
+func (t *topf) FilteredNodes(ctx context.Context) ([]*Node, error) {
+	nodes := t.filterNodes()
 
 	var wg sync.WaitGroup
 
