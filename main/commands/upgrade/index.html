@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/topf.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1109,14 +1109,29 @@
 <td>Only show what upgrades would be performed without actually upgrading</td>
 </tr>
 <tr>
-<td><code>--force</code></td>
-<td><code>false</code></td>
-<td>Force the upgrade (skip checks on etcd health and members, might lead to data loss)</td>
+<td><code>--max-parallel</code></td>
+<td><code>1</code></td>
+<td>Number of worker nodes to upgrade concurrently, as an integer (e.g. <code>5</code>) or a percentage of the total node count (e.g. <code>25%</code>); control-plane nodes are always upgraded one at a time</td>
 </tr>
 <tr>
 <td><code>--reboot-mode</code></td>
 <td><code>default</code></td>
 <td>Reboot mode during upgrade: <code>default</code> uses kexec, <code>powercycle</code> does a full reboot</td>
+</tr>
+<tr>
+<td><code>--drain</code></td>
+<td><code>true</code></td>
+<td>Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization <em>(modern flow only; ignored on legacy nodes, where Talos drains and uncordons server-side)</em></td>
+</tr>
+<tr>
+<td><code>--drain-timeout</code></td>
+<td><code>5m</code></td>
+<td>Maximum time to wait for pod evictions to complete during drain <em>(modern flow only)</em></td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td><code>false</code></td>
+<td>Skip etcd health checks; only applies to nodes running Talos &lt; 1.13 (legacy <code>MachineService.Upgrade</code> RPC); has no effect on Talos &gt;= 1.13, where the <code>LifecycleService.Upgrade</code> RPC validates etcd health server-side</td>
 </tr>
 <tr>
 <td><a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a></td>
@@ -1125,13 +1140,36 @@
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>Upgrade API selection.</strong> Nodes running Talos &gt;= 1.13 use the modern
+<code>LifecycleService.Upgrade</code> streaming RPC (pre-pull, install, separate
+reboot). Nodes running Talos &lt; 1.13 fall back to the legacy
+<code>MachineService.Upgrade</code> RPC, which installs, drains, and reboots in a
+single server-side sequence. The <code>--force</code> flag is only meaningful on
+the legacy path; <code>--drain</code> and <code>--drain-timeout</code> are only meaningful on
+the modern path.</p>
+</blockquote>
 <h2 id="behavior">Behavior</h2>
 <ol>
 <li><strong>Pre-flight checks</strong>: Ensures all nodes are in the <code>Running</code> stage</li>
 <li><strong>Version comparison</strong>: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state</li>
 <li><strong>Per-node confirmation</strong>: Before each upgrade (unless <code>--confirm=false</code>, see <a href="../../configuration/#global-flags">global flags</a>)</li>
-<li><strong>Upgrade</strong>: Issues the upgrade command with the selected reboot mode (default: kexec)</li>
-<li><strong>Stabilization</strong>: Waits 30 seconds after upgrade for the node to stabilize</li>
+<li><strong>API selection</strong>: Per node, if the running Talos version is &gt;= 1.13.0, the modern flow (a) is used; otherwise the legacy flow (b) is used</li>
+</ol>
+<p><strong>Modern flow</strong> <em>(Talos &gt;= 1.13)</em>:</p>
+<ol>
+<li>Resolve the Kubernetes node name (if <code>--drain</code> is enabled)</li>
+<li>Pre-pull the installer image via <code>ImageService.Pull</code></li>
+<li>Install the upgrade artifacts via <code>LifecycleService.Upgrade</code></li>
+<li>Cordon and drain the Kubernetes node if <code>--drain</code> is enabled. <strong>If the drain fails</strong> (e.g. a pod cannot be evicted within <code>--drain-timeout</code>), the upgrade aborts: the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when <code>--max-parallel &gt; 1</code>) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.</li>
+<li>Issue a <code>Reboot</code> with the selected reboot mode (default: kexec)</li>
+<li>Wait 30 seconds for the node to stabilize</li>
+<li>Uncordon the Kubernetes node</li>
+</ol>
+<p><strong>Legacy flow</strong> <em>(Talos &lt; 1.13)</em>:</p>
+<ol>
+<li>Issue <code>MachineService.Upgrade</code>, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. <code>--drain</code> and <code>--drain-timeout</code> are ignored (Talos drains and uncordons the node itself); <code>--force</code> skips etcd health checks.</li>
+<li>Wait 30 seconds for the node to stabilize</li>
 </ol>
 <h2 id="installer-image">Installer Image</h2>
 <h3 id="using-talosversion-and-schematicid-recommended">Using <code>talosVersion</code> and <code>schematicId</code> (recommended)</h3>
@@ -1165,8 +1203,17 @@
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Preview what would be upgraded</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--dry-run
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Force upgrade (skip etcd health checks)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Upgrade without draining the Kubernetes node</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain<span class="o">=</span><span class="nb">false</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Upgrade up to 3 worker nodes concurrently</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--max-parallel<span class="o">=</span><span class="m">3</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Upgrade with a custom drain timeout</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Force upgrade on legacy (Talos &lt; 1.13) nodes, skipping etcd health checks</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
 </code></pre></div>
 
 
@@ -1220,7 +1267,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
