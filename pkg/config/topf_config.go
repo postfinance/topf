@@ -60,9 +60,6 @@ type TopfConfig struct {
 // PatchesDir defaults to the directory containing the config file.
 // SecretsPath defaults to "secrets.yaml" next to the config file (not inside PatchesDir).
 // Relative paths for both are resolved against the directory containing the config file.
-//
-// All nodes from the config and any nodes provider are loaded unfiltered.
-// Filtering by regex is the responsibility of the runtime (see topf.FilteredNodes).
 func LoadFromFile(path string, cache *decryption.Cache) (config *TopfConfig, secrets []string, err error) {
 	// Read file with automatic SOPS decryption if needed
 	var content []byte

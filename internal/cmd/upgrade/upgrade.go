@@ -35,11 +35,7 @@ type Options struct {
 	// Only show what upgrades would be performed without actually upgrading
 	DryRun bool
 
-	// RebootMode controls how the node is rebooted after the upgrade artifacts
-	// are installed. It maps to machine.RebootRequest_Mode (used by the
-	// Reboot RPC) for nodes on the LifecycleService flow (Talos >= 1.13),
-	// and is mapped to machine.UpgradeRequest_RebootMode for the legacy
-	// MachineService.Upgrade flow (Talos < 1.13).
+	// RebootMode controls how the node is rebooted after the upgrade.
 	RebootMode machine.RebootRequest_Mode
 
 	// Force skips etcd health checks on the legacy MachineService.Upgrade

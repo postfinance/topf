@@ -184,9 +184,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 }
 
 // filterNodes returns topf.Node wrappers for all configured nodes matching
-// the nodes-filter regex. The returned *Node values point into the shared
-// config backing array (cfg.Nodes); callers must not mutate cfg.Nodes while
-// these wrappers are in use.
+// the nodes-filter regex.
 func (t *topf) filterNodes() []*Node {
 	cfg := t.Config()
 
@@ -206,8 +204,7 @@ func (t *topf) filterNodes() []*Node {
 }
 
 // FilteredNodes gathers information about each configured node matching the
-// nodes-filter regex.
-// Errors during gathering information for individual nodes are recorded in the Node.Error field.
+// nodes-filter regex. Per-node errors are recorded in Node.Error.
 func (t *topf) FilteredNodes(ctx context.Context) ([]*Node, error) {
 	nodes := t.filterNodes()
 

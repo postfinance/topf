@@ -35,10 +35,9 @@ type Topf interface {
 	// Logger returns the configured logger
 	Logger() *slog.Logger
 
-	// FilteredNodes returns the list of nodes matching the nodes-filter regex,
-	// with additional information gathered from the live nodes.
-	// Errors during gathering information for individual nodes are recorded
-	// in the Node.Error field.
+	// FilteredNodes returns nodes matching the nodes-filter regex, with
+	// live node info gathered concurrently. Per-node errors are recorded
+	// in Node.Error.
 	FilteredNodes(context.Context) ([]*Node, error)
 
 	// Render generates machine config bundles for all nodes matching the
@@ -46,11 +45,9 @@ type Topf interface {
 	// When online is true, live nodes are queried for their actual running Talos version.
 	Render(context.Context, bool) ([]*Node, error)
 
-	// ControlPlaneClient returns a Talos API client connected to a
-	// control-plane node from the full (unfiltered) node list. It is intended
-	// for cluster-wide operations that are only available on control-plane
-	// nodes, such as fetching the kubeconfig via the Talos API.
-	// Returns an error if no control-plane node is configured.
+	// ControlPlaneClient returns a Talos client connected to a control-plane
+	// node (from the unfiltered node list), for cluster-wide RPCs only
+	// available on control-plane nodes (e.g. Kubeconfig).
 	ControlPlaneClient(context.Context) (*client.Client, error)
 
 	// Writer returns a writer targeting os.Stdout. When the runtime was
