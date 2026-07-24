@@ -11,27 +11,40 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--dry-run` | `false` | Only show what upgrades would be performed without actually upgrading |
 | `--max-parallel` | `1` | Number of worker nodes to upgrade concurrently, as an integer (e.g. `5`) or a percentage of the total node count (e.g. `25%`); control-plane nodes are always upgraded one at a time |
 | `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
-| `--drain` | `true` | Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization |
-| `--drain-timeout` | `5m` | Maximum time to wait for pod evictions to complete during drain |
+| `--drain` | `true` | Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization *(modern flow only; ignored on legacy nodes, where Talos drains and uncordons server-side)* |
+| `--drain-timeout` | `5m` | Maximum time to wait for pod evictions to complete during drain *(modern flow only)* |
+| `--force` | `false` | Skip etcd health checks; only applies to nodes running Talos < 1.13 (legacy `MachineService.Upgrade` RPC); has no effect on Talos >= 1.13, where the `LifecycleService.Upgrade` RPC validates etcd health server-side |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
-> **Removed:** The `--force` flag (which skipped etcd health checks under the
-> legacy `MachineService.Upgrade` RPC) has been removed. The new
-> `LifecycleService.Upgrade` API does not expose a force knob; etcd health is
-> validated server-side. Scripts or env files setting `TOPF_FORCE` should be
-> updated, otherwise the flag will be rejected as unknown.
+> **Upgrade API selection.** Nodes running Talos >= 1.13 use the modern
+> `LifecycleService.Upgrade` streaming RPC (pre-pull, install, separate
+> reboot). Nodes running Talos < 1.13 fall back to the legacy
+> `MachineService.Upgrade` RPC, which installs, drains, and reboots in a
+> single server-side sequence. The `--force` flag is only meaningful on
+> the legacy path; `--drain` and `--drain-timeout` are only meaningful on
+> the modern path.
 
 ## Behavior
 
 1. **Pre-flight checks**: Ensures all nodes are in the `Running` stage
 2. **Version comparison**: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state
 3. **Per-node confirmation**: Before each upgrade (unless `--confirm=false`, see [global flags](../configuration.md#global-flags))
-4. **Image pull**: Pre-pulls the installer image via the `ImageService.Pull` streaming RPC
-5. **Upgrade**: Installs the upgrade artifacts via the `LifecycleService.Upgrade` streaming RPC
-6. **Drain**: Cordons and drains the Kubernetes node (evicts pods gracefully) if `--drain` is enabled
-7. **Reboot**: Issues a separate `Reboot` with the selected reboot mode (default: kexec)
-8. **Stabilization**: Waits 30 seconds after the reboot for the node to stabilize
-9. **Uncordon**: Uncordons the Kubernetes node so the scheduler can place pods on it again
+4. **API selection**: Per node, if the running Talos version is >= 1.13.0, the modern flow (a) is used; otherwise the legacy flow (b) is used
+
+**Modern flow** *(Talos >= 1.13)*:
+
+1. Resolve the Kubernetes node name (if `--drain` is enabled)
+2. Pre-pull the installer image via `ImageService.Pull`
+3. Install the upgrade artifacts via `LifecycleService.Upgrade`
+4. Cordon and drain the Kubernetes node if `--drain` is enabled. **If the drain fails** (e.g. a pod cannot be evicted within `--drain-timeout`), the upgrade aborts: the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when `--max-parallel > 1`) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.
+5. Issue a `Reboot` with the selected reboot mode (default: kexec)
+6. Wait 30 seconds for the node to stabilize
+7. Uncordon the Kubernetes node
+
+**Legacy flow** *(Talos < 1.13)*:
+
+1. Issue `MachineService.Upgrade`, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. `--drain` and `--drain-timeout` are ignored (Talos drains and uncordons the node itself); `--force` skips etcd health checks.
+2. Wait 30 seconds for the node to stabilize
 
 ## Installer Image
 
@@ -92,4 +105,7 @@ topf upgrade --max-parallel=3
 
 # Upgrade with a custom drain timeout
 topf upgrade --drain-timeout=10m
+
+# Force upgrade on legacy (Talos < 1.13) nodes, skipping etcd health checks
+topf upgrade --force
 ```

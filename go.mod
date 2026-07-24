@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/blang/semver/v4 v4.0.0
 	github.com/cosi-project/runtime v1.16.1
 	github.com/jedib0t/go-pretty/v6 v6.8.0
 	github.com/siderolabs/go-retry v0.3.3
@@ -82,7 +83,6 @@ require (
 	github.com/ProtonMail/gopenpgp/v2 v2.10.0 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/containerd/go-cni v1.1.13 // indirect

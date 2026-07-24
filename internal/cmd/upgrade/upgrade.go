@@ -26,6 +26,8 @@ import (
 	"github.com/siderolabs/talos/pkg/reporter"
 	"google.golang.org/grpc/codes"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/blang/semver/v4"
 )
 
 // Options contains the options for the upgrade execution
@@ -35,8 +37,16 @@ type Options struct {
 
 	// RebootMode controls how the node is rebooted after the upgrade artifacts
 	// are installed. It maps to machine.RebootRequest_Mode (used by the
-	// Reboot RPC).
+	// Reboot RPC) for nodes on the LifecycleService flow (Talos >= 1.13),
+	// and is mapped to machine.UpgradeRequest_RebootMode for the legacy
+	// MachineService.Upgrade flow (Talos < 1.13).
 	RebootMode machine.RebootRequest_Mode
+
+	// Force skips etcd health checks on the legacy MachineService.Upgrade
+	// RPC (Talos < 1.13). Has no effect on nodes running Talos >= 1.13,
+	// where the LifecycleService.Upgrade RPC validates etcd health
+	// server-side and has no force knob.
+	Force bool
 
 	// Drain controls whether the Kubernetes node is cordoned and drained
 	// before the reboot and uncordoned after the node becomes Ready again.
@@ -184,7 +194,45 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 	return worklist, upgradeRequired, nil
 }
 
-// upgradeNode performs a Talos OS upgrade on a single node using the
+// upgradeNode performs a Talos OS upgrade on a single node. It selects the
+// upgrade mechanism based on the node's running Talos version:
+//
+//   - Talos >= 1.13.0: LifecycleService.Upgrade streaming RPC (the modern
+//     flow), which installs artifacts, then a separate Reboot, with optional
+//     Kubernetes drain/uncordon around the reboot.
+//   - Talos < 1.13.0: legacy MachineService.Upgrade RPC (which installs
+//     and reboots in a single call). The LifecycleService.Upgrade RPC was
+//     introduced in v1.13.0 and returns codes.Unimplemented on older nodes.
+//
+// The provided logger is expected to already carry the node's attributes.
+func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+	if supportsLifecycleUpgrade(node.RunningVersion()) {
+		return upgradeNodeLifecycle(ctx, t, node, opts, logger)
+	}
+
+	logger.Info("node running Talos < 1.13, using legacy upgrade RPC", "running_version", node.RunningVersion())
+
+	return upgradeNodeLegacy(ctx, t, node, opts, logger)
+}
+
+// supportsLifecycleUpgrade reports whether the node's running Talos version
+// supports the LifecycleService.Upgrade streaming RPC (introduced in v1.13.0).
+// A node whose running version is unknown is assumed to support it; the RPC
+// will surface codes.Unimplemented if it does not.
+func supportsLifecycleUpgrade(runningVersion string) bool {
+	if runningVersion == "" {
+		return true
+	}
+
+	v, err := semver.ParseTolerant(runningVersion)
+	if err != nil {
+		return true
+	}
+
+	return v.GTE(semver.MustParse("1.13.0"))
+}
+
+// upgradeNodeLifecycle performs a Talos OS upgrade on a single node using the
 // LifecycleService.Upgrade streaming RPC. The flow is:
 //
 //  1. Resolve the Kubernetes node name (if draining is enabled), so that
@@ -194,6 +242,11 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 //  3. Stream LifecycleService.Upgrade, draining progress messages and
 //     verifying the final exit code is zero.
 //  4. Drain the Kubernetes node (cordon + evict pods) if draining is enabled.
+//     If the drain fails, the upgrade aborts: the node is left cordoned with
+//     the new artifacts installed but not rebooted. The error propagates to
+//     the caller (RunConcurrent), which stops scheduling new upgrades but
+//     lets in-flight ones finish. The node must be uncordoned and rebooted
+//     manually to recover.
 //  5. Issue a Reboot with the configured reboot mode. A gRPC Unavailable or
 //     Canceled error from Reboot is treated as success: the node begins
 //     shutting down before the RPC response reaches us.
@@ -211,7 +264,7 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 // client, as the Nodename resource is available on all nodes.
 //
 // The provided logger is expected to already carry the node's attributes.
-func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
 	installerImage := node.ConfigProvider().Machine().Install().Image()
 
 	nodeClient, err := node.Client(ctx)
@@ -309,6 +362,62 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 	}
 
 	return nil
+}
+
+// upgradeNodeLegacy performs a Talos OS upgrade on a node running Talos < 1.13
+// using the deprecated MachineService.Upgrade RPC. Unlike the lifecycle flow,
+// this RPC installs the upgrade artifacts, drains the Kubernetes node, and
+// reboots in a single server-side sequence (see Talos's Upgrade sequencer).
+// The opts.Force flag skips etcd health checks on this path (the legacy RPC's
+// only safety knob).
+//
+// The opts.Drain and opts.DrainTimeout flags are ignored on this path: Talos
+// drains and uncordons the node itself as part of the upgrade sequence.
+//
+// The provided logger is expected to already carry the node's attributes.
+//
+//nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) requires Talos >= 1.13
+func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+	installerImage := node.ConfigProvider().Machine().Install().Image()
+
+	nodeClient, err := node.Client(ctx)
+	if err != nil {
+		return err
+	}
+	defer nodeClient.Close()
+
+	logger.Info("issuing legacy upgrade", "installer", installerImage, "force", opts.Force)
+
+	_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
+		Image:      installerImage,
+		Preserve:   true, // talos default since v1.8+
+		Force:      opts.Force,
+		RebootMode: toLegacyRebootMode(opts.RebootMode),
+	})
+	if err != nil {
+		return fmt.Errorf("legacy upgrade: %w", err)
+	}
+
+	logger.Info("upgrade initiated")
+
+	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+		return fmt.Errorf("node didn't stabilize: %w", err)
+	}
+
+	return nil
+}
+
+// toLegacyRebootMode maps the RebootRequest_Mode used by the lifecycle flow
+// to the UpgradeRequest_RebootMode consumed by the legacy
+// MachineService.Upgrade RPC. The enum values are identical, but the types
+// are distinct.
+func toLegacyRebootMode(mode machine.RebootRequest_Mode) machine.UpgradeRequest_RebootMode {
+	switch mode {
+	case machine.RebootRequest_POWERCYCLE:
+		return machine.UpgradeRequest_POWERCYCLE
+	default:
+		return machine.UpgradeRequest_DEFAULT
+	}
 }
 
 // newK8sClientset obtains an in-memory Kubernetes clientset by fetching the

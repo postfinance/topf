@@ -56,6 +56,12 @@ func newUpgradeCmd() *cli.Command {
 				Value:   nodedrain.DefaultDrainTimeout,
 				Sources: cli.EnvVars("TOPF_DRAIN_TIMEOUT"),
 			},
+			&cli.BoolFlag{
+				Name:    "force",
+				Usage:   "skip etcd health checks during upgrade; only applies to nodes running Talos < 1.13 (legacy MachineService.Upgrade RPC); has no effect on Talos >= 1.13, where the LifecycleService.Upgrade RPC validates etcd health server-side",
+				Value:   false,
+				Sources: cli.EnvVars("TOPF_FORCE"),
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -74,6 +80,7 @@ func newUpgradeCmd() *cli.Command {
 			err = upgrade.Execute(ctx, t, upgrade.Options{
 				DryRun:       c.Bool("dry-run"),
 				RebootMode:   rebootMode,
+				Force:        c.Bool("force"),
 				Drain:        c.Bool("drain"),
 				DrainTimeout: c.Duration("drain-timeout"),
 				MaxParallel:  maxParallel,
