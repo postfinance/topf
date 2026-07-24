@@ -31,7 +31,7 @@ func newNodesCmd() *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
-			nodes, err := t.Nodes(ctx)
+			nodes, err := t.FilteredNodes(ctx)
 			if err != nil {
 				return err
 			}

@@ -41,7 +41,7 @@ type Options struct {
 func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	logger := t.Logger().With("command", "apply")
 
-	nodes, err := t.Nodes(ctx)
+	nodes, err := t.FilteredNodes(ctx)
 	if err != nil {
 		return err
 	} else if len(nodes) == 0 {

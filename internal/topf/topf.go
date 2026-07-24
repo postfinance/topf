@@ -6,11 +6,13 @@ package topf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/postfinance/topf/internal/maskedwriter"
 	"github.com/postfinance/topf/internal/schematic"
 	"github.com/postfinance/topf/pkg/config"
+	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
 
@@ -32,12 +35,20 @@ type Topf interface {
 	// Logger returns the configured logger
 	Logger() *slog.Logger
 
-	// Nodes returns the list of nodes with additional information
-	Nodes(context.Context) ([]*Node, error)
+	// FilteredNodes returns nodes matching the nodes-filter regex, with
+	// live node info gathered concurrently. Per-node errors are recorded
+	// in Node.Error.
+	FilteredNodes(context.Context) ([]*Node, error)
 
-	// Render generates machine config bundles for all nodes.
+	// Render generates machine config bundles for all nodes matching the
+	// nodes-filter regex.
 	// When online is true, live nodes are queried for their actual running Talos version.
 	Render(context.Context, bool) ([]*Node, error)
+
+	// ControlPlaneClient returns a Talos client connected to a control-plane
+	// node (from the unfiltered node list), for cluster-wide RPCs only
+	// available on control-plane nodes (e.g. Kubeconfig).
+	ControlPlaneClient(context.Context) (*client.Client, error)
 
 	// Writer returns a writer targeting os.Stdout. When the runtime was
 	// created with Redact=true, secrets and certificates are replaced with
@@ -91,7 +102,7 @@ type RuntimeConfig struct {
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	decryptCache := decryption.NewCache()
 
-	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, cfg.NodesRegexFilter, decryptCache)
+	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, decryptCache)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +122,16 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	level, err := parseLogLevel(cfg.LogLevel)
 	if err != nil {
 		return nil, fmt.Errorf("invalid log level: %w", err)
+	}
+
+	// Compile nodes filter regex; empty means all nodes
+	nodesFilter := regexp.MustCompile(".*")
+
+	if cfg.NodesRegexFilter != "" {
+		nodesFilter, err = regexp.Compile(cfg.NodesRegexFilter)
+		if err != nil {
+			return nil, fmt.Errorf("invalid nodes selector regex: %w", err)
+		}
 	}
 
 	// Create logger with TextHandler
@@ -134,6 +155,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		version:      cfg.TopfVersion,
 		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(logger)),
 		decryptCache: decryptCache,
+		nodesFilter:  nodesFilter,
 	}, nil
 }
 
@@ -149,6 +171,7 @@ type topf struct {
 	version       string
 	resolver      *schematic.Resolver
 	decryptCache  *decryption.Cache
+	nodesFilter   *regexp.Regexp
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -184,6 +207,31 @@ func (t *topf) Confirm() bool {
 
 func (t *topf) ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error) {
 	return t.resolver.Resolve(ctx, factory, schematicID, patchCtx)
+}
+
+// ControlPlaneClient returns a Talos API client connected to a control-plane
+// node from the full (unfiltered) node list. The Kubeconfig RPC and other
+// cluster-wide operations are only available on control-plane nodes.
+func (t *topf) ControlPlaneClient(ctx context.Context) (*client.Client, error) {
+	for i := range t.Nodes {
+		nodeCfg := &t.Nodes[i]
+
+		if nodeCfg.Role != config.RoleControlPlane {
+			continue
+		}
+
+		node := &Node{Node: nodeCfg, t: t}
+
+		c, err := node.Client(ctx)
+		if err != nil {
+			t.logger.Warn("failed to connect to control-plane node, trying next", "node", nodeCfg.Host, "error", err)
+			continue
+		}
+
+		return c, nil
+	}
+
+	return nil, errors.New("no reachable control-plane node available")
 }
 
 // parseLogLevel converts a string log level to slog.Level

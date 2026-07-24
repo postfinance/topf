@@ -7,7 +7,6 @@ package config
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -61,7 +60,7 @@ type TopfConfig struct {
 // PatchesDir defaults to the directory containing the config file.
 // SecretsPath defaults to "secrets.yaml" next to the config file (not inside PatchesDir).
 // Relative paths for both are resolved against the directory containing the config file.
-func LoadFromFile(path string, nodesRegexFilter string, cache *decryption.Cache) (config *TopfConfig, secrets []string, err error) {
+func LoadFromFile(path string, cache *decryption.Cache) (config *TopfConfig, secrets []string, err error) {
 	// Read file with automatic SOPS decryption if needed
 	var content []byte
 
@@ -103,15 +102,6 @@ func LoadFromFile(path string, nodesRegexFilter string, cache *decryption.Cache)
 		config.SecretsPath = filepath.Join(configFileDir, config.SecretsPath)
 	}
 
-	nodesFilter := regexp.MustCompile(".*")
-
-	if nodesRegexFilter != "" {
-		nodesFilter, err = regexp.Compile(nodesRegexFilter)
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid nodes selector regex: %w", err)
-		}
-	}
-
 	// If a nodes provider is given, add those to the list of nodes
 	if config.NodesProvider != "" {
 		provider := providers.NewBinaryNodesProvider(config.NodesProvider)
@@ -128,10 +118,6 @@ func LoadFromFile(path string, nodesRegexFilter string, cache *decryption.Cache)
 
 		config.Nodes = append(config.Nodes, nodes...)
 	}
-
-	config.Nodes = slices.DeleteFunc(config.Nodes, func(n Node) bool {
-		return !nodesFilter.MatchString(n.Host)
-	})
 
 	// Sort nodes by role and hostname, such that control plane nodes come first
 	slices.SortStableFunc(config.Nodes, func(a, b Node) int {

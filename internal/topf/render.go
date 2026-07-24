@@ -8,18 +8,13 @@ import (
 	"sync"
 )
 
-// Render generates machine config bundles for all configured nodes.
+// Render generates machine config bundles for all configured nodes matching
+// the nodes-filter regex.
 // When online is true, live nodes are queried for their actual running Talos version,
 // which is then used for version contract selection in config generation.
 // Errors during config generation for individual nodes are recorded in the Node.Error field.
 func (t *topf) Render(ctx context.Context, online bool) ([]*Node, error) {
-	cfg := t.Config()
-
-	nodes := make([]*Node, 0, len(cfg.Nodes))
-
-	for _, node := range cfg.Nodes {
-		nodes = append(nodes, &Node{Node: &node, t: t})
-	}
+	nodes := t.filterNodes()
 
 	if online {
 		var wg sync.WaitGroup

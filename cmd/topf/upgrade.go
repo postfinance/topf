@@ -15,6 +15,7 @@ import (
 	"github.com/postfinance/topf/internal/cmd/upgrade"
 	"github.com/postfinance/topf/internal/nodepool"
 	"github.com/postfinance/topf/internal/topf"
+	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
 )
@@ -37,17 +38,29 @@ func newUpgradeCmd() *cli.Command {
 				Usage:   "number of worker nodes to upgrade concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always upgraded one at a time",
 				Sources: cli.EnvVars("TOPF_MAX_PARALLEL"),
 			},
-			&cli.BoolFlag{
-				Name:    "force",
-				Usage:   "force the upgrade (skip checks on etcd health and members, might lead to data loss)",
-				Value:   false,
-				Sources: cli.EnvVars("TOPF_FORCE"),
-			},
 			&cli.StringFlag{
 				Name:    "reboot-mode",
 				Value:   "default",
 				Usage:   "select the reboot mode during upgrade: \"default\" uses kexec, \"powercycle\" does a full reboot",
 				Sources: cli.EnvVars("TOPF_REBOOT_MODE"),
+			},
+			&cli.BoolFlag{
+				Name:    "drain",
+				Usage:   "cordon and drain the Kubernetes node before rebooting, then uncordon after the node becomes Ready again",
+				Value:   true,
+				Sources: cli.EnvVars("TOPF_DRAIN"),
+			},
+			&cli.DurationFlag{
+				Name:    "drain-timeout",
+				Usage:   "maximum time to wait for pod evictions to complete during drain",
+				Value:   nodedrain.DefaultDrainTimeout,
+				Sources: cli.EnvVars("TOPF_DRAIN_TIMEOUT"),
+			},
+			&cli.BoolFlag{
+				Name:    "force",
+				Usage:   "skip etcd health checks during upgrade; only applies to nodes running Talos < 1.13 (legacy MachineService.Upgrade RPC); has no effect on Talos >= 1.13, where the LifecycleService.Upgrade RPC validates etcd health server-side",
+				Value:   false,
+				Sources: cli.EnvVars("TOPF_FORCE"),
 			},
 		},
 		Before: noPositionalArgs,
@@ -65,10 +78,12 @@ func newUpgradeCmd() *cli.Command {
 			}
 
 			err = upgrade.Execute(ctx, t, upgrade.Options{
-				DryRun:      c.Bool("dry-run"),
-				Force:       c.Bool("force"),
-				RebootMode:  rebootMode,
-				MaxParallel: maxParallel,
+				DryRun:       c.Bool("dry-run"),
+				RebootMode:   rebootMode,
+				Force:        c.Bool("force"),
+				Drain:        c.Bool("drain"),
+				DrainTimeout: c.Duration("drain-timeout"),
+				MaxParallel:  maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
@@ -79,11 +94,13 @@ func newUpgradeCmd() *cli.Command {
 	}
 }
 
-// rebootModes maps user-facing mode names to their protobuf values.
+// rebootModes maps user-facing mode names to their protobuf values, using the
+// RebootRequest_Mode enum consumed by the Reboot RPC of the
+// LifecycleService-based upgrade flow.
 // https://github.com/siderolabs/talos/blob/main/cmd/talosctl/pkg/talos/helpers/mode.go
-var rebootModes = map[string]machine.UpgradeRequest_RebootMode{ //nolint:gochecknoglobals // read-only lookup table
-	"default":    machine.UpgradeRequest_DEFAULT,
-	"powercycle": machine.UpgradeRequest_POWERCYCLE,
+var rebootModes = map[string]machine.RebootRequest_Mode{ //nolint:gochecknoglobals // read-only lookup table
+	"default":    machine.RebootRequest_DEFAULT,
+	"powercycle": machine.RebootRequest_POWERCYCLE,
 }
 
 func validRebootModes() []string {
@@ -95,7 +112,7 @@ func validRebootModes() []string {
 	return modes
 }
 
-func parseRebootMode(mode string) (machine.UpgradeRequest_RebootMode, error) {
+func parseRebootMode(mode string) (machine.RebootRequest_Mode, error) {
 	val, ok := rebootModes[mode]
 	if !ok {
 		return 0, fmt.Errorf("invalid reboot mode %q, valid values: %s", mode, strings.Join(validRebootModes(), ", "))
