@@ -24,6 +24,8 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"github.com/siderolabs/talos/pkg/reporter"
+	"google.golang.org/grpc/codes"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Options contains the options for the upgrade execution
@@ -185,13 +187,23 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 // upgradeNode performs a Talos OS upgrade on a single node using the
 // LifecycleService.Upgrade streaming RPC. The flow is:
 //
-//  1. Pre-pull the installer image via ImageService.Pull.
-//  2. Stream LifecycleService.Upgrade, draining progress messages and
+//  1. Resolve the Kubernetes node name (if draining is enabled), so that
+//     a drain failure can't be caused by a reason that was knowable before
+//     the upgrade mutated the node.
+//  2. Pre-pull the installer image via ImageService.Pull.
+//  3. Stream LifecycleService.Upgrade, draining progress messages and
 //     verifying the final exit code is zero.
-//  3. Drain the Kubernetes node (cordon + evict pods) if draining is enabled.
-//  4. Issue a Reboot with the configured reboot mode.
-//  5. Wait for the node to stabilize.
-//  6. Uncordon the Kubernetes node after it becomes Ready again.
+//  4. Drain the Kubernetes node (cordon + evict pods) if draining is enabled.
+//  5. Issue a Reboot with the configured reboot mode. A gRPC Unavailable or
+//     Canceled error from Reboot is treated as success: the node begins
+//     shutting down before the RPC response reaches us.
+//  6. Close the per-node Talos client (the node is rebooting; the connection
+//     is dead anyway).
+//  7. Wait for the node to stabilize.
+//  8. Re-fetch a Kubernetes clientset and uncordon the node. The clientset
+//     is re-fetched (rather than reused from step 4) because the reboot may
+//     rotate credentials or invalidate the in-memory kubeconfig, and the
+//     control-plane node we proxy through may itself have been upgraded.
 //
 // The kubeconfig for drain/uncordon operations is fetched via a control-plane
 // node client (t.ControlPlaneClient), because the Kubeconfig RPC is only
@@ -208,6 +220,17 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 	}
 	defer nodeClient.Close()
 
+	// Resolve the Kubernetes node name up front, so that a drain failure
+	// can't be caused by a reason that was knowable before the upgrade.
+	k8sNodeName := ""
+
+	if opts.Drain {
+		k8sNodeName, err = talosnodedrain.GetKubernetesNodeName(ctx, nodeClient)
+		if err != nil {
+			return fmt.Errorf("resolving kubernetes node name: %w", err)
+		}
+	}
+
 	containerdInstance := systemContainerdInstance()
 
 	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
@@ -218,37 +241,23 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 		return fmt.Errorf("upgrade: %w", err)
 	}
 
-	// Resolve the Kubernetes node name and drain the node before rebooting,
-	// so that pods are evicted gracefully.
-	var k8sNodeName string
-
+	// Drain the node after the upgrade artifacts are installed but before
+	// the reboot, so pods are evicted gracefully.
 	if opts.Drain {
-		k8sNodeName, err = talosnodedrain.GetKubernetesNodeName(ctx, nodeClient)
+		drainClientset, err := newK8sClientset(ctx, t, logger)
 		if err != nil {
-			return fmt.Errorf("resolving kubernetes node name: %w", err)
+			return fmt.Errorf("creating kubernetes client for drain: %w", err)
 		}
 
-		cpClient, err := t.ControlPlaneClient(ctx)
-		if err != nil {
-			return fmt.Errorf("creating control-plane client: %w", err)
-		}
-
-		clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
-		_ = cpClient.Close()
-
-		if err != nil {
-			return fmt.Errorf("creating kubernetes client: %w", err)
-		}
-
-		reportFn := func(u reporter.Update) {
-			logger.Info("drain", "k8s_node", k8sNodeName, "status", int(u.Status), "message", u.Message)
+		drainReport := func(u reporter.Update) {
+			logger.Info("drain", "k8s_node", k8sNodeName, "message", u.Message)
 		}
 
 		logger.Info("draining kubernetes node", "k8s_node", k8sNodeName)
 
-		if err := talosnodedrain.CordonAndDrain(ctx, clientset, k8sNodeName, talosnodedrain.Options{
+		if err := talosnodedrain.CordonAndDrain(ctx, drainClientset, k8sNodeName, talosnodedrain.Options{
 			DrainTimeout: opts.DrainTimeout,
-		}, reportFn); err != nil {
+		}, drainReport); err != nil {
 			return fmt.Errorf("draining node: %w", err)
 		}
 
@@ -257,36 +266,42 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 
 	logger.Info("upgrade artifacts installed, rebooting node", "reboot_mode", opts.RebootMode.String())
 
-	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil {
+	// Reboot returns once the reboot is initiated. If the node starts
+	// shutting down before the gRPC response arrives, the stream is torn
+	// down and we get Unavailable or Canceled. Both are expected here.
+	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil &&
+		client.StatusCode(err) != codes.Unavailable &&
+		!errors.Is(err, context.Canceled) {
 		return fmt.Errorf("reboot: %w", err)
 	}
 
-	logger.Info("upgrade initiated")
+	// The node is rebooting; the per-node client is dead. Close it now
+	// rather than holding it open across the stabilization window.
+	if cerr := nodeClient.Close(); cerr != nil {
+		logger.Debug("closing per-node client after reboot", "error", cerr)
+	}
+
+	logger.Info("reboot initiated")
 
 	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
 	// After the node has stabilized, uncordon it so that the Kubernetes
-	// scheduler can place pods on it again.
+	// scheduler can place pods on it again. The clientset is re-fetched
+	// because the reboot may have rotated credentials or invalidated the
+	// in-memory kubeconfig obtained before the reboot.
 	if opts.Drain {
-		cpClient, err := t.ControlPlaneClient(ctx)
-		if err != nil {
-			return fmt.Errorf("creating control-plane client for uncordon: %w", err)
-		}
-
-		clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
-		_ = cpClient.Close()
-
+		uncordonClientset, err := newK8sClientset(ctx, t, logger)
 		if err != nil {
 			return fmt.Errorf("creating kubernetes client for uncordon: %w", err)
 		}
 
-		reportFn := func(u reporter.Update) {
-			logger.Info("uncordon", "k8s_node", k8sNodeName, "status", int(u.Status), "message", u.Message)
+		uncordonReport := func(u reporter.Update) {
+			logger.Info("uncordon", "k8s_node", k8sNodeName, "message", u.Message)
 		}
 
-		if err := talosnodedrain.Uncordon(ctx, clientset, k8sNodeName, reportFn); err != nil {
+		if err := talosnodedrain.Uncordon(ctx, uncordonClientset, k8sNodeName, uncordonReport); err != nil {
 			return fmt.Errorf("uncordoning node: %w", err)
 		}
 
@@ -294,6 +309,29 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 	}
 
 	return nil
+}
+
+// newK8sClientset obtains an in-memory Kubernetes clientset by fetching the
+// admin kubeconfig through a control-plane node's Talos API. The control-plane
+// client is closed after the kubeconfig is retrieved; the returned clientset
+// is independent of it.
+func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kubernetes.Interface, error) {
+	cpClient, err := t.ControlPlaneClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("creating control-plane client: %w", err)
+	}
+
+	clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
+
+	if cerr := cpClient.Close(); cerr != nil {
+		logger.Debug("closing control-plane client", "error", cerr)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("creating kubernetes client: %w", err)
+	}
+
+	return clientset, nil
 }
 
 // systemContainerdInstance returns the containerd instance used for pulling

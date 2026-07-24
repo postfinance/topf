@@ -15,6 +15,12 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--drain-timeout` | `5m` | Maximum time to wait for pod evictions to complete during drain |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
+> **Removed:** The `--force` flag (which skipped etcd health checks under the
+> legacy `MachineService.Upgrade` RPC) has been removed. The new
+> `LifecycleService.Upgrade` API does not expose a force knob; etcd health is
+> validated server-side. Scripts or env files setting `TOPF_FORCE` should be
+> updated, otherwise the flag will be rejected as unknown.
+
 ## Behavior
 
 1. **Pre-flight checks**: Ensures all nodes are in the `Running` stage
