@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/postfinance/topf/internal/cmd/upgrade"
 	"github.com/postfinance/topf/internal/nodepool"
@@ -57,6 +58,18 @@ func newUpgradeCmd() *cli.Command {
 				Sources: cli.EnvVars("TOPF_DRAIN_TIMEOUT"),
 			},
 			&cli.BoolFlag{
+				Name:    "force-drain",
+				Usage:   "if graceful drain fails, retry with forced pod deletion (bypassing PodDisruptionBudgets); equivalent to kubectl drain --force --disable-eviction",
+				Value:   false,
+				Sources: cli.EnvVars("TOPF_FORCE_DRAIN"),
+			},
+			&cli.DurationFlag{
+				Name:    "force-drain-timeout",
+				Usage:   "maximum time to wait for pod deletions to complete during forced drain",
+				Value:   60 * time.Second,
+				Sources: cli.EnvVars("TOPF_FORCE_DRAIN_TIMEOUT"),
+			},
+			&cli.BoolFlag{
 				Name:    "force",
 				Usage:   "skip etcd health checks during upgrade; only applies to nodes running Talos < 1.13 (legacy MachineService.Upgrade RPC); has no effect on Talos >= 1.13, where the LifecycleService.Upgrade RPC validates etcd health server-side",
 				Value:   false,
@@ -78,12 +91,14 @@ func newUpgradeCmd() *cli.Command {
 			}
 
 			err = upgrade.Execute(ctx, t, upgrade.Options{
-				DryRun:       c.Bool("dry-run"),
-				RebootMode:   rebootMode,
-				Force:        c.Bool("force"),
-				Drain:        c.Bool("drain"),
-				DrainTimeout: c.Duration("drain-timeout"),
-				MaxParallel:  maxParallel,
+				DryRun:            c.Bool("dry-run"),
+				RebootMode:        rebootMode,
+				Force:             c.Bool("force"),
+				Drain:             c.Bool("drain"),
+				DrainTimeout:      c.Duration("drain-timeout"),
+				ForceDrain:        c.Bool("force-drain"),
+				ForceDrainTimeout: c.Duration("force-drain-timeout"),
+				MaxParallel:       maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
