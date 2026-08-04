@@ -54,14 +54,11 @@ type Options struct {
 	// DrainTimeout is the maximum time to wait for pod evictions to complete.
 	DrainTimeout time.Duration
 
-	// ForceDrain retries the drain with forced pod deletion (bypassing
-	// PodDisruptionBudgets via DELETE instead of EVICT) if the graceful
-	// drain fails.
-	ForceDrain bool
-
-	// ForceDrainTimeout is the maximum time to wait for pod deletions to
-	// complete during the forced drain fallback.
-	ForceDrainTimeout time.Duration
+	// DeleteIfEvictionFails retries the drain with forced pod deletion
+	// (DELETE instead of EVICT, bypassing PodDisruptionBudgets) if the
+	// graceful eviction-based drain fails. The delete fallback reuses
+	// DrainTimeout as its timeout.
+	DeleteIfEvictionFails bool
 
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
@@ -437,9 +434,10 @@ func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kub
 }
 
 // drainNode cordons and drains the Kubernetes node. If the graceful drain
-// fails and opts.ForceDrain is set, it retries with forced pod deletion
-// (bypassing PodDisruptionBudgets via DELETE instead of EVICT). If the
-// forced drain also fails, both errors are joined in the returned error.
+// fails and opts.DeleteIfEvictionFails is set, it retries with forced pod
+// deletion (bypassing PodDisruptionBudgets via DELETE instead of EVICT),
+// reusing opts.DrainTimeout for the fallback. If the forced drain also
+// fails, both errors are joined in the returned error.
 func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName string, logger *slog.Logger) error {
 	clientset, err := newK8sClientset(ctx, t, logger)
 	if err != nil {
@@ -455,13 +453,13 @@ func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName strin
 		return nil
 	}
 
-	if !opts.ForceDrain {
+	if !opts.DeleteIfEvictionFails {
 		return fmt.Errorf("draining node: %w", gracefulErr)
 	}
 
 	logger.Warn("graceful drain failed, retrying with forced pod deletion", "k8s_node", k8sNodeName, "error", gracefulErr)
 
-	forcedErr := cordonAndDrain(ctx, clientset, k8sNodeName, opts.ForceDrainTimeout, true, logger)
+	forcedErr := cordonAndDrain(ctx, clientset, k8sNodeName, opts.DrainTimeout, true, logger)
 	if forcedErr != nil {
 		return fmt.Errorf("draining node: %w", errors.Join(gracefulErr, forcedErr))
 	}
@@ -472,10 +470,13 @@ func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName strin
 }
 
 // cordonAndDrain cordons the node and drains its pods using the kubectl drain
-// library. When disableEviction is true, pods are DELETEd instead of EVICTed,
-// bypassing PodDisruptionBudgets — equivalent to kubectl drain --force
-// --disable-eviction.
-func cordonAndDrain(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, disableEviction bool, logger *slog.Logger) error {
+// library. The drain always runs with Force=true (unmanaged pods are deleted,
+// emptyDir data is removed) — this matches kubectl drain --force semantics and
+// is appropriate for a node that is about to reboot. When deleteIfEvictionFails
+// is true, pods are DELETEd instead of EVICTed, bypassing PodDisruptionBudgets
+// (equivalent to the kubectl drain helper's DisableEviction field, i.e.
+// kubectl drain --disable-eviction).
+func cordonAndDrain(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, deleteIfEvictionFails bool, logger *slog.Logger) error {
 	drainCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -485,7 +486,7 @@ func cordonAndDrain(ctx context.Context, clientset kubernetes.Interface, nodeNam
 	}
 
 	action := "evicting"
-	if disableEviction {
+	if deleteIfEvictionFails {
 		action = "deleting"
 	}
 
@@ -496,7 +497,7 @@ func cordonAndDrain(ctx context.Context, clientset kubernetes.Interface, nodeNam
 		GracePeriodSeconds:  -1,
 		IgnoreAllDaemonSets: true,
 		DeleteEmptyDirData:  true,
-		DisableEviction:     disableEviction,
+		DisableEviction:     deleteIfEvictionFails,
 		Timeout:             timeout,
 		Out:                 io.Discard,
 		ErrOut:              io.Discard,
