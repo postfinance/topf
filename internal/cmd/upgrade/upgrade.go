@@ -256,6 +256,11 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 
 		upgradeRequired = true
 
+		// --stage is only supported on Talos >= 1.13 (LifecycleService flow).
+		if opts.Stage && !supportsLifecycleUpgrade(node.RunningVersion()) {
+			return nil, false, fmt.Errorf("node %s runs Talos %s: --stage requires Talos >= 1.13", node.Node.Host, node.RunningVersion())
+		}
+
 		// in dry-run mode, skip the actual upgrade
 		if opts.DryRun {
 			continue

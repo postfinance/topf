@@ -70,7 +70,7 @@ func newUpgradeCmd() *cli.Command {
 			},
 			&cli.BoolFlag{
 				Name:    "stage",
-				Usage:   "install upgrade artifacts without rebooting; the node is labeled and/or tainted (see --stage-label/--stage-taint) so an external controller or human can reboot it later",
+				Usage:   "install upgrade artifacts without rebooting; the node can be rebooted later to complete the upgrade (Talos >= 1.13 only)",
 				Value:   false,
 				Sources: cli.EnvVars("TOPF_STAGE"),
 			},

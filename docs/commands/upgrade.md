@@ -44,19 +44,18 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 > direct deletion for the fallback attempt, which is what lets it bypass
 > PDBs.
 >
-> **Staging upgrades with `--stage`.** Sometimes you want to install new
-> Talos artifacts on nodes without immediately rebooting them — e.g. to
-> spread reboots over a maintenance window or let an external controller
-> (such as a drain scheduler) reboot nodes one at a time. `--stage`
-> installs the upgrade artifacts but skips the drain, reboot, and
-> uncordon steps. The node continues running on its current kernel until
-> it is manually rebooted, at which point the staged upgrade takes
-> effect.
+> **Staging upgrades with `--stage`** *(Talos >= 1.13 only)*. Sometimes you
+> want to install new Talos artifacts on nodes without immediately rebooting
+> them — e.g. to spread reboots over a maintenance window or let an external
+> controller (such as a drain scheduler) reboot nodes one at a time. `--stage`
+> installs the upgrade artifacts but skips the drain, reboot, and uncordon
+> steps. The node continues running on its current kernel until it is manually
+> rebooted, at which point the staged upgrade takes effect.
 >
-> `--stage-label` and `--stage-taint` mark the Kubernetes node so
-> controllers or humans can identify nodes with a pending reboot. For
-> example, `--stage-taint node-postfinance.ch/staged-upgrade=true:NoSchedule`
-> prevents new pods from scheduling on the node until it is rebooted and
+> `--stage-label` and `--stage-taint` mark the Kubernetes node so controllers
+> or humans can identify nodes with a pending reboot. For example,
+> `--stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule`
+> discourages new pods from scheduling on the node until it is rebooted and
 > the taint is removed. Both flags can be repeated and require `--stage`.
 > `--stage` is incompatible with `--drain` and `--delete-if-eviction-fails`.
 
@@ -158,6 +157,6 @@ topf upgrade --stage
 # Stage an upgrade and label the node so a controller can find it
 topf upgrade --stage --stage-label topf.io/staged-upgrade=true
 
-# Stage an upgrade and taint the node to prevent new pods from scheduling
-topf upgrade --stage --stage-taint node-postfinance.ch/staged-upgrade=true:NoSchedule
+# Stage an upgrade and taint the node to discourage new pods from scheduling
+topf upgrade --stage --stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule
 ```
