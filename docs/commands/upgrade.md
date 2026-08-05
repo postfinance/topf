@@ -12,7 +12,8 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--max-parallel` | `1` | Number of worker nodes to upgrade concurrently, as an integer (e.g. `5`) or a percentage of the total node count (e.g. `25%`); control-plane nodes are always upgraded one at a time |
 | `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
 | `--drain` | `true` | Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization *(modern flow only; ignored on legacy nodes, where Talos drains and uncordons server-side)* |
-| `--drain-timeout` | `5m` | Maximum time to wait for pod evictions to complete during drain *(modern flow only)* |
+| `--drain-timeout` | `5m` | Maximum time to wait for pod evictions (and, with `--delete-if-eviction-fails`, deletions) to complete during drain *(modern flow only)* |
+| `--delete-if-eviction-fails` | `false` | If graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); reuses `--drain-timeout` for the delete fallback *(modern flow only)* |
 | `--force` | `false` | Skip etcd health checks; only applies to nodes running Talos < 1.13 (legacy `MachineService.Upgrade` RPC); has no effect on Talos >= 1.13, where the `LifecycleService.Upgrade` RPC validates etcd health server-side |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
@@ -23,6 +24,22 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 > single server-side sequence. The `--force` flag is only meaningful on
 > the legacy path; `--drain` and `--drain-timeout` are only meaningful on
 > the modern path.
+>
+> **When to use `--delete-if-eviction-fails`.** The graceful drain uses the
+> Kubernetes eviction API, which respects PodDisruptionBudgets. A PDB with
+> `minAvailable: 1` on a single-replica pod (e.g. a standalone database
+> StatefulSet) will block eviction until `--drain-timeout` expires and the
+> drain fails. `--delete-if-eviction-fails` retries the drain with direct
+> pod deletion (DELETE instead of EVICT), bypassing PDBs — the pod is
+> killed and its controller reschedules it elsewhere. The delete fallback
+> reuses `--drain-timeout` as its timeout.
+>
+> Note that the drain always runs with `kubectl drain --force` semantics
+> (unmanaged pods are deleted, emptyDir data is removed) — this is the
+> default behavior for a rebooting node and is not controlled by
+> `--delete-if-eviction-fails`. The flag only switches the eviction API to
+> direct deletion for the fallback attempt, which is what lets it bypass
+> PDBs.
 
 ## Behavior
 
@@ -36,7 +53,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 1. Resolve the Kubernetes node name (if `--drain` is enabled)
 2. Pre-pull the installer image via `ImageService.Pull`
 3. Install the upgrade artifacts via `LifecycleService.Upgrade`
-4. Cordon and drain the Kubernetes node if `--drain` is enabled. **If the drain fails** (e.g. a pod cannot be evicted within `--drain-timeout`), the upgrade aborts: the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when `--max-parallel > 1`) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.
+4. Cordon and drain the Kubernetes node if `--drain` is enabled. **If the drain fails** (e.g. a pod cannot be evicted within `--drain-timeout`), the upgrade aborts unless `--delete-if-eviction-fails` is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing `--drain-timeout`). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when `--max-parallel > 1`) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.
 5. Issue a `Reboot` with the selected reboot mode (default: kexec)
 6. Wait 30 seconds for the node to stabilize
 7. Uncordon the Kubernetes node
@@ -108,4 +125,10 @@ topf upgrade --drain-timeout=10m
 
 # Force upgrade on legacy (Talos < 1.13) nodes, skipping etcd health checks
 topf upgrade --force
+
+# Upgrade, falling back to pod deletion if graceful drain fails
+topf upgrade --delete-if-eviction-fails
+
+# Upgrade with a longer drain timeout (shared by graceful and fallback)
+topf upgrade --delete-if-eviction-fails --drain-timeout=10m
 ```

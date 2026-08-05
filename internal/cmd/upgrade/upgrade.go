@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"regexp"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/postfinance/topf/internal/interactive"
@@ -25,7 +26,10 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"github.com/siderolabs/talos/pkg/reporter"
 	"google.golang.org/grpc/codes"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kubectl/pkg/drain"
 
 	"github.com/blang/semver/v4"
 )
@@ -50,6 +54,10 @@ type Options struct {
 
 	// DrainTimeout is the maximum time to wait for pod evictions to complete.
 	DrainTimeout time.Duration
+
+	// DeleteIfEvictionFails retries the drain with direct pod deletion
+	// (DELETE instead of EVICT, bypassing PDBs) if the graceful drain fails.
+	DeleteIfEvictionFails bool
 
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
@@ -293,24 +301,9 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	// Drain the node after the upgrade artifacts are installed but before
 	// the reboot, so pods are evicted gracefully.
 	if opts.Drain {
-		drainClientset, err := newK8sClientset(ctx, t, logger)
-		if err != nil {
-			return fmt.Errorf("creating kubernetes client for drain: %w", err)
+		if err := drainNode(ctx, t, opts, k8sNodeName, logger); err != nil {
+			return err
 		}
-
-		drainReport := func(u reporter.Update) {
-			logger.Info("drain", "k8s_node", k8sNodeName, "message", u.Message)
-		}
-
-		logger.Info("draining kubernetes node", "k8s_node", k8sNodeName)
-
-		if err := talosnodedrain.CordonAndDrain(ctx, drainClientset, k8sNodeName, talosnodedrain.Options{
-			DrainTimeout: opts.DrainTimeout,
-		}, drainReport); err != nil {
-			return fmt.Errorf("draining node: %w", err)
-		}
-
-		logger.Info("kubernetes node drained", "k8s_node", k8sNodeName)
 	}
 
 	logger.Info("upgrade artifacts installed, rebooting node", "reboot_mode", opts.RebootMode.String())
@@ -437,6 +430,134 @@ func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kub
 	}
 
 	return clientset, nil
+}
+
+// drainNode cordons the node, then drains its pods. If the graceful drain
+// fails and DeleteIfEvictionFails is set, retries with direct pod deletion
+// (bypassing PDBs). The node is cordoned once; the fallback does not re-cordon.
+func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName string, logger *slog.Logger) error {
+	clientset, err := newK8sClientset(ctx, t, logger)
+	if err != nil {
+		return fmt.Errorf("creating kubernetes client for drain: %w", err)
+	}
+
+	logger.Info("draining kubernetes node", "k8s_node", k8sNodeName)
+
+	drainCtx, cancel := context.WithTimeout(ctx, opts.DrainTimeout)
+	defer cancel()
+
+	if err := cordonNode(drainCtx, clientset, k8sNodeName, logger); err != nil {
+		return err
+	}
+
+	gracefulErr := drainPods(drainCtx, clientset, k8sNodeName, opts.DrainTimeout, false, logger)
+	if gracefulErr == nil {
+		logger.Info("kubernetes node drained", "k8s_node", k8sNodeName)
+
+		return nil
+	}
+
+	if !opts.DeleteIfEvictionFails {
+		return fmt.Errorf("draining node: %w", gracefulErr)
+	}
+
+	logger.Warn("graceful drain failed, retrying with forced pod deletion", "k8s_node", k8sNodeName, "error", gracefulErr)
+
+	forcedErr := drainPods(ctx, clientset, k8sNodeName, opts.DrainTimeout, true, logger)
+	if forcedErr != nil {
+		return fmt.Errorf("draining node: %w", errors.Join(gracefulErr, forcedErr))
+	}
+
+	logger.Info("kubernetes node drained (forced)", "k8s_node", k8sNodeName)
+
+	return nil
+}
+
+// cordonNode marks the Kubernetes node unschedulable.
+func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName string, logger *slog.Logger) error {
+	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting node %q: %w", nodeName, err)
+	}
+
+	drainer := &drain.Helper{
+		Ctx:    ctx,
+		Client: clientset,
+		Out:    io.Discard,
+		ErrOut: io.Discard,
+	}
+
+	logger.Info("drain", "k8s_node", nodeName, "message", "cordoning node")
+
+	if err := drain.RunCordonOrUncordon(drainer, node, true); err != nil {
+		return fmt.Errorf("cordoning node %q: %w", nodeName, err)
+	}
+
+	logger.Info("drain", "k8s_node", nodeName, "message", "node cordoned")
+
+	return nil
+}
+
+// drainPods drains the node's pods via the kubectl drain library. Force is
+// always on (unmanaged pods deleted, emptyDir data removed). When
+// deleteIfEvictionFails is true, pods are DELETEd instead of EVICTed, bypassing
+// PDBs (kubectl drain --disable-eviction).
+func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, deleteIfEvictionFails bool, logger *slog.Logger) error {
+	drainCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	action := "evicting"
+	if deleteIfEvictionFails {
+		action = "deleting"
+	}
+
+	// The drain helper fires the {Deletion,Eviction}Started callback on every
+	// retry attempt; we track announced pods in this map and report the outcome
+	// in Finished.
+	var announced sync.Map
+
+	drainer := &drain.Helper{
+		Ctx:                 drainCtx,
+		Client:              clientset,
+		Force:               true,
+		GracePeriodSeconds:  -1,
+		IgnoreAllDaemonSets: true,
+		DeleteEmptyDirData:  true,
+		DisableEviction:     deleteIfEvictionFails,
+		Timeout:             timeout,
+		Out:                 io.Discard,
+		ErrOut:              io.Discard,
+		OnPodDeletionOrEvictionStarted: func(pod *corev1.Pod, usingEviction bool) {
+			key := pod.Namespace + "/" + pod.Name
+			if _, dup := announced.LoadOrStore(key, struct{}{}); dup {
+				return
+			}
+
+			verb := "deleting"
+			if usingEviction {
+				verb = "evicting"
+			}
+
+			logger.Info("drain", "k8s_node", nodeName, "message", fmt.Sprintf("%s pod %s/%s", verb, pod.Namespace, pod.Name))
+		},
+		OnPodDeletionOrEvictionFinished: func(pod *corev1.Pod, _ bool, err error) {
+			announced.Delete(pod.Namespace + "/" + pod.Name)
+
+			if err != nil {
+				logger.Warn("drain", "k8s_node", nodeName, "message", fmt.Sprintf("failed to %s pod %s/%s: %v", action, pod.Namespace, pod.Name, err))
+
+				return
+			}
+
+			logger.Info("drain", "k8s_node", nodeName, "message", fmt.Sprintf("%s pod %s/%s", action, pod.Namespace, pod.Name))
+		},
+	}
+
+	if err := drain.RunNodeDrain(drainer, nodeName); err != nil {
+		return fmt.Errorf("draining node %q: %w", nodeName, err)
+	}
+
+	return nil
 }
 
 // systemContainerdInstance returns the containerd instance used for pulling

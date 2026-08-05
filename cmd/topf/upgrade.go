@@ -52,9 +52,15 @@ func newUpgradeCmd() *cli.Command {
 			},
 			&cli.DurationFlag{
 				Name:    "drain-timeout",
-				Usage:   "maximum time to wait for pod evictions to complete during drain",
+				Usage:   "maximum time to wait for pod evictions (and, with --delete-if-eviction-fails, deletions) to complete during drain",
 				Value:   nodedrain.DefaultDrainTimeout,
 				Sources: cli.EnvVars("TOPF_DRAIN_TIMEOUT"),
+			},
+			&cli.BoolFlag{
+				Name:    "delete-if-eviction-fails",
+				Usage:   "if graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); uses --drain-timeout for the delete fallback",
+				Value:   false,
+				Sources: cli.EnvVars("TOPF_DELETE_IF_EVICTION_FAILS"),
 			},
 			&cli.BoolFlag{
 				Name:    "force",
@@ -78,12 +84,13 @@ func newUpgradeCmd() *cli.Command {
 			}
 
 			err = upgrade.Execute(ctx, t, upgrade.Options{
-				DryRun:       c.Bool("dry-run"),
-				RebootMode:   rebootMode,
-				Force:        c.Bool("force"),
-				Drain:        c.Bool("drain"),
-				DrainTimeout: c.Duration("drain-timeout"),
-				MaxParallel:  maxParallel,
+				DryRun:                c.Bool("dry-run"),
+				RebootMode:            rebootMode,
+				Force:                 c.Bool("force"),
+				Drain:                 c.Bool("drain"),
+				DrainTimeout:          c.Duration("drain-timeout"),
+				DeleteIfEvictionFails: c.Bool("delete-if-eviction-fails"),
+				MaxParallel:           maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
