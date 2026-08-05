@@ -6,12 +6,14 @@ package upgrade
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"regexp"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +30,7 @@ import (
 	"google.golang.org/grpc/codes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 
@@ -59,6 +62,23 @@ type Options struct {
 	// (DELETE instead of EVICT, bypassing PDBs) if the graceful drain fails.
 	DeleteIfEvictionFails bool
 
+	// Stage installs upgrade artifacts without rebooting. The node is
+	// labeled/tainted (if StageLabels/StageTaints are set) so an external
+	// controller or human can reboot it later.
+	Stage bool
+
+	// StageLabels are Kubernetes node labels (key=value) applied after
+	// staging. Requires Stage.
+	StageLabels []string
+
+	// StageTaints are Kubernetes node taints (key=value:Effect) applied
+	// after staging. Requires Stage.
+	StageTaints []string
+
+	// stagePatch is the pre-parsed node patch (labels + taints), built
+	// once in validateOptions. Zero-valued if no labels/taints are set.
+	stagePatch corev1.Node
+
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
 	MaxParallel nodepool.MaxParallel
@@ -67,6 +87,10 @@ type Options struct {
 // Execute performs the Talos OS upgrades for all nodes in the cluster
 func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	logger := t.Logger().With("command", "upgrade")
+
+	if err := validateOptions(&opts); err != nil {
+		return err
+	}
 
 	// Gather node information
 	nodes, err := t.FilteredNodes(ctx)
@@ -115,6 +139,59 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 				return upgradeNode(ctx, t, node, opts, logger)
 			}, logger)
 	}
+
+	return nil
+}
+
+// validateOptions checks for incompatible flag combinations and pre-parses
+// the staging labels/taints into a strategic merge patch stored on opts.
+func validateOptions(opts *Options) error {
+	if !opts.Stage {
+		if len(opts.StageLabels) > 0 || len(opts.StageTaints) > 0 {
+			return errors.New("--stage-label and --stage-taint require --stage")
+		}
+
+		return nil
+	}
+
+	if len(opts.StageLabels) == 0 && len(opts.StageTaints) == 0 {
+		return nil
+	}
+
+	stagePatch := corev1.Node{}
+
+	for _, l := range opts.StageLabels {
+		k, v, ok := strings.Cut(l, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid label %q: expected key=value", l)
+		}
+
+		if stagePatch.Labels == nil {
+			stagePatch.Labels = map[string]string{}
+		}
+
+		stagePatch.Labels[k] = v
+	}
+
+	for _, tw := range opts.StageTaints {
+		kv, effect, ok := strings.Cut(tw, ":")
+		if !ok || effect == "" {
+			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+		}
+
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+		}
+
+		stagePatch.Spec.Taints = append(stagePatch.Spec.Taints, corev1.Taint{
+			Key:    k,
+			Value:  v,
+			Effect: corev1.TaintEffect(effect),
+		})
+	}
+
+	opts.stagePatch = stagePatch
 
 	return nil
 }
@@ -184,9 +261,11 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 			continue
 		}
 
-		// ask for user confirmation
-		if t.Confirm() {
-			if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)) == 'n' {
+		// ask for user confirmation (staging is non-disruptive — no reboot)
+		if t.Confirm() && !opts.Stage {
+			prompt := fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)
+
+			if interactive.ConfirmPrompt(prompt) == 'n' {
 				logger.Info("skipping upgrade")
 				continue
 			}
@@ -279,9 +358,10 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	// Resolve the Kubernetes node name up front, so that a drain failure
 	// can't be caused by a reason that was knowable before the upgrade.
+	// Staging also needs it if labels or taints are to be applied.
 	k8sNodeName := ""
 
-	if opts.Drain {
+	if opts.Drain || (opts.Stage && hasStagePatch(opts.stagePatch)) {
 		k8sNodeName, err = talosnodedrain.GetKubernetesNodeName(ctx, nodeClient)
 		if err != nil {
 			return fmt.Errorf("resolving kubernetes node name: %w", err)
@@ -296,6 +376,21 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	if err := runUpgrade(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
+	}
+
+	// Staging: artifacts are installed, skip drain/reboot. Optionally
+	// label and/or taint the Kubernetes node so an external controller or
+	// human knows which nodes have a pending upgrade.
+	if opts.Stage {
+		if hasStagePatch(opts.stagePatch) {
+			if err := applyStagePatch(ctx, t, k8sNodeName, opts.stagePatch, logger); err != nil {
+				return err
+			}
+		}
+
+		logger.Info("upgrade staged; node not rebooted — reboot manually to complete the upgrade", "k8s_node", k8sNodeName)
+
+		return nil
 	}
 
 	// Drain the node after the upgrade artifacts are installed but before
@@ -362,6 +457,9 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 //
 // The opts.Drain and opts.DrainTimeout flags are ignored on this path: Talos
 // drains and uncordons the node itself as part of the upgrade sequence.
+//
+// The opts.Stage flag is not supported on this path; staging is only available
+// on nodes running Talos >= 1.13 (modern LifecycleService.Upgrade flow).
 //
 // The provided logger is expected to already carry the node's attributes.
 //
@@ -555,6 +653,33 @@ func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName str
 
 	if err := drain.RunNodeDrain(drainer, nodeName); err != nil {
 		return fmt.Errorf("draining node %q: %w", nodeName, err)
+	}
+
+	return nil
+}
+
+// hasStagePatch reports whether the node patch has any labels or taints set.
+func hasStagePatch(p corev1.Node) bool {
+	return len(p.Labels) > 0 || len(p.Spec.Taints) > 0
+}
+
+// applyStagePatch applies the pre-parsed node patch (labels + taints) to the
+// Kubernetes node via a strategic merge patch after staging an upgrade.
+func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch corev1.Node, logger *slog.Logger) error {
+	clientset, err := newK8sClientset(ctx, t, logger)
+	if err != nil {
+		return fmt.Errorf("creating kubernetes client for staging: %w", err)
+	}
+
+	patchData, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("marshaling node patch: %w", err)
+	}
+
+	logger.Info("staging: applying node patch", "k8s_node", nodeName)
+
+	if _, err := clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("patching node %q: %w", nodeName, err)
 	}
 
 	return nil

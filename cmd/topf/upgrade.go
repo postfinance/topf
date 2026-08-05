@@ -68,6 +68,22 @@ func newUpgradeCmd() *cli.Command {
 				Value:   false,
 				Sources: cli.EnvVars("TOPF_FORCE"),
 			},
+			&cli.BoolFlag{
+				Name:    "stage",
+				Usage:   "install upgrade artifacts without rebooting; the node is labeled and/or tainted (see --stage-label/--stage-taint) so an external controller or human can reboot it later",
+				Value:   false,
+				Sources: cli.EnvVars("TOPF_STAGE"),
+			},
+			&cli.StringSliceFlag{
+				Name:    "stage-label",
+				Usage:   "Kubernetes node label to apply after staging an upgrade (key=value); can be repeated; requires --stage",
+				Sources: cli.EnvVars("TOPF_STAGE_LABEL"),
+			},
+			&cli.StringSliceFlag{
+				Name:    "stage-taint",
+				Usage:   "Kubernetes node taint to apply after staging an upgrade (key=value:Effect); can be repeated; requires --stage",
+				Sources: cli.EnvVars("TOPF_STAGE_TAINT"),
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -90,6 +106,9 @@ func newUpgradeCmd() *cli.Command {
 				Drain:                 c.Bool("drain"),
 				DrainTimeout:          c.Duration("drain-timeout"),
 				DeleteIfEvictionFails: c.Bool("delete-if-eviction-fails"),
+				Stage:                 c.Bool("stage"),
+				StageLabels:           c.StringSlice("stage-label"),
+				StageTaints:           c.StringSlice("stage-taint"),
 				MaxParallel:           maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
