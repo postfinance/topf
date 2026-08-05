@@ -1126,7 +1126,12 @@
 <tr>
 <td><code>--drain-timeout</code></td>
 <td><code>5m</code></td>
-<td>Maximum time to wait for pod evictions to complete during drain <em>(modern flow only)</em></td>
+<td>Maximum time to wait for pod evictions (and, with <code>--delete-if-eviction-fails</code>, deletions) to complete during drain <em>(modern flow only)</em></td>
+</tr>
+<tr>
+<td><code>--delete-if-eviction-fails</code></td>
+<td><code>false</code></td>
+<td>If graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); reuses <code>--drain-timeout</code> for the delete fallback <em>(modern flow only)</em></td>
 </tr>
 <tr>
 <td><code>--force</code></td>
@@ -1148,6 +1153,20 @@ reboot). Nodes running Talos &lt; 1.13 fall back to the legacy
 single server-side sequence. The <code>--force</code> flag is only meaningful on
 the legacy path; <code>--drain</code> and <code>--drain-timeout</code> are only meaningful on
 the modern path.</p>
+<p><strong>When to use <code>--delete-if-eviction-fails</code>.</strong> The graceful drain uses the
+Kubernetes eviction API, which respects PodDisruptionBudgets. A PDB with
+<code>minAvailable: 1</code> on a single-replica pod (e.g. a standalone database
+StatefulSet) will block eviction until <code>--drain-timeout</code> expires and the
+drain fails. <code>--delete-if-eviction-fails</code> retries the drain with direct
+pod deletion (DELETE instead of EVICT), bypassing PDBs — the pod is
+killed and its controller reschedules it elsewhere. The delete fallback
+reuses <code>--drain-timeout</code> as its timeout.</p>
+<p>Note that the drain always runs with <code>kubectl drain --force</code> semantics
+(unmanaged pods are deleted, emptyDir data is removed) — this is the
+default behavior for a rebooting node and is not controlled by
+<code>--delete-if-eviction-fails</code>. The flag only switches the eviction API to
+direct deletion for the fallback attempt, which is what lets it bypass
+PDBs.</p>
 </blockquote>
 <h2 id="behavior">Behavior</h2>
 <ol>
@@ -1161,7 +1180,7 @@ the modern path.</p>
 <li>Resolve the Kubernetes node name (if <code>--drain</code> is enabled)</li>
 <li>Pre-pull the installer image via <code>ImageService.Pull</code></li>
 <li>Install the upgrade artifacts via <code>LifecycleService.Upgrade</code></li>
-<li>Cordon and drain the Kubernetes node if <code>--drain</code> is enabled. <strong>If the drain fails</strong> (e.g. a pod cannot be evicted within <code>--drain-timeout</code>), the upgrade aborts: the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when <code>--max-parallel &gt; 1</code>) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.</li>
+<li>Cordon and drain the Kubernetes node if <code>--drain</code> is enabled. <strong>If the drain fails</strong> (e.g. a pod cannot be evicted within <code>--drain-timeout</code>), the upgrade aborts unless <code>--delete-if-eviction-fails</code> is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing <code>--drain-timeout</code>). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when <code>--max-parallel &gt; 1</code>) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.</li>
 <li>Issue a <code>Reboot</code> with the selected reboot mode (default: kexec)</li>
 <li>Wait 30 seconds for the node to stabilize</li>
 <li>Uncordon the Kubernetes node</li>
@@ -1214,6 +1233,12 @@ the modern path.</p>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Force upgrade on legacy (Talos &lt; 1.13) nodes, skipping etcd health checks</span>
 <a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="c1"># Upgrade, falling back to pod deletion if graceful drain fails</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="c1"># Upgrade with a longer drain timeout (shared by graceful and fallback)</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
 </code></pre></div>
 
 
