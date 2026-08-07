@@ -6,12 +6,14 @@ package upgrade
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"regexp"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,9 +27,9 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"github.com/siderolabs/talos/pkg/reporter"
-	"google.golang.org/grpc/codes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 
@@ -59,6 +61,27 @@ type Options struct {
 	// (DELETE instead of EVICT, bypassing PDBs) if the graceful drain fails.
 	DeleteIfEvictionFails bool
 
+	// Stage installs upgrade artifacts without rebooting. The node is
+	// labeled/tainted (if StageLabels/StageTaints are set) so an external
+	// controller or human can reboot it later.
+	Stage bool
+
+	// StageLabels are Kubernetes node labels (key=value) applied after
+	// staging. Requires Stage.
+	StageLabels []string
+
+	// StageAnnotations are Kubernetes node annotations (key=value) applied
+	// after staging. Requires Stage.
+	StageAnnotations []string
+
+	// StageTaints are Kubernetes node taints (key=value:Effect) applied
+	// after staging. Requires Stage.
+	StageTaints []string
+
+	// stagePatch is the pre-parsed node patch (labels + annotations + taints), built
+	// once in validateOptions. Zero-valued if no labels/annotations/taints are set.
+	stagePatch corev1.Node
+
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
 	MaxParallel nodepool.MaxParallel
@@ -68,7 +91,10 @@ type Options struct {
 func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	logger := t.Logger().With("command", "upgrade")
 
-	// Gather node information
+	if err := validateOptions(&opts); err != nil {
+		return err
+	}
+
 	nodes, err := t.FilteredNodes(ctx)
 	if err != nil {
 		return err
@@ -104,8 +130,6 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 	}
 
-	// Worker nodes are upgraded using a rolling pool: up to n upgrades are kept
-	// in flight, and as soon as one finishes the next node is started.
 	if len(workers) > 0 {
 		concurrency := opts.MaxParallel.Resolve(len(nodes))
 		logger.Info("upgrading worker nodes", "count", len(workers), "concurrency", concurrency)
@@ -115,6 +139,70 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 				return upgradeNode(ctx, t, node, opts, logger)
 			}, logger)
 	}
+
+	return nil
+}
+
+func validateOptions(opts *Options) error {
+	if !opts.Stage {
+		if len(opts.StageLabels) > 0 || len(opts.StageAnnotations) > 0 || len(opts.StageTaints) > 0 {
+			return errors.New("--stage-label, --stage-annotation, and --stage-taint require --stage")
+		}
+
+		return nil
+	}
+
+	if len(opts.StageLabels) == 0 && len(opts.StageAnnotations) == 0 && len(opts.StageTaints) == 0 {
+		return nil
+	}
+
+	stagePatch := corev1.Node{}
+
+	for _, l := range opts.StageLabels {
+		k, v, ok := strings.Cut(l, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid label %q: expected key=value", l)
+		}
+
+		if stagePatch.Labels == nil {
+			stagePatch.Labels = map[string]string{}
+		}
+
+		stagePatch.Labels[k] = v
+	}
+
+	for _, a := range opts.StageAnnotations {
+		k, v, ok := strings.Cut(a, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid annotation %q: expected key=value", a)
+		}
+
+		if stagePatch.Annotations == nil {
+			stagePatch.Annotations = map[string]string{}
+		}
+
+		stagePatch.Annotations[k] = v
+	}
+
+	for _, tw := range opts.StageTaints {
+		kv, effect, ok := strings.Cut(tw, ":")
+		if !ok || effect == "" {
+			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+		}
+
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+		}
+
+		stagePatch.Spec.Taints = append(stagePatch.Spec.Taints, corev1.Taint{
+			Key:    k,
+			Value:  v,
+			Effect: corev1.TaintEffect(effect),
+		})
+	}
+
+	opts.stagePatch = stagePatch
 
 	return nil
 }
@@ -179,14 +267,18 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 
 		upgradeRequired = true
 
-		// in dry-run mode, skip the actual upgrade
+		if opts.Stage && !supportsLifecycleUpgrade(node.RunningVersion()) {
+			return nil, false, fmt.Errorf("node %s runs Talos %s: --stage requires Talos >= 1.13", node.Node.Host, node.RunningVersion())
+		}
+
 		if opts.DryRun {
 			continue
 		}
 
-		// ask for user confirmation
-		if t.Confirm() {
-			if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)) == 'n' {
+		if t.Confirm() && !opts.Stage {
+			prompt := fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)
+
+			if interactive.ConfirmPrompt(prompt) == 'n' {
 				logger.Info("skipping upgrade")
 				continue
 			}
@@ -198,17 +290,6 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 	return worklist, upgradeRequired, nil
 }
 
-// upgradeNode performs a Talos OS upgrade on a single node. It selects the
-// upgrade mechanism based on the node's running Talos version:
-//
-//   - Talos >= 1.13.0: LifecycleService.Upgrade streaming RPC (the modern
-//     flow), which installs artifacts, then a separate Reboot, with optional
-//     Kubernetes drain/uncordon around the reboot.
-//   - Talos < 1.13.0: legacy MachineService.Upgrade RPC (which installs
-//     and reboots in a single call). The LifecycleService.Upgrade RPC was
-//     introduced in v1.13.0 and returns codes.Unimplemented on older nodes.
-//
-// The provided logger is expected to already carry the node's attributes.
 func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
 	if supportsLifecycleUpgrade(node.RunningVersion()) {
 		return upgradeNodeLifecycle(ctx, t, node, opts, logger)
@@ -219,10 +300,6 @@ func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options
 	return upgradeNodeLegacy(ctx, t, node, opts, logger)
 }
 
-// supportsLifecycleUpgrade reports whether the node's running Talos version
-// supports the LifecycleService.Upgrade streaming RPC (introduced in v1.13.0).
-// A node whose running version is unknown is assumed to support it; the RPC
-// will surface codes.Unimplemented if it does not.
 func supportsLifecycleUpgrade(runningVersion string) bool {
 	if runningVersion == "" {
 		return true
@@ -236,38 +313,6 @@ func supportsLifecycleUpgrade(runningVersion string) bool {
 	return v.GTE(semver.MustParse("1.13.0"))
 }
 
-// upgradeNodeLifecycle performs a Talos OS upgrade on a single node using the
-// LifecycleService.Upgrade streaming RPC. The flow is:
-//
-//  1. Resolve the Kubernetes node name (if draining is enabled), so that
-//     a drain failure can't be caused by a reason that was knowable before
-//     the upgrade mutated the node.
-//  2. Pre-pull the installer image via ImageService.Pull.
-//  3. Stream LifecycleService.Upgrade, draining progress messages and
-//     verifying the final exit code is zero.
-//  4. Drain the Kubernetes node (cordon + evict pods) if draining is enabled.
-//     If the drain fails, the upgrade aborts: the node is left cordoned with
-//     the new artifacts installed but not rebooted. The error propagates to
-//     the caller (RunConcurrent), which stops scheduling new upgrades but
-//     lets in-flight ones finish. The node must be uncordoned and rebooted
-//     manually to recover.
-//  5. Issue a Reboot with the configured reboot mode. A gRPC Unavailable or
-//     Canceled error from Reboot is treated as success: the node begins
-//     shutting down before the RPC response reaches us.
-//  6. Close the per-node Talos client (the node is rebooting; the connection
-//     is dead anyway).
-//  7. Wait for the node to stabilize.
-//  8. Re-fetch a Kubernetes clientset and uncordon the node. The clientset
-//     is re-fetched (rather than reused from step 4) because the reboot may
-//     rotate credentials or invalidate the in-memory kubeconfig, and the
-//     control-plane node we proxy through may itself have been upgraded.
-//
-// The kubeconfig for drain/uncordon operations is fetched via a control-plane
-// node client (t.ControlPlaneClient), because the Kubeconfig RPC is only
-// available on control-plane nodes. GetKubernetesNodeName uses the node's own
-// client, as the Nodename resource is available on all nodes.
-//
-// The provided logger is expected to already carry the node's attributes.
 func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
 	installerImage := node.ConfigProvider().Machine().Install().Image()
 
@@ -277,11 +322,9 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	}
 	defer nodeClient.Close()
 
-	// Resolve the Kubernetes node name up front, so that a drain failure
-	// can't be caused by a reason that was knowable before the upgrade.
 	k8sNodeName := ""
 
-	if opts.Drain {
+	if opts.Drain || (opts.Stage && hasStagePatch(opts.stagePatch)) {
 		k8sNodeName, err = talosnodedrain.GetKubernetesNodeName(ctx, nodeClient)
 		if err != nil {
 			return fmt.Errorf("resolving kubernetes node name: %w", err)
@@ -298,8 +341,18 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 		return fmt.Errorf("upgrade: %w", err)
 	}
 
-	// Drain the node after the upgrade artifacts are installed but before
-	// the reboot, so pods are evicted gracefully.
+	if opts.Stage {
+		if hasStagePatch(opts.stagePatch) {
+			if err := applyStagePatch(ctx, t, k8sNodeName, opts.stagePatch, logger); err != nil {
+				return err
+			}
+		}
+
+		logger.Info("upgrade staged; node not rebooted — reboot manually to complete the upgrade", "k8s_node", k8sNodeName)
+
+		return nil
+	}
+
 	if opts.Drain {
 		if err := drainNode(ctx, t, opts, k8sNodeName, logger); err != nil {
 			return err
@@ -308,17 +361,10 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	logger.Info("upgrade artifacts installed, rebooting node", "reboot_mode", opts.RebootMode.String())
 
-	// Reboot returns once the reboot is initiated. If the node starts
-	// shutting down before the gRPC response arrives, the stream is torn
-	// down and we get Unavailable or Canceled. Both are expected here.
-	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil &&
-		client.StatusCode(err) != codes.Unavailable &&
-		!errors.Is(err, context.Canceled) {
+	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil {
 		return fmt.Errorf("reboot: %w", err)
 	}
 
-	// The node is rebooting; the per-node client is dead. Close it now
-	// rather than holding it open across the stabilization window.
 	if cerr := nodeClient.Close(); cerr != nil {
 		logger.Debug("closing per-node client after reboot", "error", cerr)
 	}
@@ -329,10 +375,6 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
-	// After the node has stabilized, uncordon it so that the Kubernetes
-	// scheduler can place pods on it again. The clientset is re-fetched
-	// because the reboot may have rotated credentials or invalidated the
-	// in-memory kubeconfig obtained before the reboot.
 	if opts.Drain {
 		uncordonClientset, err := newK8sClientset(ctx, t, logger)
 		if err != nil {
@@ -353,18 +395,6 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	return nil
 }
 
-// upgradeNodeLegacy performs a Talos OS upgrade on a node running Talos < 1.13
-// using the deprecated MachineService.Upgrade RPC. Unlike the lifecycle flow,
-// this RPC installs the upgrade artifacts, drains the Kubernetes node, and
-// reboots in a single server-side sequence (see Talos's Upgrade sequencer).
-// The opts.Force flag skips etcd health checks on this path (the legacy RPC's
-// only safety knob).
-//
-// The opts.Drain and opts.DrainTimeout flags are ignored on this path: Talos
-// drains and uncordons the node itself as part of the upgrade sequence.
-//
-// The provided logger is expected to already carry the node's attributes.
-//
 //nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) requires Talos >= 1.13
 func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
 	installerImage := node.ConfigProvider().Machine().Install().Image()
@@ -396,10 +426,6 @@ func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts O
 	return nil
 }
 
-// toLegacyRebootMode maps the RebootRequest_Mode used by the lifecycle flow
-// to the UpgradeRequest_RebootMode consumed by the legacy
-// MachineService.Upgrade RPC. The enum values are identical, but the types
-// are distinct.
 func toLegacyRebootMode(mode machine.RebootRequest_Mode) machine.UpgradeRequest_RebootMode {
 	switch mode {
 	case machine.RebootRequest_POWERCYCLE:
@@ -409,10 +435,6 @@ func toLegacyRebootMode(mode machine.RebootRequest_Mode) machine.UpgradeRequest_
 	}
 }
 
-// newK8sClientset obtains an in-memory Kubernetes clientset by fetching the
-// admin kubeconfig through a control-plane node's Talos API. The control-plane
-// client is closed after the kubeconfig is retrieved; the returned clientset
-// is independent of it.
 func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kubernetes.Interface, error) {
 	cpClient, err := t.ControlPlaneClient(ctx)
 	if err != nil {
@@ -432,9 +454,6 @@ func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kub
 	return clientset, nil
 }
 
-// drainNode cordons the node, then drains its pods. If the graceful drain
-// fails and DeleteIfEvictionFails is set, retries with direct pod deletion
-// (bypassing PDBs). The node is cordoned once; the fallback does not re-cordon.
 func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName string, logger *slog.Logger) error {
 	clientset, err := newK8sClientset(ctx, t, logger)
 	if err != nil {
@@ -473,7 +492,6 @@ func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName strin
 	return nil
 }
 
-// cordonNode marks the Kubernetes node unschedulable.
 func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName string, logger *slog.Logger) error {
 	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
@@ -498,10 +516,6 @@ func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName st
 	return nil
 }
 
-// drainPods drains the node's pods via the kubectl drain library. Force is
-// always on (unmanaged pods deleted, emptyDir data removed). When
-// deleteIfEvictionFails is true, pods are DELETEd instead of EVICTed, bypassing
-// PDBs (kubectl drain --disable-eviction).
 func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, deleteIfEvictionFails bool, logger *slog.Logger) error {
 	drainCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -511,9 +525,6 @@ func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName str
 		action = "deleting"
 	}
 
-	// The drain helper fires the {Deletion,Eviction}Started callback on every
-	// retry attempt; we track announced pods in this map and report the outcome
-	// in Finished.
 	var announced sync.Map
 
 	drainer := &drain.Helper{
@@ -560,9 +571,30 @@ func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName str
 	return nil
 }
 
-// systemContainerdInstance returns the containerd instance used for pulling
-// and running installer artifacts: the CRI driver against the system
-// namespace. This matches talosctl's default for upgrades ("system").
+func hasStagePatch(p corev1.Node) bool {
+	return len(p.Labels) > 0 || len(p.Annotations) > 0 || len(p.Spec.Taints) > 0
+}
+
+func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch corev1.Node, logger *slog.Logger) error {
+	clientset, err := newK8sClientset(ctx, t, logger)
+	if err != nil {
+		return fmt.Errorf("creating kubernetes client for staging: %w", err)
+	}
+
+	patchData, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("marshaling node patch: %w", err)
+	}
+
+	logger.Info("staging: applying node patch", "k8s_node", nodeName)
+
+	if _, err := clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("patching node %q: %w", nodeName, err)
+	}
+
+	return nil
+}
+
 func systemContainerdInstance() *common.ContainerdInstance {
 	return &common.ContainerdInstance{
 		Driver:    common.ContainerDriver_CRI,
@@ -570,9 +602,6 @@ func systemContainerdInstance() *common.ContainerdInstance {
 	}
 }
 
-// pullInstallerImage pre-pulls the installer image via the
-// ImageService.Pull streaming RPC. Progress messages are logged at debug
-// level; the stream completes when the server sends the image name.
 func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
 	stream, err := c.ImageClient.Pull(ctx, &machine.ImageServicePullRequest{
 		Containerd: containerdInstance,
@@ -598,7 +627,6 @@ func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstanc
 				"layer", payload.PullProgress.GetLayerId(),
 				"progress", payload.PullProgress.GetProgress())
 		case *machine.ImageServicePullResponse_Name:
-			// final message: server reports the resolved image name
 			logger.Info("installer image pulled", "image", payload.Name)
 
 			return nil
@@ -606,9 +634,6 @@ func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstanc
 	}
 }
 
-// runUpgrade invokes the LifecycleService.Upgrade streaming RPC and
-// drains progress messages until the server sends a terminal exit code. A
-// non-zero exit code is surfaced as an error.
 func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
 	stream, err := c.LifecycleClient.Upgrade(ctx, &machine.LifecycleServiceUpgradeRequest{
 		Containerd: containerdInstance,
