@@ -7,8 +7,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/postfinance/topf/internal/topf"
 	talosversion "github.com/siderolabs/talos/pkg/machinery/version"
@@ -19,16 +22,21 @@ type ContextKey string
 
 const (
 	topfRuntimeCtxKey ContextKey = "topf"
+
+	// unexported in urfave/cli; mirror here so Before hooks can detect completion.
+	completionFlag        = "--generate-shell-completion"
+	completionCommandName = "completion"
 )
 
 var version = "dev"
 
 func main() {
 	app := &cli.Command{
-		Name:        "topf",
-		Usage:       "Talos Orchestrator by PostFinance",
-		Description: "Topf is a CLI for managing Talos clusters.",
-		Version:     fmt.Sprintf("%s (Talos %s)", version, talosversion.Tag),
+		Name:                  "topf",
+		Usage:                 "Talos Orchestrator by PostFinance",
+		Description:           "Topf is a CLI for managing Talos clusters.",
+		Version:               fmt.Sprintf("%s (Talos %s)", version, talosversion.Tag),
+		EnableShellCompletion: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "topfconfig",
@@ -67,6 +75,10 @@ func main() {
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			if isShellCompletionInvocation() {
+				return ctx, nil
+			}
+
 			// passing down the Topf runtime to all commands via context
 			topf, err := topf.NewTopfRuntime(topf.RuntimeConfig{
 				ConfigPath:       c.String("topfconfig"),
@@ -83,7 +95,7 @@ func main() {
 
 			return context.WithValue(ctx, topfRuntimeCtxKey, topf), nil
 		},
-		Commands: []*cli.Command{
+		Commands: withShellComplete([]*cli.Command{
 			newApplyCmd(),
 			newUpgradeCmd(),
 			newResetCmd(),
@@ -94,6 +106,9 @@ func main() {
 			newSecretsCmd(),
 			newKubeconfigCmd(),
 			newTalosconfigCmd(),
+		}),
+		ConfigureShellCompletionCommand: func(c *cli.Command) {
+			c.ShellComplete = completeWithRootFlags
 		},
 	}
 
@@ -113,12 +128,110 @@ func MustGetRuntime(ctx context.Context) topf.Topf {
 	return t
 }
 
-// noPositionalArgs is a Before hook that rejects any positional arguments.
-// Use this for commands that only accept flags.
+// noPositionalArgs rejects positional args, except during shell completion
+// (urfave/cli preserves partial flags as positional args there).
 func noPositionalArgs(ctx context.Context, c *cli.Command) (context.Context, error) {
+	if isShellCompletionInvocation() {
+		return ctx, nil
+	}
+
 	if c.Args().Len() > 0 {
 		return ctx, fmt.Errorf("unexpected argument(s): %v. Did you mean to use flags? (e.g., --flag=value instead of flag=value)", c.Args().Slice())
 	}
 
 	return ctx, nil
+}
+
+// isShellCompletionInvocation scans all args so a global flag before
+// `completion` still short-circuits runtime init.
+func isShellCompletionInvocation() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == completionFlag || arg == completionCommandName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func withShellComplete(cmds []*cli.Command) []*cli.Command {
+	for _, c := range cmds {
+		_ = c.Walk(func(sub *cli.Command) error {
+			sub.ShellComplete = completeWithRootFlags
+			return nil
+		})
+	}
+
+	return cmds
+}
+
+// completeWithRootFlags delegates to the library default, then adds persistent
+// root flags on subcommands (which the default omits).
+func completeWithRootFlags(ctx context.Context, c *cli.Command) {
+	cli.DefaultCompleteWithFlags(ctx, c)
+
+	args := os.Args
+	if c.Root() != c {
+		args = c.Args().Slice()
+	}
+
+	lastArg := ""
+	if len(args) > 1 {
+		lastArg = args[len(args)-2]
+	} else if len(args) > 0 {
+		lastArg = args[len(args)-1]
+	}
+
+	if lastArg == completionFlag {
+		lastArg = ""
+	}
+
+	if !strings.HasPrefix(lastArg, "-") {
+		return
+	}
+
+	seen := make(map[string]struct{}, len(c.Flags))
+	for _, f := range c.Flags {
+		seen[strings.TrimSpace(f.Names()[0])] = struct{}{}
+	}
+
+	printPersistentFlagCompletions(lastArg, c.VisiblePersistentFlags(), c.Root().Writer, seen)
+}
+
+func printPersistentFlagCompletions(lastArg string, flags []cli.Flag, w io.Writer, seen map[string]struct{}) {
+	cur := strings.TrimLeft(lastArg, "-")
+
+	for _, f := range flags {
+		if bf, ok := f.(*cli.BoolFlag); ok && bf.Hidden {
+			continue
+		}
+
+		name := strings.TrimSpace(f.Names()[0])
+		if _, dup := seen[name]; dup {
+			continue
+		}
+
+		usage := ""
+		if df, ok := f.(cli.DocGenerationFlag); ok {
+			usage = df.GetUsage()
+		}
+
+		count := utf8.RuneCountInString(name)
+		if count > 2 {
+			count = 2
+		}
+
+		if strings.HasPrefix(lastArg, "--") && utf8.RuneCountInString(name) == 1 {
+			continue
+		}
+
+		if strings.HasPrefix(name, cur) && cur != name {
+			out := strings.Repeat("-", count) + name
+			if usage != "" {
+				out += ":" + usage
+			}
+
+			fmt.Fprintln(w, out)
+		}
+	}
 }
