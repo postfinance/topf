@@ -15,8 +15,9 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--drain-timeout` | `5m` | Maximum time to wait for pod evictions (and, with `--delete-if-eviction-fails`, deletions) to complete during drain *(modern flow only)* |
 | `--delete-if-eviction-fails` | `false` | If graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); reuses `--drain-timeout` for the delete fallback *(modern flow only)* |
 | `--force` | `false` | Skip etcd health checks; only applies to nodes running Talos < 1.13 (legacy `MachineService.Upgrade` RPC); has no effect on Talos >= 1.13, where the `LifecycleService.Upgrade` RPC validates etcd health server-side |
-| `--stage` | `false` | Install upgrade artifacts without rebooting; the node is left running and can be labeled/tainted (see `--stage-label`/`--stage-taint`) so an external controller or human reboots it later |
+| `--stage` | `false` | Install upgrade artifacts without rebooting; the node is left running and can be labeled/annotated/tainted (see `--stage-label`/`--stage-annotation`/`--stage-taint`) so an external controller or human reboots it later |
 | `--stage-label` | - | Kubernetes node label to apply after staging (`key=value`); can be repeated; requires `--stage` |
+| `--stage-annotation` | - | Kubernetes node annotation to apply after staging (`key=value`); can be repeated; requires `--stage` |
 | `--stage-taint` | - | Kubernetes node taint to apply after staging (`key=value:Effect`); can be repeated; requires `--stage` |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
 
@@ -52,11 +53,12 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 > steps. The node continues running on its current kernel until it is manually
 > rebooted, at which point the staged upgrade takes effect.
 >
-> `--stage-label` and `--stage-taint` mark the Kubernetes node so controllers
-> or humans can identify nodes with a pending reboot. For example,
+> `--stage-label`, `--stage-annotation`, and `--stage-taint` mark the
+> Kubernetes node so controllers or humans can identify nodes with a pending
+> reboot. For example,
 > `--stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule`
 > discourages new pods from scheduling on the node until it is rebooted and
-> the taint is removed. Both flags can be repeated and require `--stage`.
+> the taint is removed. All three flags can be repeated and require `--stage`.
 > `--stage` is incompatible with `--drain` and `--delete-if-eviction-fails`.
 
 ## Behavior
@@ -71,7 +73,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 1. Resolve the Kubernetes node name (if `--drain` is enabled, or if `--stage` with labels/taints)
 2. Pre-pull the installer image via `ImageService.Pull`
 3. Install the upgrade artifacts via `LifecycleService.Upgrade`
-4. **If `--stage` is set**: apply labels/taints (if any) and stop here — the node is not rebooted
+4. **If `--stage` is set**: apply labels/annotations/taints (if any) and stop here — the node is not rebooted
 5. Cordon and drain the Kubernetes node if `--drain` is enabled. **If the drain fails** (e.g. a pod cannot be evicted within `--drain-timeout`), the upgrade aborts unless `--delete-if-eviction-fails` is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing `--drain-timeout`). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when `--max-parallel > 1`) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.
 6. Issue a `Reboot` with the selected reboot mode (default: kexec)
 7. Wait 30 seconds for the node to stabilize
@@ -159,4 +161,7 @@ topf upgrade --stage --stage-label topf.io/staged-upgrade=true
 
 # Stage an upgrade and taint the node to discourage new pods from scheduling
 topf upgrade --stage --stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule
+
+# Stage an upgrade and annotate the node so a controller can find it
+topf upgrade --stage --stage-annotation topf.postfinance.ch/staged-at=2026-08-07
 ```

@@ -572,7 +572,7 @@ func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName str
 }
 
 func hasStagePatch(p corev1.Node) bool {
-	return len(p.Labels) > 0 || len(p.Spec.Taints) > 0
+	return len(p.Labels) > 0 || len(p.Annotations) > 0 || len(p.Spec.Taints) > 0
 }
 
 func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch corev1.Node, logger *slog.Logger) error {
