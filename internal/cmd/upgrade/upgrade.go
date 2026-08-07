@@ -70,12 +70,16 @@ type Options struct {
 	// staging. Requires Stage.
 	StageLabels []string
 
+	// StageAnnotations are Kubernetes node annotations (key=value) applied
+	// after staging. Requires Stage.
+	StageAnnotations []string
+
 	// StageTaints are Kubernetes node taints (key=value:Effect) applied
 	// after staging. Requires Stage.
 	StageTaints []string
 
-	// stagePatch is the pre-parsed node patch (labels + taints), built
-	// once in validateOptions. Zero-valued if no labels/taints are set.
+	// stagePatch is the pre-parsed node patch (labels + annotations + taints), built
+	// once in validateOptions. Zero-valued if no labels/annotations/taints are set.
 	stagePatch corev1.Node
 
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
@@ -141,14 +145,14 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 func validateOptions(opts *Options) error {
 	if !opts.Stage {
-		if len(opts.StageLabels) > 0 || len(opts.StageTaints) > 0 {
-			return errors.New("--stage-label and --stage-taint require --stage")
+		if len(opts.StageLabels) > 0 || len(opts.StageAnnotations) > 0 || len(opts.StageTaints) > 0 {
+			return errors.New("--stage-label, --stage-annotation, and --stage-taint require --stage")
 		}
 
 		return nil
 	}
 
-	if len(opts.StageLabels) == 0 && len(opts.StageTaints) == 0 {
+	if len(opts.StageLabels) == 0 && len(opts.StageAnnotations) == 0 && len(opts.StageTaints) == 0 {
 		return nil
 	}
 
@@ -165,6 +169,19 @@ func validateOptions(opts *Options) error {
 		}
 
 		stagePatch.Labels[k] = v
+	}
+
+	for _, a := range opts.StageAnnotations {
+		k, v, ok := strings.Cut(a, "=")
+		if !ok || k == "" {
+			return fmt.Errorf("invalid annotation %q: expected key=value", a)
+		}
+
+		if stagePatch.Annotations == nil {
+			stagePatch.Annotations = map[string]string{}
+		}
+
+		stagePatch.Annotations[k] = v
 	}
 
 	for _, tw := range opts.StageTaints {

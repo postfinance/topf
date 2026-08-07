@@ -80,6 +80,11 @@ func newUpgradeCmd() *cli.Command {
 				Sources: cli.EnvVars("TOPF_STAGE_LABEL"),
 			},
 			&cli.StringSliceFlag{
+				Name:    "stage-annotation",
+				Usage:   "Kubernetes node annotation to apply after staging an upgrade (key=value); can be repeated; requires --stage",
+				Sources: cli.EnvVars("TOPF_STAGE_ANNOTATION"),
+			},
+			&cli.StringSliceFlag{
 				Name:    "stage-taint",
 				Usage:   "Kubernetes node taint to apply after staging an upgrade (key=value:Effect); can be repeated; requires --stage",
 				Sources: cli.EnvVars("TOPF_STAGE_TAINT"),
@@ -108,6 +113,7 @@ func newUpgradeCmd() *cli.Command {
 				DeleteIfEvictionFails: c.Bool("delete-if-eviction-fails"),
 				Stage:                 c.Bool("stage"),
 				StageLabels:           c.StringSlice("stage-label"),
+				StageAnnotations:      c.StringSlice("stage-annotation"),
 				StageTaints:           c.StringSlice("stage-taint"),
 				MaxParallel:           maxParallel,
 			})
