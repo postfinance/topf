@@ -156,16 +156,17 @@ func validateOptions(opts *Options) error {
 		return nil
 	}
 
-	stagePatch := corev1.Node{}
+	stagePatch := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+	}
 
 	for _, l := range opts.StageLabels {
 		k, v, ok := strings.Cut(l, "=")
 		if !ok || k == "" {
 			return fmt.Errorf("invalid label %q: expected key=value", l)
-		}
-
-		if stagePatch.Labels == nil {
-			stagePatch.Labels = map[string]string{}
 		}
 
 		stagePatch.Labels[k] = v
@@ -177,17 +178,13 @@ func validateOptions(opts *Options) error {
 			return fmt.Errorf("invalid annotation %q: expected key=value", a)
 		}
 
-		if stagePatch.Annotations == nil {
-			stagePatch.Annotations = map[string]string{}
-		}
-
 		stagePatch.Annotations[k] = v
 	}
 
 	for _, tw := range opts.StageTaints {
 		kv, effect, ok := strings.Cut(tw, ":")
 		if !ok || effect == "" {
-			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+			return fmt.Errorf("invalid taint %q: expected key[=value]:Effect", tw)
 		}
 
 		k, v, ok := strings.Cut(kv, "=")

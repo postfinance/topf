@@ -59,7 +59,9 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 > `--stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule`
 > discourages new pods from scheduling on the node until it is rebooted and
 > the taint is removed. All three flags can be repeated and require `--stage`.
-> `--stage` is incompatible with `--drain` and `--delete-if-eviction-fails`.
+> `--stage` takes precedence over `--drain` and `--delete-if-eviction-fails`;
+> both are silently ignored when staging. No need to pass `--drain=false`
+> with `--stage`.
 
 ## Behavior
 

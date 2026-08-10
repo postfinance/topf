@@ -86,7 +86,7 @@ func newUpgradeCmd() *cli.Command {
 			},
 			&cli.StringSliceFlag{
 				Name:    "stage-taint",
-				Usage:   "Kubernetes node taint to apply after staging an upgrade (key=value:Effect); can be repeated; requires --stage",
+				Usage:   "Kubernetes node taint to apply after staging an upgrade (key[=value]:Effect); can be repeated; requires --stage",
 				Sources: cli.EnvVars("TOPF_STAGE_TAINT"),
 			},
 		},
