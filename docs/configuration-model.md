@@ -7,8 +7,8 @@ The final machine configuration for each node is assembled from a series of conf
 Patches are applied in the following order:
 
 1. **`all/`** — applied to all nodes
-2. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
-3. **`node/<host>/`** — applied only to that specific node
+1. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
+1. **`node/<host>/`** — applied only to that specific node
 
 !!! tip
     The per-host directory is `node/` (singular), not `nodes/` as each `<host>/` subfolder targets a single node at a time.
@@ -55,7 +55,7 @@ Empty patches (comments only, whitespace, `{}`, `[]`, `null`) are automatically 
 TOPF reads all non-template files (including `topf.yaml` itself) through a two-stage pipeline:
 
 1. **SOPS decryption** — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.
-2. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
+1. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
 
 Template files (ending with `.tpl`) skip this pipeline entirely and are rendered through [Go templates](#templating) instead.
 
@@ -66,7 +66,7 @@ This is useful for keeping sensitive values (e.g. private keys, credentials, tok
 Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/template). The following context fields are available:
 
 | Field | Description |
-|-------|-------------|
+| ------- | ------------- |
 | `.ClusterName` | Cluster name from `topf.yaml` |
 | `.ClusterEndpoint` | Cluster endpoint URL |
 | `.KubernetesVersion` | Kubernetes version |
@@ -85,7 +85,7 @@ In addition to the [built-in Go template functions](https://pkg.go.dev/text/temp
 A few commonly used functions:
 
 | Function | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `env "VAR"` | Returns the value of the environment variable `VAR`, or an empty string if unset |
 | `default "x" .Val` | Returns `.Val`, falling back to `"x"` if `.Val` is empty |
 | `b64enc` / `b64dec` | Base64 encode / decode |

@@ -6,7 +6,7 @@ The `apply` command is the primary way to apply configuration changes to a runni
 
 1. **Gather Nodes**: Read `topf.yaml` and generate configurations for all nodes
 
-2. **Pre-flight Checks**: Validate each node's health
+1. **Pre-flight Checks**: Validate each node's health
    - Nodes with errors → unhealthy
    - Nodes not ready (unmet conditions) → unhealthy (unless `--allow-not-ready` is set)
    - Nodes not in Running/Maintenance/Booting stage → unhealthy
@@ -14,18 +14,18 @@ The `apply` command is the primary way to apply configuration changes to a runni
      - Without `--skip-problematic-nodes`: **ABORT**
      - With `--skip-problematic-nodes`: Continue with healthy nodes only (warn and filter)
 
-3. **Determine Post-Apply Behavior**: If all remaining nodes are in maintenance mode, automatically enable `--skip-post-apply-checks`
+1. **Determine Post-Apply Behavior**: If all remaining nodes are in maintenance mode, automatically enable `--skip-post-apply-checks`
 
-4. **Apply Configurations** (for each healthy node):
+1. **Apply Configurations** (for each healthy node):
    - Dry-run apply to check for changes
    - If changes detected in `--dry-run` mode: print diff and **exit with code 2**
-    - If changes detected in normal mode:
+   - If changes detected in normal mode:
       - Show diff (if `--confirm` enabled, see [global flags](../configuration.md#global-flags))
       - Ask for confirmation (if `--confirm` enabled)
       - Apply configuration
    - If config applied AND not `--skip-post-apply-checks`: Stabilize (wait 30s for node to be ready)
 
-5. **Bootstrap** (if `--auto-bootstrap` enabled):
+1. **Bootstrap** (if `--auto-bootstrap` enabled):
    - Select first control plane node
    - Call ETCD bootstrap API
    - Retry for up to 10 minutes
@@ -104,7 +104,7 @@ This check is automatically skipped if:
 When `--auto-bootstrap` is enabled, after all configurations are applied, the command will:
 
 1. Select the first control plane node
-2. Call the ETCD bootstrap API
-3. Retry for up to 10 minutes if the call fails
+1. Call the ETCD bootstrap API
+1. Retry for up to 10 minutes if the call fails
 
 This is typically used when bringing up a new cluster for the first time, and has no influence if the cluster is already bootstrapped.
