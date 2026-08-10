@@ -1,1 +1,8 @@
 MD013: false
+MD029:
+  style: one
+MD060: false
+MD024:
+  siblings_only: true
+MD046: false
+

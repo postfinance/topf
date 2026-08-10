@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD033 -->
+
 # TOPF - Talos Orchestrator by PostFinance
 
 <p align="center">
