@@ -192,7 +192,7 @@ func validateOptions(opts *Options) error {
 
 		k, v, ok := strings.Cut(kv, "=")
 		if !ok || k == "" {
-			return fmt.Errorf("invalid taint %q: expected key=value:Effect", tw)
+			return fmt.Errorf("invalid taint %q: expected key[=value]:Effect", tw)
 		}
 
 		stagePatch.Spec.Taints = append(stagePatch.Spec.Taints, corev1.Taint{

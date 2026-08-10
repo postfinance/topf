@@ -70,7 +70,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 
 **Modern flow** *(Talos >= 1.13)*:
 
-1. Resolve the Kubernetes node name (if `--drain` is enabled, or if `--stage` with labels/taints)
+1. Resolve the Kubernetes node name (if `--drain` is enabled or for staged upgrades with `--stage-label` and/or `--stage-taint` and/or `--stage-annotation`)
 2. Pre-pull the installer image via `ImageService.Pull`
 3. Install the upgrade artifacts via `LifecycleService.Upgrade`
 4. **If `--stage` is set**: apply labels/annotations/taints (if any) and stop here — the node is not rebooted
@@ -157,7 +157,7 @@ topf upgrade --delete-if-eviction-fails --drain-timeout=10m
 topf upgrade --stage
 
 # Stage an upgrade and label the node so a controller can find it
-topf upgrade --stage --stage-label topf.io/staged-upgrade=true
+topf upgrade --stage --stage-label topf.postfinance.ch/staged-upgrade=true
 
 # Stage an upgrade and taint the node to discourage new pods from scheduling
 topf upgrade --stage --stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule
