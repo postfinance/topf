@@ -663,7 +663,7 @@ func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *commo
 
 		switch p := progress.GetResponse().(type) {
 		case *machine.LifecycleServiceInstallProgress_Message:
-			logger.Info("upgrade progress", "message", p.Message)
+			logger.Debug("upgrade progress", "message", p.Message)
 		case *machine.LifecycleServiceInstallProgress_ExitCode:
 			if p.ExitCode != 0 {
 				return fmt.Errorf("upgrade failed with exit code %d", p.ExitCode)
