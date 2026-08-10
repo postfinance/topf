@@ -1139,6 +1139,26 @@
 <td>Skip etcd health checks; only applies to nodes running Talos &lt; 1.13 (legacy <code>MachineService.Upgrade</code> RPC); has no effect on Talos &gt;= 1.13, where the <code>LifecycleService.Upgrade</code> RPC validates etcd health server-side</td>
 </tr>
 <tr>
+<td><code>--stage</code></td>
+<td><code>false</code></td>
+<td>Install upgrade artifacts without rebooting; the node is left running and can be labeled/annotated/tainted (see <code>--stage-label</code>/<code>--stage-annotation</code>/<code>--stage-taint</code>) so an external controller or human reboots it later</td>
+</tr>
+<tr>
+<td><code>--stage-label</code></td>
+<td>-</td>
+<td>Kubernetes node label to apply after staging (<code>key=value</code>); can be repeated; requires <code>--stage</code></td>
+</tr>
+<tr>
+<td><code>--stage-annotation</code></td>
+<td>-</td>
+<td>Kubernetes node annotation to apply after staging (<code>key=value</code>); can be repeated; requires <code>--stage</code></td>
+</tr>
+<tr>
+<td><code>--stage-taint</code></td>
+<td>-</td>
+<td>Kubernetes node taint to apply after staging (<code>key=value:Effect</code>); can be repeated; requires <code>--stage</code></td>
+</tr>
+<tr>
 <td><a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a></td>
 <td>-</td>
 <td>Regex pattern to filter which nodes to operate on (global flag)</td>
@@ -1167,6 +1187,22 @@ default behavior for a rebooting node and is not controlled by
 <code>--delete-if-eviction-fails</code>. The flag only switches the eviction API to
 direct deletion for the fallback attempt, which is what lets it bypass
 PDBs.</p>
+<p><strong>Staging upgrades with <code>--stage</code></strong> <em>(Talos &gt;= 1.13 only)</em>. Sometimes you
+want to install new Talos artifacts on nodes without immediately rebooting
+them — e.g. to spread reboots over a maintenance window or let an external
+controller (such as a drain scheduler) reboot nodes one at a time. <code>--stage</code>
+installs the upgrade artifacts but skips the drain, reboot, and uncordon
+steps. The node continues running on its current kernel until it is manually
+rebooted, at which point the staged upgrade takes effect.</p>
+<p><code>--stage-label</code>, <code>--stage-annotation</code>, and <code>--stage-taint</code> mark the
+Kubernetes node so controllers or humans can identify nodes with a pending
+reboot. For example,
+<code>--stage-taint topf.postfinance.ch/staged-upgrade=true:PreferNoSchedule</code>
+discourages new pods from scheduling on the node until it is rebooted and
+the taint is removed. All three flags can be repeated and require <code>--stage</code>.
+<code>--stage</code> takes precedence over <code>--drain</code> and <code>--delete-if-eviction-fails</code>;
+both are silently ignored when staging. No need to pass <code>--drain=false</code>
+with <code>--stage</code>.</p>
 </blockquote>
 <h2 id="behavior">Behavior</h2>
 <ol>
@@ -1177,9 +1213,10 @@ PDBs.</p>
 </ol>
 <p><strong>Modern flow</strong> <em>(Talos &gt;= 1.13)</em>:</p>
 <ol>
-<li>Resolve the Kubernetes node name (if <code>--drain</code> is enabled)</li>
+<li>Resolve the Kubernetes node name (if <code>--drain</code> is enabled or for staged upgrades with <code>--stage-label</code> and/or <code>--stage-taint</code> and/or <code>--stage-annotation</code>)</li>
 <li>Pre-pull the installer image via <code>ImageService.Pull</code></li>
 <li>Install the upgrade artifacts via <code>LifecycleService.Upgrade</code></li>
+<li><strong>If <code>--stage</code> is set</strong>: apply labels/annotations/taints (if any) and stop here — the node is not rebooted</li>
 <li>Cordon and drain the Kubernetes node if <code>--drain</code> is enabled. <strong>If the drain fails</strong> (e.g. a pod cannot be evicted within <code>--drain-timeout</code>), the upgrade aborts unless <code>--delete-if-eviction-fails</code> is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing <code>--drain-timeout</code>). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when <code>--max-parallel &gt; 1</code>) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.</li>
 <li>Issue a <code>Reboot</code> with the selected reboot mode (default: kexec)</li>
 <li>Wait 30 seconds for the node to stabilize</li>
@@ -1187,7 +1224,7 @@ PDBs.</p>
 </ol>
 <p><strong>Legacy flow</strong> <em>(Talos &lt; 1.13)</em>:</p>
 <ol>
-<li>Issue <code>MachineService.Upgrade</code>, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. <code>--drain</code> and <code>--drain-timeout</code> are ignored (Talos drains and uncordons the node itself); <code>--force</code> skips etcd health checks.</li>
+<li>Issue <code>MachineService.Upgrade</code>, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. <code>--drain</code> and <code>--drain-timeout</code> are ignored (Talos drains and uncordons the node itself); <code>--force</code> skips etcd health checks. <code>--stage</code> is not supported on legacy nodes.</li>
 <li>Wait 30 seconds for the node to stabilize</li>
 </ol>
 <h2 id="installer-image">Installer Image</h2>
@@ -1239,6 +1276,18 @@ PDBs.</p>
 <a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
 <a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="c1"># Upgrade with a longer drain timeout (shared by graceful and fallback)</span>
 <a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="c1"># Stage an upgrade without rebooting (reboot manually later to complete it)</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="c1"># Stage an upgrade and label the node so a controller can find it</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-label<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="c1"># Stage an upgrade and taint the node to discourage new pods from scheduling</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-taint<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span>true:PreferNoSchedule
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="c1"># Stage an upgrade and annotate the node so a controller can find it</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-annotation<span class="w"> </span>topf.postfinance.ch/staged-at<span class="o">=</span><span class="m">2026</span>-08-07
 </code></pre></div>
 
 
