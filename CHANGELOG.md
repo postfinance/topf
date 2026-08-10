@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0] - 2026-08-10
+
+### Features
+
+- New LifecycleServiceRPC upgrade API ([ad778d2](https://github.com/postfinance/topf/commit/ad778d2aeda110b04b2741e0f0993abbd18a1aa3))
+- **upgrade**: Add delete-if-eviction-fails flag for stubborn PDBs (#107) ([2a60138](https://github.com/postfinance/topf/commit/2a60138c4ef36c43b6d6d175cd8db9a3c241f9e0))
+- Add 'staged' upgrade flag with optional annotation/label/taint (#108) ([05d0ad9](https://github.com/postfinance/topf/commit/05d0ad931fbf857caf9652f266b1b5809bec2ca2))
+
+### Documentation
+
+- Lint and add markdownlint job (#109) ([bc7d316](https://github.com/postfinance/topf/commit/bc7d3169be3b9792de71ec747329a77b62e84b0d))
+
+### Miscellaneous
+
+- Update changelog ([0ed051b](https://github.com/postfinance/topf/commit/0ed051b5567f6a40a2e67fedba34a14f0abbc757))
+
+### Build
+
+- Bump go dependencies ([bbbe8cb](https://github.com/postfinance/topf/commit/bbbe8cbc0ee2875565e7035e30f2a7f769323953))
+- Upgrade gh-actions and go mods (#110) ([d2c22c6](https://github.com/postfinance/topf/commit/d2c22c6398584d2e637af550e796212f1485765a))
+- Gh-action upgrades (#111) ([d33d33a](https://github.com/postfinance/topf/commit/d33d33aca63de7a74f5f35e03de0804d41a26e9a))
 ## [0.4.2] - 2026-06-22
 
 ### Features
