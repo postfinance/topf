@@ -187,8 +187,12 @@ func validateOptions(opts *Options) error {
 			return fmt.Errorf("invalid taint %q: expected key[=value]:Effect", tw)
 		}
 
-		k, v, ok := strings.Cut(kv, "=")
-		if !ok || k == "" {
+		k, v := kv, ""
+		if before, after, ok := strings.Cut(kv, "="); ok {
+			k, v = before, after
+		}
+
+		if k == "" {
 			return fmt.Errorf("invalid taint %q: expected key[=value]:Effect", tw)
 		}
 
