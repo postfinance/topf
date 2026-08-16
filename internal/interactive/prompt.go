@@ -18,7 +18,7 @@ func ConfirmPrompt(prompt string) rune {
 	for {
 		fmt.Printf("%s [y/n]: ", prompt)
 
-		input, _ := reader.ReadString('\n')
+		input, err := reader.ReadString('\n')
 		input = strings.ToLower(strings.TrimSpace(input))
 
 		switch input {
@@ -27,6 +27,13 @@ func ConfirmPrompt(prompt string) rune {
 		case "n", "no":
 			return 'n'
 		default:
+			// no further read can succeed, so decline instead of reprompting forever
+			if err != nil {
+				fmt.Println()
+
+				return 'n'
+			}
+
 			fmt.Println("Please enter y or n")
 		}
 	}
