@@ -27,7 +27,7 @@ type filesystemSecrets struct {
 }
 
 func (s *filesystemSecrets) Get(_ string) ([]byte, error) {
-	content, _, err := s.cache.ReadFile(s.path)
+	content, _, err := s.cache.ReadFileWithSecrets(s.path)
 	return content, err
 }
 

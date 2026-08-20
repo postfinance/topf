@@ -178,7 +178,7 @@ func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
 			return nil, nil, err
 		}
 	} else {
-		content, secrets, err = p.DecryptCache.ReadFile(filename)
+		content, secrets, err = p.DecryptCache.ReadFileWithSecrets(filename)
 		if err != nil {
 			return nil, nil, err
 		}
