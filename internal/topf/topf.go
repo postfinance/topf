@@ -102,7 +102,7 @@ type RuntimeConfig struct {
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	decryptCache := decryption.NewCache()
 
-	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath, decryptCache)
+	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath)
 	if err != nil {
 		return nil, err
 	}

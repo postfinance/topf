@@ -13,8 +13,7 @@ import (
 
 func TestReadFile(t *testing.T) {
 	t.Run("non-existent file returns fs.ErrNotExist", func(t *testing.T) {
-		c := NewCache()
-		_, _, err := c.ReadFile("/nonexistent/path/file.yaml")
+		_, _, err := ReadFileWithSecrets("/nonexistent/path/file.yaml")
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -24,7 +23,6 @@ func TestReadFile(t *testing.T) {
 	})
 
 	t.Run("plain file returns content without secrets", func(t *testing.T) {
-		c := NewCache()
 		dir := t.TempDir()
 		path := filepath.Join(dir, "plain.yaml")
 
@@ -32,7 +30,7 @@ func TestReadFile(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		content, secrets, err := c.ReadFile(path)
+		content, secrets, err := ReadFileWithSecrets(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
