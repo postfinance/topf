@@ -28,12 +28,7 @@ func NewCache() *Cache {
 	}
 }
 
-// The returned content and secrets slices are aliases of the cached data
-// and share the same underlying arrays. Callers must not append to, resize,
-// or write into the returned slices; do so would corrupt the cache and
-// race with other concurrent callers.
-//
-// Returns an error wrapping fs.ErrNotExist if the file doesn't exist.
+// ReadFileWithSecrets wraps ReadFileWithSecrets and caches the result for subsequent calls with the same path.
 func (c *Cache) ReadFileWithSecrets(path string) ([]byte, []string, error) {
 	c.mu.RLock()
 
