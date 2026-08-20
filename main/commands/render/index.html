@@ -1098,7 +1098,7 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>topf<span class="w"> </span>render<span class="w"> </span>-o<span class="w"> </span>/tmp/configs
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Render only control-plane nodes</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>topf<span class="w"> </span>render<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">&quot;cp-.*&quot;</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>topf<span class="w"> </span>render<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s2">"cp-.*"</span>
 </code></pre></div>
 <h2 id="inspecting-generated-configs">Inspecting Generated Configs</h2>
 <p><code>render</code> writes one <code>&lt;hostname&gt;.yaml</code> file per node so you can inspect the final merged configuration before applying it to the cluster. Errors from template rendering (e.g. missing variables, syntax errors) are reported per-node, making it easy to pinpoint issues.</p>

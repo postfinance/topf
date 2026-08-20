@@ -1239,7 +1239,7 @@
 <p>To use the configured <code>host</code> value as the hostname, add a <code>HostnameConfig</code> patch. Create <code>all/01-hostname.yaml.tpl</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HostnameConfig</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">auto</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;off&quot;</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">auto</span><span class="p">:</span><span class="w"> </span><span class="s">"off"</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">.Node.Host</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 </code></pre></div>
 <p>This patch is applied to every node and sets the hostname from <code>nodes[].host</code>. For details on how patches are layered, see <a href="../configuration-model/">Configuration Model</a>.</p>
