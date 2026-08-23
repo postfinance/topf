@@ -87,6 +87,7 @@ func main() {
 			newApplyCmd(),
 			newUpgradeCmd(),
 			newResetCmd(),
+			newEtcdCmd(),
 			newClusterInfoCmd(),
 			newNodesCmd(),
 			newSchematicIDsCmd(),

@@ -50,6 +50,11 @@ type Topf interface {
 	// available on control-plane nodes (e.g. Kubeconfig).
 	ControlPlaneClient(context.Context) (*client.Client, error)
 
+	// ControlPlaneNode returns the first reachable control-plane node
+	// matching the nodes-filter regex, with live node info collected,
+	// skipping nodes in maintenance mode.
+	ControlPlaneNode(context.Context) (*Node, error)
+
 	// Writer returns a writer targeting os.Stdout. When the runtime was
 	// created with Redact=true, secrets and certificates are replaced with
 	// "*** redacted ***" before being written.

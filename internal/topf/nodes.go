@@ -44,6 +44,7 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer nodeClient.Close()
 
 	machineStatus, err := safe.StateGetResource(ctx, nodeClient.COSI, runtime.NewMachineStatus())
 	if err != nil {

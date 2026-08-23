@@ -50,6 +50,10 @@ type TopfConfig struct {
 	// Defaults to "secrets.yaml" next to the config file.
 	SecretsPath string `yaml:"secretsPath,omitempty"`
 
+	// Backups configures the storage where etcd snapshot backups are kept.
+	// Required for the etcd backup commands.
+	Backups *BackupsConfig `yaml:"backups,omitempty"`
+
 	Nodes []Node `yaml:"nodes"`
 
 	// Data can contain arbitrary data that can be used when templating patches

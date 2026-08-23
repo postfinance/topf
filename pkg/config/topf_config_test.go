@@ -98,6 +98,43 @@ func TestLoadFromFile(t *testing.T) {
 		}
 	})
 
+	t.Run("backups", func(t *testing.T) {
+		base := "clusterName: test\nclusterEndpoint: https://1.2.3.4:6443\nkubernetesVersion: 1.30.0\nnodes:\n  - host: n1\n    role: worker\n"
+
+		t.Run("valid s3 backend", func(t *testing.T) {
+			yaml := base + "backups:\n  s3:\n    endpoint: minio.example.com:9000\n    bucket: talos-backups\n    prefix: team/\n"
+
+			cfg, _, err := LoadFromFile(writeTestConfig(t, t.TempDir(), yaml))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if cfg.Backups == nil || cfg.Backups.S3 == nil {
+				t.Fatal("backups.s3 was not parsed")
+			}
+
+			if cfg.Backups.S3.Bucket != "talos-backups" {
+				t.Errorf("bucket = %s, want talos-backups", cfg.Backups.S3.Bucket)
+			}
+		})
+
+		t.Run("missing backend is rejected", func(t *testing.T) {
+			yaml := base + "backups: {}\n"
+
+			if _, _, err := LoadFromFile(writeTestConfig(t, t.TempDir(), yaml)); err == nil {
+				t.Error("expected error for backups without a storage backend")
+			}
+		})
+
+		t.Run("missing bucket is rejected", func(t *testing.T) {
+			yaml := base + "backups:\n  s3:\n    endpoint: minio.example.com:9000\n"
+
+			if _, _, err := LoadFromFile(writeTestConfig(t, t.TempDir(), yaml)); err == nil {
+				t.Error("expected error for s3 backend without a bucket")
+			}
+		})
+	})
+
 	t.Run("deprecatedConfigDir", func(t *testing.T) {
 		_, _, err := LoadFromFile(writeTestConfig(t, t.TempDir(), `clusterName: test
 clusterEndpoint: https://1.2.3.4:6443

@@ -65,6 +65,7 @@ nodes:
 | `secureboot`        | No       | `false` | Use the secure boot installer variant (`<platform>-installer-secureboot`). Can be overridden per node |
 | `patchesDir`        | No       | directory of topf.yaml | Directory containing patch files and node-specific configurations. Relative paths are resolved against the directory containing topf.yaml |
 | `secretsPath`       | No       | `<dir of topf.yaml>/secrets.yaml` | Path to secrets.yaml. Relative paths are resolved against the directory containing topf.yaml |
+| `backups`           | No       | -       | Storage for [etcd snapshot backups](commands/etcd-backup.md). Required for the `etcd backup` commands |
 | `secretsProvider`   | No       | -       | Path to binary that manages secrets.yaml                                                 |
 | `nodesProvider`     | No       | -       | Path to binary that provides additional nodes                                            |
 | `data`              | No       | -       | Arbitrary key-value data for use in [patch templates](configuration-model.md#templating) |
