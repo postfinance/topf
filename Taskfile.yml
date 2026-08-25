@@ -34,7 +34,7 @@ tasks:
   lint:
     desc: Run linter
     cmds:
-      - echo "Running linter..."
+      - go vet ./...
       - golangci-lint run
 
   changelog:
