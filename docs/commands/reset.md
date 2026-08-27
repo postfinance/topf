@@ -11,7 +11,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--full` | `true` | Wipe the entire disk. If `false`, only STATE and EPHEMERAL partitions are wiped |
-| `--graceful` | `false` | Attempt to cordon/drain the node and leave etcd before resetting |
+| `--graceful` | `true` | Attempt to cordon/drain the node and leave etcd before resetting |
 | `--shutdown` | `false` | Shut down the machine after reset instead of rebooting |
 | `--wait-for-maintenance` | `false` | Wait for all reset nodes to reach maintenance mode before returning |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag) |
