@@ -30,7 +30,7 @@ func newUpgradeCmd() *cli.Command {
 				Name:        "dry-run",
 				Usage:       "only show what upgrades would be performed without actually upgrading",
 				Sources:     cli.EnvVars("TOPF_DRY_RUN"),
-				DefaultText: "false",
+				DefaultText: defaultTextFalse,
 			},
 			&cli.StringFlag{
 				Name:    "max-parallel",
@@ -49,7 +49,7 @@ func newUpgradeCmd() *cli.Command {
 				Usage:       "cordon and drain the Kubernetes node before rebooting, then uncordon after the node becomes Ready again",
 				Value:       true,
 				Sources:     cli.EnvVars("TOPF_DRAIN"),
-				DefaultText: "true",
+				DefaultText: defaultTextTrue,
 			},
 			&cli.DurationFlag{
 				Name:    "drain-timeout",
@@ -61,19 +61,19 @@ func newUpgradeCmd() *cli.Command {
 				Name:        "delete-if-eviction-fails",
 				Usage:       "if graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); uses --drain-timeout for the delete fallback",
 				Sources:     cli.EnvVars("TOPF_DELETE_IF_EVICTION_FAILS"),
-				DefaultText: "false",
+				DefaultText: defaultTextFalse,
 			},
 			&cli.BoolFlag{
 				Name:        "force",
 				Usage:       "skip etcd health checks during upgrade; only applies to nodes running Talos < 1.13 (legacy MachineService.Upgrade RPC); has no effect on Talos >= 1.13, where the LifecycleService.Upgrade RPC validates etcd health server-side",
 				Sources:     cli.EnvVars("TOPF_FORCE"),
-				DefaultText: "false",
+				DefaultText: defaultTextFalse,
 			},
 			&cli.BoolFlag{
 				Name:        "stage",
 				Usage:       "install upgrade artifacts without rebooting; the node can be rebooted later to complete the upgrade (Talos >= 1.13 only)",
 				Sources:     cli.EnvVars("TOPF_STAGE"),
-				DefaultText: "false",
+				DefaultText: defaultTextFalse,
 			},
 			&cli.StringSliceFlag{
 				Name:    "stage-label",

@@ -21,6 +21,11 @@ const (
 	topfRuntimeCtxKey ContextKey = "topf"
 )
 
+const (
+	defaultTextTrue  = "true"
+	defaultTextFalse = "false"
+)
+
 var version = "dev"
 
 func main() {
@@ -53,20 +58,20 @@ func main() {
 				Value:       true,
 				Usage:       "redact sensitive values (secrets, certificates) from output",
 				Sources:     cli.EnvVars("TOPF_REDACT"),
-				DefaultText: "true",
+				DefaultText: defaultTextTrue,
 			},
 			&cli.BoolFlag{
 				Name:        "confirm",
 				Usage:       "confirm any changes before applying them",
 				Value:       true,
 				Sources:     cli.EnvVars("TOPF_CONFIRM"),
-				DefaultText: "true",
+				DefaultText: defaultTextTrue,
 			},
 			&cli.BoolFlag{
 				Name:        "submit-to-factory",
 				Usage:       "submit schematics to the image factory API instead of computing IDs locally",
 				Sources:     cli.EnvVars("TOPF_SUBMIT_TO_FACTORY"),
-				DefaultText: "false",
+				DefaultText: defaultTextFalse,
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
