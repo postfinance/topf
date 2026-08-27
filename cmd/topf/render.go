@@ -30,8 +30,9 @@ func newRenderCmd() *cli.Command {
 				DefaultText: "./output",
 			},
 			&cli.BoolFlag{
-				Name:  "online",
-				Usage: "query live nodes for their running Talos version",
+				Name:        "online",
+				Usage:       "query live nodes for their running Talos version",
+				DefaultText: "false",
 			},
 		},
 		Action: func(ctx context.Context, c *cli.Command) error {
