@@ -24,9 +24,10 @@ func newResetCmd() *cli.Command {
 			},
 			&cli.BoolFlag{
 				Name:        "graceful",
+				Value:       true,
 				Usage:       "if true, attempt to cordon/drain node and leave etcd (if applicable)",
 				Sources:     cli.EnvVars("TOPF_GRACEFUL"),
-				DefaultText: "false",
+				DefaultText: "true",
 			},
 			&cli.BoolFlag{
 				Name:        "shutdown",
