@@ -233,8 +233,8 @@ github.com/siderolabs/protoenc v0.2.4 h1:D3Fpn2nQSQOhl8ZlAxijZAf7K6F8CM1uZq0afIG
 github.com/siderolabs/protoenc v0.2.4/go.mod h1:i5XLHjfv5vyi7LhQrSEo19HCA+lYtDd7CWxsoWp9XE8=
 github.com/siderolabs/talos v1.13.8 h1:Z69eVMUIDk+AiWAdztbZPZKZp2mbqcWFspECPXIDA4k=
 github.com/siderolabs/talos v1.13.8/go.mod h1:SuLpTkEV4K1hf437hlvbnae97iVqqac48MbholGzTp4=
-github.com/siderolabs/talos/pkg/machinery v1.13.8 h1:3h8wHf/6oCUHcCjjTDoOEzSW6E3ESCDuhoL8d6mIzR8=
-github.com/siderolabs/talos/pkg/machinery v1.13.8/go.mod h1:2PtzQFjql5bg9YNp8gv1vARJT5rhmBUtoj1+fYXbLk8=
+github.com/siderolabs/talos/pkg/machinery v1.13.9 h1:4Qch4CVfhT3C48PfiIFXYa1LAhSWA6o7NmrEO2bsLlg=
+github.com/siderolabs/talos/pkg/machinery v1.13.9/go.mod h1:Ksw0+dndjKS0t1hJlkOfzNdv8KWY0g8En1rJZ0zB9YY=
 github.com/spf13/cast v1.10.0 h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=
 github.com/spf13/cast v1.10.0/go.mod h1:jNfB8QC9IA6ZuY2ZjDp0KtFO2LZZlg4S/7bzP6qqeHo=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=

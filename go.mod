@@ -1,6 +1,6 @@
 module github.com/postfinance/topf
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
@@ -10,7 +10,7 @@ require (
 	github.com/siderolabs/go-retry v0.3.3
 	github.com/siderolabs/image-factory v1.3.2
 	github.com/siderolabs/talos v1.13.8
-	github.com/siderolabs/talos/pkg/machinery v1.13.8
+	github.com/siderolabs/talos/pkg/machinery v1.13.9
 	github.com/urfave/cli/v3 v3.10.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
 	gopkg.in/yaml.v3 v3.0.1
