@@ -18,19 +18,37 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	runtimetypes "github.com/siderolabs/talos/pkg/machinery/config/types/runtime"
 	configresource "github.com/siderolabs/talos/pkg/machinery/resources/config"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"go.yaml.in/yaml/v4"
 )
 
-func installerImagePatch(image string) (configpatcher.Patch, error) {
-	patchBytes, err := yaml.Marshal(map[string]any{
-		"machine": map[string]any{
-			"install": map[string]any{
-				"image": image,
+func installerImagePatch(image string, versionContract *talosconfig.VersionContract) (configpatcher.Patch, error) {
+	var patchBytes []byte
+
+	var err error
+
+	// Talos >= 1.14 deprecated .machine.install in favor of the
+	// UnattendedInstallConfig multi-doc config; setting both is a hard
+	// validation error on the node.
+	if versionContract.UnattendedInstallConfig() {
+		doc := runtimetypes.NewUnattendedInstallConfigV1Alpha1()
+		doc.Installer.Image = image
+		// reboot is left unset: Talos defaults to rebooting when an explicit
+		// installer image is provided
+
+		patchBytes, err = yaml.Marshal(doc)
+	} else {
+		patchBytes, err = yaml.Marshal(map[string]any{
+			"machine": map[string]any{
+				"install": map[string]any{
+					"image": image,
+				},
 			},
-		},
-	})
+		})
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +150,12 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
 
-	installPatch, err := installerImagePatch(node.InstallerImage())
+	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion())
+	if err != nil {
+		return err
+	}
+
+	installPatch, err := installerImagePatch(node.InstallerImage(), versionContract)
 	if err != nil {
 		return fmt.Errorf("failed to build installer image patch: %w", err)
 	}
@@ -144,11 +167,6 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	secretsBundle, err := t.Secrets()
 	if err != nil {
 		return fmt.Errorf("failed to get secrets bundle: %w", err)
-	}
-
-	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion())
-	if err != nil {
-		return err
 	}
 
 	configBundleOpts := []bundle.Option{

@@ -6,6 +6,7 @@ package talosconfig
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/postfinance/topf/pkg/config"
@@ -25,6 +26,7 @@ func Generate(t topf.Topf) ([]byte, error) {
 		bundle.WithInputOptions(
 			&bundle.InputOptions{
 				ClusterName: t.Config().ClusterName,
+				KubeVersion: strings.TrimPrefix(t.Config().KubernetesVersion, "v"),
 				GenOptions: []generate.Option{
 					generate.WithSecretsBundle(secretsBundle),
 				},

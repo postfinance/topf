@@ -57,15 +57,30 @@ nodes:
   role: control-plane
 ```
 
-TOPF generates the installer image from `talosVersion` (and the optional `schematicId`) in `topf.yaml`. Create a patch to specify the install disk:
+TOPF generates the installer image from `talosVersion` (and the optional `schematicId`) in `topf.yaml`. Create a patch to specify the install disk.
 
-`all/00-installation.yaml`:
+For Talos >= 1.14, `all/00-installation.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/sda"
+  wipe: false
+```
+
+For Talos < 1.14:
 
 ```yaml
 machine:
   install:
     disk: /dev/sda
 ```
+
+> Talos v1.14 deprecated `.machine.install` in favor of the
+> `UnattendedInstallConfig` multi-document config; the two are mutually
+> exclusive — a node rejects a config containing both.
 
 ### Set the node hostname
 

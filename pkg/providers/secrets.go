@@ -46,7 +46,8 @@ func LoadSecretsBundle(provider SecretsProvider, clusterName string) (*secrets.B
 		return nil, fmt.Errorf("failed to unmarshal secrets: %w", err)
 	}
 
-	if err := bundle.Validate(); err != nil {
+	// a nil contract validates the bundle against the current Talos version
+	if err := bundle.Validate(nil); err != nil {
 		return nil, fmt.Errorf("invalid secrets bundle: %w", err)
 	}
 
