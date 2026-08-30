@@ -59,15 +59,30 @@ nodes:
     role: control-plane
 ```
 
-Create a new patch to specify the install disk:
+Create a new patch to specify the install disk.
 
-`all/00-installation.yaml`:
+For Talos >= 1.14, `all/00-installation.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/vda"
+  wipe: false
+```
+
+For Talos < 1.14:
 
 ```yaml
 machine:
   install:
     disk: /dev/vda
 ```
+
+> Talos v1.14 deprecated `.machine.install` in favor of the
+> `UnattendedInstallConfig` multi-document config; the two are mutually
+> exclusive — a node rejects a config containing both.
 
 ### Set the node hostname
 

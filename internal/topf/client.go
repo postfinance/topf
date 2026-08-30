@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/client"
@@ -33,14 +34,14 @@ func (n *Node) Client(ctx context.Context) (*client.Client, error) {
 			return nil, err
 		}
 
-		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, n.Node.Endpoint())
+		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, strings.TrimPrefix(n.t.Config().KubernetesVersion, "v"), n.Node.Endpoint())
 	}
 
 	return createInsecureClient(ctx, n.Node.Endpoint())
 }
 
 // createAuthenticatedClient creates a talos client using the given secrets bundle
-func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundle, clusterName string, endpoints ...string) (*client.Client, error) {
+func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundle, clusterName, kubeVersion string, endpoints ...string) (*client.Client, error) {
 	// Generate config bundle from secrets
 	configBundleOpts := []bundle.Option{
 		bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
@@ -48,6 +49,7 @@ func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundl
 			&bundle.InputOptions{
 				ClusterName: clusterName,
 				Endpoint:    "", // endpoint will be set from client options
+				KubeVersion: kubeVersion,
 				GenOptions: []generate.Option{
 					generate.WithSecretsBundle(secretsBundle),
 				},

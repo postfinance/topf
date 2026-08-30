@@ -98,13 +98,28 @@ talosVersion: 1.12.7
 schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 ```
 
-This generates `factory.talos.dev/metal-installer/<schematicId>:v<talosVersion>` as the base installer image. Since this patch is applied first, any subsequent `machine.install.image` patch (shared or node-level) will override it. The factory and platform can be customized via `factory` and `platform` in `topf.yaml` (or per node).
+This generates `factory.talos.dev/metal-installer/<schematicId>:v<talosVersion>` as the base installer image. Since this patch is applied first, any subsequent installer image patch (shared or node-level) will override it. The factory and platform can be customized via `factory` and `platform` in `topf.yaml` (or per node).
+
+> **Talos >= 1.14**: the installer image is injected as an
+> `UnattendedInstallConfig` document (`.machine.install` is deprecated and
+> mutually exclusive with it). For older nodes it is still injected as
+> `machine.install.image`. Override patches must use the matching form for
+> the node's version.
 
 ### Manual installer image patch
 
-Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the `machine.install.image` field in the assembled node configuration (i.e. the last patch takes precedence). The patch looks like:
+Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the installer image field in the assembled node configuration (i.e. the last patch takes precedence). For Talos >= 1.14 the patch looks like:
 
 `all/00-install.yaml`:
+
+```yaml
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.0
+```
+
+For Talos < 1.14, use the legacy form:
 
 ```yaml
 machine:
@@ -114,15 +129,18 @@ machine:
 
 ### Per-node override
 
-To upgrade a single node to a different version or schematic, add a node-specific patch that overrides the image:
+To upgrade a single node to a different version or schematic, add a node-specific patch that overrides the image. For Talos >= 1.14:
 
 `node/node1/installer.yaml`:
 
 ```yaml
-machine:
-  install:
-    image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.0
 ```
+
+For Talos < 1.14, use the legacy `machine.install.image` form instead.
 
 Because node-level patches are merged last (see [Configuration Model](../configuration-model.md)), this override applies only to that host.
 

@@ -110,8 +110,10 @@ func newApplyCmd() *cli.Command {
 
 // applyModes maps user-facing mode names to their protobuf values.
 // https://github.com/siderolabs/talos/blob/main/cmd/talosctl/pkg/talos/helpers/mode.go
-var applyModes = map[string]machine.ApplyConfigurationRequest_Mode{ //nolint:gochecknoglobals // read-only lookup table
-	"reboot":    machine.ApplyConfigurationRequest_REBOOT,
+//
+//nolint:gochecknoglobals // read-only lookup table
+var applyModes = map[string]machine.ApplyConfigurationRequest_Mode{
+	"reboot":    machine.ApplyConfigurationRequest_REBOOT, //nolint:staticcheck // still accepted by Talos < 1.14 for backwards compatibility
 	"auto":      machine.ApplyConfigurationRequest_AUTO,
 	"no-reboot": machine.ApplyConfigurationRequest_NO_REBOOT,
 	"staged":    machine.ApplyConfigurationRequest_STAGED,

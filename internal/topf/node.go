@@ -122,3 +122,20 @@ func (n *Node) ConfigProvider() talosconfig.Provider {
 
 	return provider
 }
+
+// InstallerImageRef returns the installer image from the generated config.
+// Talos >= 1.14 stores it in the UnattendedInstallConfig multi-doc; older
+// versions use the deprecated .machine.install section. An explicitly patched
+// legacy .machine.install.image wins, so documented manual overrides keep
+// working for the upgrade read path.
+func (n *Node) InstallerImageRef() string {
+	if image := n.ConfigProvider().Machine().Install().Image(); image != "" {
+		return image
+	}
+
+	if unattended := n.ConfigProvider().UnattendedInstallConfig(); unattended != nil {
+		return unattended.InstallerImage()
+	}
+
+	return ""
+}

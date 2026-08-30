@@ -250,7 +250,7 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
-		installerImage := node.ConfigProvider().Machine().Install().Image()
+		installerImage := node.InstallerImageRef()
 
 		schematic, talosVersion, err := extractSchematicAndVersion(installerImage)
 		if err != nil {
@@ -319,7 +319,7 @@ func supportsLifecycleUpgrade(runningVersion string) bool {
 }
 
 func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
-	installerImage := node.ConfigProvider().Machine().Install().Image()
+	installerImage := node.InstallerImageRef()
 
 	nodeClient, err := node.Client(ctx)
 	if err != nil {
@@ -402,7 +402,7 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 //nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) requires Talos >= 1.13
 func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
-	installerImage := node.ConfigProvider().Machine().Install().Image()
+	installerImage := node.InstallerImageRef()
 
 	nodeClient, err := node.Client(ctx)
 	if err != nil {
