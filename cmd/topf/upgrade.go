@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/postfinance/topf/internal/cmd/upgrade"
 	"github.com/postfinance/topf/internal/nodepool"
@@ -63,6 +64,12 @@ func newUpgradeCmd() *cli.Command {
 				Sources:     cli.EnvVars("TOPF_DELETE_IF_EVICTION_FAILS"),
 				DefaultText: defaultTextFalse,
 			},
+			&cli.DurationFlag{
+				Name:    "stabilization-duration",
+				Usage:   "how long a node must stay ready after rebooting before it is considered stable",
+				Value:   time.Second * 30,
+				Sources: cli.EnvVars("TOPF_STABILIZATION_DURATION"),
+			},
 			&cli.BoolFlag{
 				Name:        "force",
 				Usage:       "skip etcd health checks during upgrade; only applies to nodes running Talos < 1.13 (legacy MachineService.Upgrade RPC); has no effect on Talos >= 1.13, where the LifecycleService.Upgrade RPC validates etcd health server-side",
@@ -111,6 +118,7 @@ func newUpgradeCmd() *cli.Command {
 				Force:                 c.Bool("force"),
 				Drain:                 c.Bool("drain"),
 				DrainTimeout:          c.Duration("drain-timeout"),
+				StabilizationDuration: c.Duration("stabilization-duration"),
 				DeleteIfEvictionFails: c.Bool("delete-if-eviction-fails"),
 				Stage:                 c.Bool("stage"),
 				StageLabels:           c.StringSlice("stage-label"),

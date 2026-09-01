@@ -20,10 +20,10 @@ The `apply` command is the primary way to apply configuration changes to a runni
    - Dry-run apply to check for changes
    - If changes detected in `--dry-run` mode: print diff and **exit with code 2**
    - If changes detected in normal mode:
-      - Show diff (if `--confirm` enabled, see [global flags](../configuration.md#global-flags))
-      - Ask for confirmation (if `--confirm` enabled)
-      - Apply configuration
-   - If config applied AND not `--skip-post-apply-checks`: Stabilize (wait 30s for node to be ready)
+     - Show diff (if `--confirm` enabled, see [global flags](../configuration.md#global-flags))
+     - Ask for confirmation (if `--confirm` enabled)
+     - Apply configuration
+   - If config applied AND not `--skip-post-apply-checks`: Stabilize (wait `--stabilization-duration`, default 30s, for node to be ready)
 
 1. **Bootstrap** (if `--auto-bootstrap` enabled):
    - Select first control plane node
@@ -40,7 +40,8 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--mode`                   | `auto`  | Apply mode: `auto`, `reboot`, `no-reboot`, `staged`, `try`        |
 | `--auto-bootstrap`         | `false` | Automatically bootstrap ETCD after applying configurations         |
 | `--skip-problematic-nodes` | `false` | Continue with healthy nodes if some fail pre-flight checks         |
-| `--skip-post-apply-checks` | `false` | Skip the 30-second stabilization check after applying configs      |
+| `--skip-post-apply-checks` | `false` | Skip the post-apply stabilization check after applying configs   |
+| `--stabilization-duration` | `30s` | How long a node must stay ready after applying before it is considered stable |
 | `--allow-not-ready`        | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag)    |
 | [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, certificates, SOPS-encrypted values, and vals-resolved values from output (global flag) |
@@ -73,6 +74,9 @@ topf apply --skip-problematic-nodes
 # Apply without waiting for nodes to stabilize
 topf apply --skip-post-apply-checks
 
+# Apply with a custom stabilization duration
+topf apply --stabilization-duration=1m
+
 # Apply to nodes even if they have unmet conditions
 topf apply --allow-not-ready
 ```
@@ -87,7 +91,7 @@ The apply command validates each node before attempting to apply configuration:
 
 ## Post-apply Stabilization
 
-After applying configuration to a node, the command waits up to 30 seconds for the node to:
+After applying configuration to a node, the command waits for the node to stay ready for `--stabilization-duration` (default: 30 seconds) with:
 
 - Report as ready
 - Have no unmet conditions
