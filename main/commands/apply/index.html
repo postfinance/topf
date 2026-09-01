@@ -1111,11 +1111,13 @@
 <ul>
 <li>Dry-run apply to check for changes</li>
 <li>If changes detected in <code>--dry-run</code> mode: print diff and <strong>exit with code 2</strong></li>
-<li>If changes detected in normal mode:
-    - Show diff (if <code>--confirm</code> enabled, see <a href="../../configuration/#global-flags">global flags</a>)
-    - Ask for confirmation (if <code>--confirm</code> enabled)
-    - Apply configuration</li>
-<li>If config applied AND not <code>--skip-post-apply-checks</code>: Stabilize (wait 30s for node to be ready)</li>
+<li>If changes detected in normal mode:<ul>
+<li>Show diff (if <code>--confirm</code> enabled, see <a href="../../configuration/#global-flags">global flags</a>)</li>
+<li>Ask for confirmation (if <code>--confirm</code> enabled)</li>
+<li>Apply configuration</li>
+</ul>
+</li>
+<li>If config applied AND not <code>--skip-post-apply-checks</code>: Stabilize (wait <code>--stabilization-duration</code>, default 30s, for node to be ready)</li>
 </ul>
 </li>
 <li>
@@ -1161,7 +1163,12 @@
 <tr>
 <td><code>--skip-post-apply-checks</code></td>
 <td><code>false</code></td>
-<td>Skip the 30-second stabilization check after applying configs</td>
+<td>Skip the post-apply stabilization check after applying configs</td>
+</tr>
+<tr>
+<td><code>--stabilization-duration</code></td>
+<td><code>30s</code></td>
+<td>How long a node must stay ready after applying before it is considered stable</td>
 </tr>
 <tr>
 <td><code>--allow-not-ready</code></td>
@@ -1206,8 +1213,11 @@
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># Apply without waiting for nodes to stabilize</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>topf<span class="w"> </span>apply<span class="w"> </span>--skip-post-apply-checks
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Apply to nodes even if they have unmet conditions</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>topf<span class="w"> </span>apply<span class="w"> </span>--allow-not-ready
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Apply with a custom stabilization duration</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>topf<span class="w"> </span>apply<span class="w"> </span>--stabilization-duration<span class="o">=</span>1m
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="c1"># Apply to nodes even if they have unmet conditions</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>topf<span class="w"> </span>apply<span class="w"> </span>--allow-not-ready
 </code></pre></div>
 <h2 id="pre-flight-checks">Pre-flight Checks</h2>
 <p>The apply command validates each node before attempting to apply configuration:</p>
@@ -1217,7 +1227,7 @@
 <li><strong>Machine stage</strong>: Only process nodes in Running, Maintenance, or Booting stages</li>
 </ul>
 <h2 id="post-apply-stabilization">Post-apply Stabilization</h2>
-<p>After applying configuration to a node, the command waits up to 30 seconds for the node to:</p>
+<p>After applying configuration to a node, the command waits for the node to stay ready for <code>--stabilization-duration</code> (default: 30 seconds) with:</p>
 <ul>
 <li>Report as ready</li>
 <li>Have no unmet conditions</li>

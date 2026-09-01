@@ -1156,6 +1156,11 @@
 <td>Maximum time to wait for pod evictions (and, with <code>--delete-if-eviction-fails</code>, deletions) to complete during drain <em>(modern flow only)</em></td>
 </tr>
 <tr>
+<td><code>--stabilization-duration</code></td>
+<td><code>30s</code></td>
+<td>How long a node must stay ready after rebooting before it is considered stable</td>
+</tr>
+<tr>
 <td><code>--delete-if-eviction-fails</code></td>
 <td><code>false</code></td>
 <td>If graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); reuses <code>--drain-timeout</code> for the delete fallback <em>(modern flow only)</em></td>
@@ -1246,13 +1251,13 @@ with <code>--stage</code>.</p>
 <li><strong>If <code>--stage</code> is set</strong>: apply labels/annotations/taints (if any) and stop here — the node is not rebooted</li>
 <li>Cordon and drain the Kubernetes node if <code>--drain</code> is enabled. <strong>If the drain fails</strong> (e.g. a pod cannot be evicted within <code>--drain-timeout</code>), the upgrade aborts unless <code>--delete-if-eviction-fails</code> is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing <code>--drain-timeout</code>). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when <code>--max-parallel &gt; 1</code>) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.</li>
 <li>Issue a <code>Reboot</code> with the selected reboot mode (default: kexec)</li>
-<li>Wait 30 seconds for the node to stabilize</li>
+<li>Wait <code>--stabilization-duration</code> (default: 30 seconds) for the node to stabilize</li>
 <li>Uncordon the Kubernetes node</li>
 </ol>
 <p><strong>Legacy flow</strong> <em>(Talos &lt; 1.13)</em>:</p>
 <ol>
 <li>Issue <code>MachineService.Upgrade</code>, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. <code>--drain</code> and <code>--drain-timeout</code> are ignored (Talos drains and uncordons the node itself); <code>--force</code> skips etcd health checks. <code>--stage</code> is not supported on legacy nodes.</li>
-<li>Wait 30 seconds for the node to stabilize</li>
+<li>Wait <code>--stabilization-duration</code> (default: 30 seconds) for the node to stabilize</li>
 </ol>
 <h2 id="installer-image">Installer Image</h2>
 <h3 id="using-talosversion-and-schematicid-recommended">Using <code>talosVersion</code> and <code>schematicId</code> (recommended)</h3>
