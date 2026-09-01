@@ -57,6 +57,10 @@ type Options struct {
 	// DrainTimeout is the maximum time to wait for pod evictions to complete.
 	DrainTimeout time.Duration
 
+	// StabilizationDuration is how long a node must stay ready after
+	// rebooting before it is considered stable.
+	StabilizationDuration time.Duration
+
 	// DeleteIfEvictionFails retries the drain with direct pod deletion
 	// (DELETE instead of EVICT, bypassing PDBs) if the graceful drain fails.
 	DeleteIfEvictionFails bool
@@ -372,7 +376,7 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	logger.Info("reboot initiated")
 
-	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
@@ -420,7 +424,7 @@ func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts O
 
 	logger.Info("upgrade initiated")
 
-	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 

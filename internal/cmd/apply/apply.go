@@ -30,6 +30,9 @@ type Options struct {
 	SkipPostApplyChecks bool
 	// Allow applying to nodes that are not ready (have unmet conditions)
 	AllowNotReady bool
+	// StabilizationDuration is how long a node must stay ready after
+	// applying before it is considered stable.
+	StabilizationDuration time.Duration
 	// Apply mode passed to Talos (auto, reboot, no-reboot, staged, try)
 	Mode machine.ApplyConfigurationRequest_Mode
 	// MaxParallel controls how many worker nodes are applied to concurrently.
@@ -195,7 +198,7 @@ func applyNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.
 		return nil
 	}
 
-	if err = node.Stabilize(ctx, logger, time.Second*30); err != nil {
+	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 

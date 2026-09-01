@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/postfinance/topf/internal/cmd/apply"
 	"github.com/postfinance/topf/internal/nodepool"
@@ -55,6 +56,12 @@ func newApplyCmd() *cli.Command {
 				Sources:     cli.EnvVars("TOPF_ALLOW_NOT_READY"),
 				DefaultText: defaultTextFalse,
 			},
+			&cli.DurationFlag{
+				Name:    "stabilization-duration",
+				Usage:   "how long a node must stay ready after applying before it is considered stable",
+				Value:   time.Second * 30,
+				Sources: cli.EnvVars("TOPF_STABILIZATION_DURATION"),
+			},
 			&cli.StringFlag{
 				Name:    "mode",
 				Value:   "auto",
@@ -83,13 +90,14 @@ func newApplyCmd() *cli.Command {
 			}
 
 			err = apply.Execute(ctx, t, apply.Options{
-				DryRun:               c.Bool("dry-run"),
-				AutoBootstrap:        c.Bool("auto-bootstrap"),
-				SkipProblematicNodes: c.Bool("skip-problematic-nodes"),
-				SkipPostApplyChecks:  c.Bool("skip-post-apply-checks"),
-				AllowNotReady:        c.Bool("allow-not-ready"),
-				Mode:                 mode,
-				MaxParallel:          maxParallel,
+				DryRun:                c.Bool("dry-run"),
+				AutoBootstrap:         c.Bool("auto-bootstrap"),
+				SkipProblematicNodes:  c.Bool("skip-problematic-nodes"),
+				SkipPostApplyChecks:   c.Bool("skip-post-apply-checks"),
+				StabilizationDuration: c.Duration("stabilization-duration"),
+				AllowNotReady:         c.Bool("allow-not-ready"),
+				Mode:                  mode,
+				MaxParallel:           maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)

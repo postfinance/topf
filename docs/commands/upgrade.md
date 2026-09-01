@@ -13,6 +13,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--reboot-mode` | `default` | Reboot mode during upgrade: `default` uses kexec, `powercycle` does a full reboot |
 | `--drain` | `true` | Cordon and drain the Kubernetes node before rebooting, then uncordon after stabilization *(modern flow only; ignored on legacy nodes, where Talos drains and uncordons server-side)* |
 | `--drain-timeout` | `5m` | Maximum time to wait for pod evictions (and, with `--delete-if-eviction-fails`, deletions) to complete during drain *(modern flow only)* |
+| `--stabilization-duration` | `30s` | How long a node must stay ready after rebooting before it is considered stable |
 | `--delete-if-eviction-fails` | `false` | If graceful drain fails (e.g. a PodDisruptionBudget blocks eviction), retry by deleting pods directly (DELETE instead of EVICT, bypassing PDBs); reuses `--drain-timeout` for the delete fallback *(modern flow only)* |
 | `--force` | `false` | Skip etcd health checks; only applies to nodes running Talos < 1.13 (legacy `MachineService.Upgrade` RPC); has no effect on Talos >= 1.13, where the `LifecycleService.Upgrade` RPC validates etcd health server-side |
 | `--stage` | `false` | Install upgrade artifacts without rebooting; the node is left running and can be labeled/annotated/tainted (see `--stage-label`/`--stage-annotation`/`--stage-taint`) so an external controller or human reboots it later |
@@ -78,13 +79,13 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 1. **If `--stage` is set**: apply labels/annotations/taints (if any) and stop here — the node is not rebooted
 1. Cordon and drain the Kubernetes node if `--drain` is enabled. **If the drain fails** (e.g. a pod cannot be evicted within `--drain-timeout`), the upgrade aborts unless `--delete-if-eviction-fails` is set: in that case, the drain retries with pod deletion (DELETE instead of EVICT, bypassing PodDisruptionBudgets, reusing `--drain-timeout`). If the forced drain also fails, the node is left cordoned with the new artifacts installed but not rebooted, and no further nodes are upgraded. In-flight upgrades on other nodes (when `--max-parallel > 1`) are allowed to complete, but no new ones are started. The node must be uncordoned and rebooted manually to recover.
 1. Issue a `Reboot` with the selected reboot mode (default: kexec)
-1. Wait 30 seconds for the node to stabilize
+1. Wait `--stabilization-duration` (default: 30 seconds) for the node to stabilize
 1. Uncordon the Kubernetes node
 
 **Legacy flow** *(Talos < 1.13)*:
 
 1. Issue `MachineService.Upgrade`, which installs the upgrade artifacts, cordons and drains the node, and reboots — all in a single server-side sequence. `--drain` and `--drain-timeout` are ignored (Talos drains and uncordons the node itself); `--force` skips etcd health checks. `--stage` is not supported on legacy nodes.
-1. Wait 30 seconds for the node to stabilize
+1. Wait `--stabilization-duration` (default: 30 seconds) for the node to stabilize
 
 ## Installer Image
 
