@@ -54,6 +54,7 @@ nav:
   - Migration from talhelper: migration-from-talhelper.md
   - Comparison with talhelper: comparison.md
   - Alternatives: alternatives.md
+  - AI Skills: skills.md
   - Contributing: contributing.md
 
 markdown_extensions:
