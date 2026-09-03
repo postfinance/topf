@@ -5,6 +5,7 @@
 package talosconfig
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	"github.com/siderolabs/talos/pkg/machinery/constants"
 )
 
 // Generate returns a talosconfig
@@ -26,7 +28,7 @@ func Generate(t topf.Topf) ([]byte, error) {
 		bundle.WithInputOptions(
 			&bundle.InputOptions{
 				ClusterName: t.Config().ClusterName,
-				KubeVersion: strings.TrimPrefix(t.Config().KubernetesVersion, "v"),
+				KubeVersion: strings.TrimPrefix(cmp.Or(t.Config().KubernetesVersion, constants.DefaultKubernetesVersion), "v"),
 				GenOptions: []generate.Option{
 					generate.WithSecretsBundle(secretsBundle),
 				},

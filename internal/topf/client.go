@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/client"
@@ -34,7 +33,7 @@ func (n *Node) Client(ctx context.Context) (*client.Client, error) {
 			return nil, err
 		}
 
-		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, strings.TrimPrefix(n.t.Config().KubernetesVersion, "v"), n.Node.Endpoint())
+		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, n.KubernetesVersion(), n.Node.Endpoint())
 	}
 
 	return createInsecureClient(ctx, n.Node.Endpoint())

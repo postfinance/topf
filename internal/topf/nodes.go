@@ -187,7 +187,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 			&bundle.InputOptions{
 				ClusterName: t.Config().ClusterName,
 				Endpoint:    t.Config().ClusterEndpoint.String(),
-				KubeVersion: strings.TrimPrefix(t.Config().KubernetesVersion, "v"),
+				KubeVersion: node.KubernetesVersion(),
 				GenOptions: []generate.Option{
 					generate.WithSecretsBundle(secretsBundle),
 					generate.WithVersionContract(versionContract),

@@ -44,7 +44,7 @@ All flags can also be set via environment variables using the `TOPF_` prefix and
 | `--stabilization-duration` | `30s` | How long a node must stay ready after applying before it is considered stable |
 | `--allow-not-ready`        | `false` | Allow applying to nodes that are not ready (have unmet conditions) |
 | [`--nodes-filter`](../configuration.md#filtering-nodes) | - | Regex pattern to filter which nodes to operate on (global flag)    |
-| [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, certificates, SOPS-encrypted values, and vals-resolved values from output (global flag) |
+| [`--redact`](../configuration.md#redacting-sensitive-output) | `true` | Redact Talos secrets, private keys, SOPS-encrypted values, and vals-resolved values from output (global flag) |
 
 ## Example Usage
 

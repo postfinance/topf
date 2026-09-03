@@ -51,7 +51,7 @@ type Topf interface {
 	ControlPlaneClient(context.Context) (*client.Client, error)
 
 	// Writer returns a writer targeting os.Stdout. When the runtime was
-	// created with Redact=true, secrets and certificates are replaced with
+	// created with Redact=true, secrets and private keys are replaced with
 	// "*** redacted ***" before being written.
 	Writer() io.Writer
 
