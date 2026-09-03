@@ -77,6 +77,11 @@ Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/
 | `.Node.Role` | Node role (`control-plane` or `worker`) |
 | `.Node.IP` | Node IP address (if set) |
 | `.Node.Data.<key>` | Per-node data (if set) |
+| `.Node.RuntimeData.TalosVersion` | Talos version reported by the **live node** (no `v` prefix; empty when rendering offline or before the node was contacted) |
+| `.Node.RuntimeData.SchematicID` | Schematic ID reported by the live node |
+| `.Node.RuntimeData.Stage` | Machine stage reported by the live node (`booting`, `installing`, `maintenance`, `running`, `rebooting`, `shutting down`, `resetting`, `upgrading`) |
+
+Runtime data is collected from live nodes by `apply`, `upgrade`, `reset`, and `render --online`. When rendering offline (`render` without `--online`), all runtime fields are empty.
 
 ### Template Functions
 
@@ -89,6 +94,7 @@ A few commonly used functions:
 | `env "VAR"` | Returns the value of the environment variable `VAR`, or an empty string if unset |
 | `default "x" .Val` | Returns `.Val`, falling back to `"x"` if `.Val` is empty |
 | `b64enc` / `b64dec` | Base64 encode / decode |
+| `semverCompare "<constraint>" <version>` | [Semver constraint comparison](https://masterminds.github.io/sprig/semver.html) — note that a prerelease version only matches a constraint containing a prerelease (use e.g. `">= 1.14.0-0"` to treat `1.14.0-rc.2` as `>= 1.14`) |
 
 ### Examples
 
@@ -112,3 +118,22 @@ endpoints:
   - url: {{ env "REGISTRY_MIRROR" }}
 {{- end }}
 ```
+
+Branch on the node's **running** Talos version — useful for mixed-version clusters during the Talos 1.13 → 1.14 transition, where the install disk is configured via `UnattendedInstallConfig` on >= 1.14 and via the deprecated `.machine.install` on older nodes:
+
+```yaml
+{{ if semverCompare ">= 1.14.0-0" .Node.RuntimeData.TalosVersion -}}
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/vda"
+  wipe: false
+{{ else -}}
+machine:
+  install:
+    disk: /dev/vda
+{{ end -}}
+```
+
+> **Note:** `UnattendedInstallConfig` and `.machine.install` are mutually exclusive — Talos >= 1.14 rejects a config containing both, and `.machine.install` is deprecated. Branching templates like the one above are the recommended way to express the install disk while a cluster straddles versions.

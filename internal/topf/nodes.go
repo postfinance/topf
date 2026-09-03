@@ -117,6 +117,13 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 		}
 	}
 
+	// expose collected values to patch templates via .Node.RuntimeData
+	n.Node.RuntimeData = config.RuntimeData{
+		TalosVersion: n.runningVersion,
+		SchematicID:  n.runningSchematic,
+		Stage:        n.MachineStatus.Stage.String(),
+	}
+
 	return nil
 }
 
