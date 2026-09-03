@@ -11,8 +11,6 @@ import (
 	configconfig "github.com/siderolabs/talos/pkg/machinery/config/config"
 )
 
-// caConfig is the common surface of the v1.14 K8sAPIServerCAConfig and
-// K8sAggregatorCAConfig interfaces (both share IssuingCA/AcceptedCAs).
 type caConfig interface {
 	IssuingCA() *x509.PEMEncodedCertificateAndKey
 	AcceptedCAs() []*x509.PEMEncodedCertificate
@@ -29,12 +27,10 @@ func collectCurrentConfigSecrets(cfg talosconfig.Config) []string {
 		collectClusterSecrets(&secrets, cluster)
 	}
 
-	// cluster CA material moved from .cluster to dedicated multi-doc configs
 	collectCAConfigSecrets(&secrets, cfg.K8sAPIServerCAConfig())
 	collectCAConfigSecrets(&secrets, cfg.K8sAggregatorCAConfig())
 	collectServiceAccountSecrets(&secrets, cfg.K8sServiceAccountConfig())
 
-	// cluster discovery identity (.cluster.id/.cluster.secret replacement)
 	if identity := cfg.DiscoveryIdentityConfig(); identity != nil {
 		secrets = append(secrets, identity.ClusterSecret())
 	}

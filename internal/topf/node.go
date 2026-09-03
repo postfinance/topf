@@ -10,21 +10,22 @@ import (
 	"strings"
 
 	"github.com/postfinance/topf/pkg/config"
+	"github.com/siderolabs/talos/pkg/images"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
+	"github.com/siderolabs/talos/pkg/machinery/constants"
+	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"github.com/siderolabs/talos/pkg/machinery/version"
 )
 
-const (
+var (
 	// DefaultSchematic is the schematic used by Talos when no extensions are configured
-	// TODO (v1.14): replace with images.DefaultInstallerImageSchematic
-	DefaultSchematic = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	DefaultSchematic = images.DefaultInstallerImageSchematic
 	// DefaultFactory is the default Talos image factory address
-	// TODO (v1.14): replace with gendata.ImageFactory
-	DefaultFactory = "factory.talos.dev"
+	DefaultFactory = gendata.ImageFactory
 	// DefaultPlatform is the default Talos platform identifier
-	DefaultPlatform = "metal"
+	DefaultPlatform = constants.PlatformMetal
 )
 
 // Node contains runtime state information about a Talos node
@@ -124,10 +125,6 @@ func (n *Node) ConfigProvider() talosconfig.Provider {
 }
 
 // InstallerImageRef returns the installer image from the generated config.
-// Talos >= 1.14 stores it in the UnattendedInstallConfig multi-doc; older
-// versions use the deprecated .machine.install section. An explicitly patched
-// legacy .machine.install.image wins, so documented manual overrides keep
-// working for the upgrade read path.
 func (n *Node) InstallerImageRef() string {
 	if image := n.ConfigProvider().Machine().Install().Image(); image != "" {
 		return image

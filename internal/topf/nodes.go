@@ -14,6 +14,8 @@ import (
 	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/postfinance/topf/pkg/config"
+	"github.com/siderolabs/talos/pkg/machinery/cel"
+	"github.com/siderolabs/talos/pkg/machinery/cel/celenv"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
@@ -24,21 +26,26 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+const defaultInstallDisk string = "/dev/sda" // as defined in talos/gen/config.go
+
 func installerImagePatch(image string, versionContract *talosconfig.VersionContract) (configpatcher.Patch, error) {
 	var patchBytes []byte
 
 	var err error
 
-	// Talos >= 1.14 deprecated .machine.install in favor of the
-	// UnattendedInstallConfig multi-doc config; setting both is a hard
-	// validation error on the node.
 	if versionContract.UnattendedInstallConfig() {
-		doc := runtimetypes.NewUnattendedInstallConfigV1Alpha1()
-		doc.Installer.Image = image
-		// reboot is left unset: Talos defaults to rebooting when an explicit
-		// installer image is provided
+		// we reuse the upstream default: https://github.com/siderolabs/talos/blob/v1.14.0/pkg/machinery/config/generate/init.go#L299-L314
+		unattended := runtimetypes.NewUnattendedInstallConfigV1Alpha1()
+		unattended.Installer.Image = image
+		unattended.ProvisioningSpec.Wipe = new(false)
 
-		patchBytes, err = yaml.Marshal(doc)
+		expr, exprErr := cel.ParseBooleanExpression(fmt.Sprintf("disk.dev_path == %q", defaultInstallDisk), celenv.DiskLocator())
+		if exprErr != nil {
+			return nil, fmt.Errorf("failed to build install disk selector: %w", exprErr)
+		}
+
+		unattended.ProvisioningSpec.DiskSelector.Match = expr
+		patchBytes, err = yaml.Marshal(unattended)
 	} else {
 		patchBytes, err = yaml.Marshal(map[string]any{
 			"machine": map[string]any{
@@ -117,7 +124,6 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 		}
 	}
 
-	// expose collected values to patch templates via .Node.RuntimeData
 	n.Node.RuntimeData = config.RuntimeData{
 		TalosVersion: n.runningVersion,
 		SchematicID:  n.runningSchematic,

@@ -113,7 +113,7 @@ func newApplyCmd() *cli.Command {
 //
 //nolint:gochecknoglobals // read-only lookup table
 var applyModes = map[string]machine.ApplyConfigurationRequest_Mode{
-	"reboot":    machine.ApplyConfigurationRequest_REBOOT, //nolint:staticcheck // still accepted by Talos < 1.14 for backwards compatibility
+	"reboot":    machine.ApplyConfigurationRequest_REBOOT, //nolint:staticcheck // backwards compatibility
 	"auto":      machine.ApplyConfigurationRequest_AUTO,
 	"no-reboot": machine.ApplyConfigurationRequest_NO_REBOOT,
 	"staged":    machine.ApplyConfigurationRequest_STAGED,
