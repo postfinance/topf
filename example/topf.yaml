@@ -1,8 +1,8 @@
 kubernetesVersion: 1.35.5
-talosVersion: 1.13.3
+talosVersion: 1.14.0
 # schematicId: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 # schematicId: "@manifest.yaml.tpl"
-clusterEndpoint: https://192.168.1.80:6443
+clusterEndpoint: https://192.168.122.148:6443
 clusterName: my-cluster
 
 data:
@@ -10,19 +10,19 @@ data:
 
 nodes:
   - host: node1
-    ip: 192.168.1.11
+    ip: 192.168.122.148
     role: control-plane
-  - host: node2
-    ip: 192.168.1.12
-    role: control-plane
-  - host: node3
-    ip: 192.168.1.13
-    role: control-plane
-  - host: node4
-    ip: 192.168.1.21
-    role: worker
-  - host: node5
-    ip: 192.168.1.22
-    role: worker
-    data:
-      storageDevice: /dev/sdb
+  # - host: node2
+  #   ip: 192.168.122.112
+  #   role: control-plane
+  # - host: node3
+  #   ip: 192.168.122.113
+  #   role: control-plane
+  # - host: node4
+  #   ip: 192.168.122.121
+  #   role: worker
+  # - host: node5
+  #   ip: 192.168.122.122
+  #   role: worker
+  #   data:
+  #     storageDevice: /dev/sdb

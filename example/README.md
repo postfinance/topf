@@ -8,17 +8,17 @@ This directory contains a complete example TOPF cluster configuration. It demons
 .
 ├── topf.yaml                     # Main cluster configuration
 ├── manifest.yaml.tpl             # Schematic definition (referenced by schematicId in topf.yaml)
-├── all/                          # Patches applied to every node
-│   ├── 00-install-disk.yaml      # Install disk
-│   ├── 01-base.yaml.tpl          # Common labels and kubelet settings
-│   ├── 05-hostname.yaml.tpl      # Use nodes[].host as Talos hostname
+├── all/                          # Patches applied to every node (v1.14 multi-doc)
+│   ├── 00-install-disk.yaml      # Install disk (UnattendedInstallConfig)
+│   ├── 01-base.yaml.tpl          # Kubelet + node labels (KubeletConfig, KubeNodeConfig)
+│   ├── 05-hostname.yaml.tpl      # Use nodes[].host as Talos hostname (HostnameConfig)
 │   ├── 09-logging.yaml.tpl       # Optional remote logging (env-driven)
 │   └── 10-registry.yaml.tpl      # Optional registry mirror (env-driven)
 ├── control-plane/                # Patches applied to control-plane nodes
-│   └── 01-base.yaml              # Talos API access and discovery settings
+│   └── 01-base.yaml              # Talos API access (KubeTalosAPIAccessConfig) + disable discovery
 ├── node/                         # Per-node patches
 │   └── node5/
-│       └── 00-local-storage.yaml.tpl  # Storage configuration for node5
+│       └── 00-local-storage.yaml.tpl  # UserVolumeConfig for node5's storage disk
 ```
 
 ## Important: hostnames

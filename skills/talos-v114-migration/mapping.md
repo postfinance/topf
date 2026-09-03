@@ -392,9 +392,27 @@ $patch: delete
 | v1alpha1 path | New kind | Notes |
 |---|---|---|
 | `cluster.discovery.enabled: true` | — | Default in v1.14, can be dropped |
+| `cluster.discovery.enabled: false` | `DiscoveryServiceConfig` | No multi-doc `enabled` field. `talosctl gen config` auto-generates a `DiscoveryServiceConfig` (name: `default`) which conflicts with the v1alpha1 `cluster.discovery` block. To disable discovery, delete the auto-generated document: see example below. |
 | `cluster.discovery.registries.service.endpoint` | `DiscoveryServiceConfig` | `endpoint` |
 | `cluster.id` | `DiscoveryIdentityConfig` | |
 | `cluster.secret` | `DiscoveryIdentityConfig` | |
+
+**Disabling discovery in v1.14**: `talosctl gen config` auto-generates a
+`DiscoveryServiceConfig` document with `name: default`. Any v1alpha1
+`cluster.discovery` block (even `enabled: false`) is mutually exclusive with it
+and Talos rejects the config. To disable discovery, delete the auto-generated
+document:
+
+```yaml
+---
+apiVersion: v1alpha1
+kind: DiscoveryServiceConfig
+name: default
+$patch: delete
+```
+
+The `name: default` is required so the `$patch: delete` targets the correct
+document in the strategic-merge map.
 
 ---
 

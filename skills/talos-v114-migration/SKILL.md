@@ -146,6 +146,34 @@ kind: KubeFlannelCNIConfig
 $patch: delete
 ```
 
+### `DiscoveryServiceConfig` is auto-generated — `cluster.discovery.enabled: false` conflicts
+
+`talosctl gen config` emits a `DiscoveryServiceConfig` document (with
+`name: default`) by default in v1.14. Any v1alpha1 `cluster.discovery` block —
+even `enabled: false` — is mutually exclusive with the auto-generated document
+and Talos rejects the config with:
+
+```
+discovery service is already configured in .cluster.discovery of the v1alpha1 config
+```
+
+There is no multi-doc `enabled` field on `DiscoveryServiceConfig`; the new model
+is that the feature is on when the document is present and off when it's absent.
+To disable discovery, delete the auto-generated document (the `name: default` is
+required so the `$patch: delete` targets the correct document in the
+strategic-merge map):
+
+```yaml
+---
+apiVersion: v1alpha1
+kind: DiscoveryServiceConfig
+name: default
+$patch: delete
+```
+
+`DiscoveryIdentityConfig` (cluster ID/secret) is also auto-generated but is not
+deprecated in the same way — leave it as-is.
+
 ### `allowSchedulingOnControlPlanes` → delete the control-plane taint
 
 The v1alpha1 `cluster.allowSchedulingOnControlPlanes: true` maps to a
