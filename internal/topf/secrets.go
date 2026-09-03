@@ -4,7 +4,6 @@
 package topf
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -80,23 +79,22 @@ func (t *topf) generateAndStoreSecrets(provider providers.SecretsProvider, clock
 	return bundle, nil
 }
 
-// collectSecrets extracts all sensitive strings from the secrets bundle.
-// assumes a validated secrets bundle, with all fields present
 func collectSecrets(bundle *secrets.Bundle) []string {
-	return []string{
-		base64.StdEncoding.EncodeToString(bundle.Certs.Etcd.Crt),
-		base64.StdEncoding.EncodeToString(bundle.Certs.Etcd.Key),
-		base64.StdEncoding.EncodeToString(bundle.Certs.K8s.Crt),
-		base64.StdEncoding.EncodeToString(bundle.Certs.K8s.Key),
-		base64.StdEncoding.EncodeToString(bundle.Certs.K8sAggregator.Crt),
-		base64.StdEncoding.EncodeToString(bundle.Certs.K8sAggregator.Key),
-		base64.StdEncoding.EncodeToString(bundle.Certs.K8sServiceAccount.Key),
-		base64.StdEncoding.EncodeToString(bundle.Certs.OS.Crt),
-		base64.StdEncoding.EncodeToString(bundle.Certs.OS.Key),
+	s := make([]string, 0, 14)
+
+	s = append(s, encodingVariations(bundle.Certs.Etcd.Key)...)
+	s = append(s, encodingVariations(bundle.Certs.K8s.Key)...)
+	s = append(s, encodingVariations(bundle.Certs.K8sAggregator.Key)...)
+	s = append(s, encodingVariations(bundle.Certs.K8sServiceAccount.Key)...)
+	s = append(s, encodingVariations(bundle.Certs.OS.Key)...)
+
+	s = append(s,
 		bundle.Secrets.BootstrapToken,
 		bundle.Secrets.AESCBCEncryptionSecret,
 		bundle.Secrets.SecretboxEncryptionSecret,
 		bundle.TrustdInfo.Token,
 		bundle.Cluster.Secret,
-	}
+	)
+
+	return s
 }

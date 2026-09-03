@@ -21,11 +21,11 @@ import (
 
 var (
 	// DefaultSchematic is the schematic used by Talos when no extensions are configured
-	DefaultSchematic = images.DefaultInstallerImageSchematic
+	DefaultSchematic = images.DefaultInstallerImageSchematic //nolint:gochecknoglobals // exported read-only default sourced from talos, treated as constant
 	// DefaultFactory is the default Talos image factory address
-	DefaultFactory = gendata.ImageFactory
+	DefaultFactory = gendata.ImageFactory //nolint:gochecknoglobals // exported read-only default sourced from talos, treated as constant
 	// DefaultPlatform is the default Talos platform identifier
-	DefaultPlatform = constants.PlatformMetal
+	DefaultPlatform = constants.PlatformMetal //nolint:gochecknoglobals // exported read-only default sourced from talos, treated as constant
 )
 
 // Node contains runtime state information about a Talos node
@@ -46,6 +46,12 @@ type Node struct {
 // Fallback chain: running (from live node) -> topf.yaml -> bundled Talos version.
 func (n *Node) TalosVersion() string {
 	return strings.TrimPrefix(cmp.Or(n.runningVersion, n.t.Config().TalosVersion, version.Tag), "v")
+}
+
+// KubernetesVersion returns the Kubernetes version to use for config generation.
+// Fallback chain: topf.yaml -> bundled default (constants.DefaultKubernetesVersion).
+func (n *Node) KubernetesVersion() string {
+	return strings.TrimPrefix(cmp.Or(n.t.Config().KubernetesVersion, constants.DefaultKubernetesVersion), "v")
 }
 
 // RunningVersion returns the Talos version reported by the live node.

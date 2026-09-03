@@ -56,7 +56,7 @@ func main() {
 			&cli.BoolFlag{
 				Name:        "redact",
 				Value:       true,
-				Usage:       "redact sensitive values (secrets, certificates) from output",
+				Usage:       "redact sensitive values (secrets, private keys) from output",
 				Sources:     cli.EnvVars("TOPF_REDACT"),
 				DefaultText: defaultTextTrue,
 			},

@@ -160,7 +160,7 @@ TOPF supports the following global flags that can be used with any command:
 | `--nodes-filter`       | `TOPF_NODES_FILTER`      | -           | Regex pattern to filter which nodes to operate on        |
 | `--log-level`          | `LOG_LEVEL`              | `info`      | Logging level (debug, info, warn, error)                  |
 | `--confirm`            | `TOPF_CONFIRM`           | `true`      | Confirm any changes before applying them                  |
-| `--redact`             | `TOPF_REDACT`            | `true`      | Redact secrets and certificates from output               |
+| `--redact`             | `TOPF_REDACT`            | `true`      | Redact secrets and private keys from output               |
 | `--submit-to-factory`  | `TOPF_SUBMIT_TO_FACTORY` | `false`     | Submit schematics to the image factory API (default: compute IDs locally) |
 
 ### Filtering Nodes
@@ -190,9 +190,9 @@ topf apply
 
 ### Redacting Sensitive Output
 
-When `--redact` is enabled (the default), topf replaces secrets and certificate data with `*** redacted ***` in any command output. The following values are redacted:
+When `--redact` is enabled (the default), topf replaces secrets and private keys with `*** redacted ***` in any command output. The following values are redacted:
 
-- **Talos secrets bundle**: private keys, CA certificates, bootstrap tokens, encryption secrets, and trustd tokens from `secrets.yaml`
+- **Talos secrets bundle**: private keys, bootstrap tokens, encryption secrets, and trustd tokens from `secrets.yaml`
 - **SOPS-encrypted values**: any value that was encrypted with SOPS in `topf.yaml` or in patch files is decrypted internally and its plaintext is redacted from output
 - **vals-resolved values**: any value that was resolved from a [vals](https://github.com/helmfile/vals) reference (e.g. `ref+vault://`, `ref+file://`) has its plaintext redacted from output
 
