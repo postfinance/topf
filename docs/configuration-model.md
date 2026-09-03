@@ -94,7 +94,7 @@ A few commonly used functions:
 | `env "VAR"` | Returns the value of the environment variable `VAR`, or an empty string if unset |
 | `default "x" .Val` | Returns `.Val`, falling back to `"x"` if `.Val` is empty |
 | `b64enc` / `b64dec` | Base64 encode / decode |
-| `semverCompare "<constraint>" <version>` | [Semver constraint comparison](https://masterminds.github.io/sprig/semver.html) — note that a prerelease version only matches a constraint containing a prerelease (use e.g. `">= 1.14.0-0"` to treat `1.14.0-rc.2` as `>= 1.14`) |
+| `semverCompare "<constraint>" <version>` | [Semver constraint comparison](https://masterminds.github.io/sprig/semver.html); use a prerelease floor like `">= 1.14.0-0"` to also match RCs |
 
 ### Examples
 
