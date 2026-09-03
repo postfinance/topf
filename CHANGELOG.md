@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.6.0] - 2026-09-03
+
+### Features
+
+- Add --stabilization-duration flag for apply and upgrade ([c537ffe](https://github.com/postfinance/topf/commit/c537ffe096549dd2b419c62f71200ae23f0d65a7))
+- Add support for v1.14 config documents ([4729f2a](https://github.com/postfinance/topf/commit/4729f2ab749efd2f2e1396b418458b52644e2e35))
+- Add .Node.RuntimeData templating capabilities ([924a3d8](https://github.com/postfinance/topf/commit/924a3d84f813dde9d713f1ee86f6fe26f4dd671f))
+
+### Bug Fixes
+
+- **interactive**: Prevent looping forever when input cannot be read ([fb82e39](https://github.com/postfinance/topf/commit/fb82e3984626f8e97d03281f6dd7090863d4b068))
+- **docs**: Graceful default is now true ([2183171](https://github.com/postfinance/topf/commit/21831714b9adf33a20c9bf8688a4ac8202744ece))
+- Reuse upstream unattendedInstall defaults ([9cfe440](https://github.com/postfinance/topf/commit/9cfe440ffb3ab8e7ea30e7b5939bb5a70c4529e8))
+- **secrets-redaction**: Handle multi-line PEM secrets and stop redacting public key material ([21c2a50](https://github.com/postfinance/topf/commit/21c2a5064042f654f8328cc1a5798461e59f12c1))
+
+### Documentation
+
+- Remove 'early stage project' warning ([a8c246c](https://github.com/postfinance/topf/commit/a8c246cd2f93c25e4065239c2d88964c94f09863))
+- Add skills (talphelper migration and v1.14 migration) ([f6e7c59](https://github.com/postfinance/topf/commit/f6e7c59f78e6beee8d60b42fb1767d704ebcc928))
+
+### Miscellaneous
+
+- Update changelog ([2b367d9](https://github.com/postfinance/topf/commit/2b367d96ad3f137c6f91dff3e3857135af76acf0))
+- Refactor cache ([ee1d4dd](https://github.com/postfinance/topf/commit/ee1d4ddd143a872c8e7912c439b088b99125a976))
+- **cache**: Fix comment ([77e74ac](https://github.com/postfinance/topf/commit/77e74ac766dd35fe8321c5d876d495d15098dcb4))
+- Update command flags to include default value ([f947480](https://github.com/postfinance/topf/commit/f9474801e550bd4d4a8a70d675395c0081e4cdce))
+- **reset**: Update default value for graceful flag to true ([fba9adb](https://github.com/postfinance/topf/commit/fba9adbde1a813249be098ec8da4be820b186f8a))
+- Move default string to consts to make linter happy ([faba2b3](https://github.com/postfinance/topf/commit/faba2b36f9712a0246181042e07a0f990d115990))
+
+### Ddocs
+
+- Add contributing.md and go vet (#122) ([705f198](https://github.com/postfinance/topf/commit/705f19847ef02f90923f84e1be4f573aae0f893f))
 ## [0.5.0] - 2026-08-10
 
 ### Features
