@@ -1265,61 +1265,76 @@ with <code>--stage</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">talosVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.12.7</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">schematicId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba</span>
 </code></pre></div>
-<p>This generates <code>factory.talos.dev/metal-installer/&lt;schematicId&gt;:v&lt;talosVersion&gt;</code> as the base installer image. Since this patch is applied first, any subsequent <code>machine.install.image</code> patch (shared or node-level) will override it. The factory and platform can be customized via <code>factory</code> and <code>platform</code> in <code>topf.yaml</code> (or per node).</p>
+<p>This generates <code>factory.talos.dev/metal-installer/&lt;schematicId&gt;:v&lt;talosVersion&gt;</code> as the base installer image. Since this patch is applied first, any subsequent installer image patch (shared or node-level) will override it. The factory and platform can be customized via <code>factory</code> and <code>platform</code> in <code>topf.yaml</code> (or per node).</p>
+<blockquote>
+<p><strong>Talos &gt;= 1.14</strong>: the installer image is injected as an
+<code>UnattendedInstallConfig</code> document (<code>.machine.install</code> is deprecated and
+mutually exclusive with it). For older nodes it is still injected as
+<code>machine.install.image</code>. Override patches must use the matching form for
+the node's version.</p>
+</blockquote>
 <h3 id="manual-installer-image-patch">Manual installer image patch</h3>
-<p>Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the <code>machine.install.image</code> field in the assembled node configuration (i.e. the last patch takes precedence). The patch looks like:</p>
+<p>Alternatively, manage the installer image explicitly via a patch. The target image for each node comes from the installer image field in the assembled node configuration (i.e. the last patch takes precedence). For Talos &gt;= 1.14 the patch looks like:</p>
 <p><code>all/00-install.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">machine</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UnattendedInstallConfig</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">installer</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.0</span>
 </code></pre></div>
-<h3 id="per-node-override">Per-node override</h3>
-<p>To upgrade a single node to a different version or schematic, add a node-specific patch that overrides the image:</p>
-<p><code>node/node1/installer.yaml</code>:</p>
+<p>For Talos &lt; 1.14, use the legacy form:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">machine</span><span class="p">:</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.13.0</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.0</span>
 </code></pre></div>
+<h3 id="per-node-override">Per-node override</h3>
+<p>To upgrade a single node to a different version or schematic, add a node-specific patch that overrides the image. For Talos &gt;= 1.14:</p>
+<p><code>node/node1/installer.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UnattendedInstallConfig</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">installer</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.0</span>
+</code></pre></div>
+<p>For Talos &lt; 1.14, use the legacy <code>machine.install.image</code> form instead.</p>
 <p>Because node-level patches are merged last (see <a href="../../configuration-model/">Configuration Model</a>), this override applies only to that host.</p>
 <h2 id="example-usage">Example Usage</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Upgrade with confirmation (default)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>topf<span class="w"> </span>upgrade
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Upgrade without confirmation</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--confirm<span class="o">=</span><span class="nb">false</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Preview what would be upgraded</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--dry-run
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Upgrade without draining the Kubernetes node</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain<span class="o">=</span><span class="nb">false</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Upgrade up to 3 worker nodes concurrently</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--max-parallel<span class="o">=</span><span class="m">3</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Upgrade with a custom drain timeout</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Force upgrade on legacy (Talos &lt; 1.13) nodes, skipping etcd health checks</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="c1"># Upgrade, falling back to pod deletion if graceful drain fails</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="c1"># Upgrade with a longer drain timeout (shared by graceful and fallback)</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
-<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>
-<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="c1"># Stage an upgrade without rebooting (reboot manually later to complete it)</span>
-<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage
-<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>
-<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="c1"># Stage an upgrade and label the node so a controller can find it</span>
-<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-label<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>
-<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="c1"># Stage an upgrade and taint the node to discourage new pods from scheduling</span>
-<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-taint<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span>true:PreferNoSchedule
-<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>
-<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="c1"># Stage an upgrade and annotate the node so a controller can find it</span>
-<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-annotation<span class="w"> </span>topf.postfinance.ch/staged-at<span class="o">=</span><span class="m">2026</span>-08-07
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Upgrade with confirmation (default)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>topf<span class="w"> </span>upgrade
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Upgrade without confirmation</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--confirm<span class="o">=</span><span class="nb">false</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Preview what would be upgraded</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--dry-run
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Upgrade without draining the Kubernetes node</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain<span class="o">=</span><span class="nb">false</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Upgrade up to 3 worker nodes concurrently</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--max-parallel<span class="o">=</span><span class="m">3</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="c1"># Upgrade with a custom drain timeout</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="c1"># Force upgrade on legacy (Talos &lt; 1.13) nodes, skipping etcd health checks</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--force
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="c1"># Upgrade, falling back to pod deletion if graceful drain fails</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="c1"># Upgrade with a longer drain timeout (shared by graceful and fallback)</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="c1"># Stage an upgrade without rebooting (reboot manually later to complete it)</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="c1"># Stage an upgrade and label the node so a controller can find it</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-label<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1"># Stage an upgrade and taint the node to discourage new pods from scheduling</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-taint<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span>true:PreferNoSchedule
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Stage an upgrade and annotate the node so a controller can find it</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-annotation<span class="w"> </span>topf.postfinance.ch/staged-at<span class="o">=</span><span class="m">2026</span>-08-07
 </code></pre></div>
 
 

@@ -1209,8 +1209,21 @@
 <td><code>.Node.Data.&lt;key&gt;</code></td>
 <td>Per-node data (if set)</td>
 </tr>
+<tr>
+<td><code>.Node.RuntimeData.TalosVersion</code></td>
+<td>Talos version reported by the <strong>live node</strong> (no <code>v</code> prefix; empty when rendering offline or before the node was contacted)</td>
+</tr>
+<tr>
+<td><code>.Node.RuntimeData.SchematicID</code></td>
+<td>Schematic ID reported by the live node</td>
+</tr>
+<tr>
+<td><code>.Node.RuntimeData.Stage</code></td>
+<td>Machine stage reported by the live node (<code>booting</code>, <code>installing</code>, <code>maintenance</code>, <code>running</code>, <code>rebooting</code>, <code>shutting down</code>, <code>resetting</code>, <code>upgrading</code>)</td>
+</tr>
 </tbody>
 </table>
+<p>Runtime data is collected from live nodes by <code>apply</code>, <code>upgrade</code>, <code>reset</code>, and <code>render --online</code>. When rendering offline (<code>render</code> without <code>--online</code>), all runtime fields are empty.</p>
 <h3 id="template-functions">Template Functions</h3>
 <p>In addition to the <a href="https://pkg.go.dev/text/template#hdr-Functions">built-in Go template functions</a>, the full <a href="https://masterminds.github.io/sprig/">sprig</a> function library is available. This provides <code>env</code>, <code>default</code>, <code>b64enc</code>/<code>b64dec</code>, <code>toYaml</code>, <code>indent</code>/<code>nindent</code>, <code>regexReplaceAll</code>, <code>trunc</code>, <code>trimAll</code>, and many more.</p>
 <p>A few commonly used functions:</p>
@@ -1234,6 +1247,10 @@
 <td><code>b64enc</code> / <code>b64dec</code></td>
 <td>Base64 encode / decode</td>
 </tr>
+<tr>
+<td><code>semverCompare "&lt;constraint&gt;" &lt;version&gt;</code></td>
+<td><a href="https://masterminds.github.io/sprig/semver.html">Semver constraint comparison</a>; use a prerelease floor like <code>"&gt;= 1.14.0-0"</code> to also match RCs</td>
+</tr>
 </tbody>
 </table>
 <h3 id="examples">Examples</h3>
@@ -1252,6 +1269,23 @@
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">env "REGISTRY_MIRROR"</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 </code></pre></div>
+<p>Branch on the node's <strong>running</strong> Talos version — useful for mixed-version clusters during the Talos 1.13 → 1.14 transition, where the install disk is configured via <code>UnattendedInstallConfig</code> on &gt;= 1.14 and via the deprecated <code>.machine.install</code> on older nodes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if semverCompare "&gt;= 1.14.0-0" .Node.RuntimeData.TalosVersion -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UnattendedInstallConfig</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">provisioning</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">diskSelector</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disk.dev_path == "/dev/vda"</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">wipe</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">else -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nt">machine</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/vda</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">end -</span><span class="p p-Indicator">}}</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> <code>UnattendedInstallConfig</code> and <code>.machine.install</code> are mutually exclusive — Talos &gt;= 1.14 rejects a config containing both, and <code>.machine.install</code> is deprecated. Branching templates like the one above are the recommended way to express the install disk while a cluster straddles versions.</p>
+</blockquote>
 
 
 
