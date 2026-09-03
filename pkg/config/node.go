@@ -29,6 +29,18 @@ type Node struct {
 	Platform string `yaml:"platform,omitempty"`
 	// SecureBoot enables the secure boot installer variant for this node
 	SecureBoot bool `yaml:"secureboot,omitempty"`
+	// RuntimeData holds values collected from the live node.
+	RuntimeData RuntimeData `yaml:"runtimeData,omitempty"`
+}
+
+// RuntimeData contains values collected from a live node at runtime.
+type RuntimeData struct {
+	// TalosVersion is the Talos version reported by the live node. (without v prefix)
+	TalosVersion string `yaml:"talosVersion,omitempty"`
+	// SchematicID is the schematic ID reported by the live node.
+	SchematicID string `yaml:"schematicId,omitempty"`
+	// Stage is the machine stage reported by the live node
+	Stage string `yaml:"stage,omitempty"`
 }
 
 // Endpoint returns the IP address if set, otherwise returns the Host.
