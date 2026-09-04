@@ -8,8 +8,9 @@ description: >
   talsecret.sops.yaml, talenv.sops.yaml, "migrate to topf", "switch from talhelper",
   "talhelper is archived". Covers generating the new topf.yaml, extracting inline
   node config into patch files, rewriting JSON patches as strategic merge, moving
-  envsubst/talenv values into SOPS-encrypted `data` + Go templates, and renaming
-  talsecret.sops.yaml to secrets.yaml.
+  envsubst/talenv values into SOPS-encrypted `data` + Go templates, renaming
+  talsecret.sops.yaml to secrets.yaml, wrapping `@./file` inline-manifest includes into
+  patches, and proving the TOPF render matches talhelper's before the first apply.
 ---
 
 # Migrating from talhelper to TOPF
@@ -18,19 +19,17 @@ talhelper is archived (since Aug 2026). TOPF is a recommended successor and the
 upstream migration guide is canonical:
 https://postfinance.github.io/topf/main/migration-from-talhelper/
 
-## Critical: stay on the v1.13 config format for the migration
+## Critical: migrate on the running config format, upgrade later
 
-TOPF does not yet support the Talos v1.14 multi-document machine config. When
-migrating an *existing* cluster:
+Do the tooling migration on whatever Talos version and config format the cluster runs
+today, and prove the TOPF render is equivalent to talhelper's (Step 8) before the first
+`topf apply`. Only then upgrade Talos or move to the v1.14 multi-document format, as a
+separate change with the `talos-v114-migration` skill. Mixing the two makes the first diff
+unreviewable: every hunk could be the tool or the format.
 
-1. Migrate the cluster to TOPF **keeping the old (v1.13) single-document config
-   format**.
-2. Do the v1.14 multi-doc migration **later**, as a separate step, using the
-   `talos-v114-migration` skill.
-
-Concretely: do not enable v1.14-style multi-doc patches during this migration.
-Keep single-document strategic-merge patch files (`machine:` / `cluster:` maps).
-The examples below all assume the v1.13 single-doc format.
+TOPF v0.6.0+ renders v1.14 multi-document configs too; that is not a reason to switch
+formats during the migration. The examples below use the v1.13 single-document
+`machine:` / `cluster:` format.
 
 ## When to use
 
@@ -138,8 +137,11 @@ with `patchesDir`). TOPF loads, in order, for each node:
 ```
 
 Files are matched by `*.yaml`, `*.yml`, or `*.tpl` (templated). They are applied in
-filesystem walk order within each folder, so prefix with two-digit numbers to
-control ordering (`01-…`, `02-…`).
+lexicographic order within each folder, so prefix with two-digit numbers to control
+ordering (`01-…`, `02-…`). Lists with a merge key (`cluster.inlineManifests` by `name`,
+`machine.files` by `path`) merge across scopes exactly as they did in talhelper — both
+tools use Talos's own strategic-merge patcher — so a `control-plane/` patch that adds
+inline manifests **appends** to the `all/` list instead of replacing it.
 
 Map each talhelper source to a target directory:
 
@@ -148,9 +150,10 @@ Map each talhelper source to a target directory:
 | top-level `patches:`                        | `all/`               |
 | top-level `controlPlane: patches:`          | `control-plane/`     |
 | top-level `worker: patches:`                | `worker/`            |
-| top-level `inlineManifests:`                | `all/`               |
+| top-level `inlineManifests:`                | `all/` (see the `@./file` gotcha below) |
 | node-level `patches:`                       | `node/<host>/`       |
 | node-level config fields (installDisk, networkInterfaces, nodeLabels, …) | `node/<host>/` |
+| node `hostname:` (talhelper set it for you) | `all/05-hostname.yaml.tpl` — see gotchas |
 
 Each patch file is a single standalone YAML document — a strategic merge patch
 against the Talos v1.13 machine config (`machine:` / `cluster:` maps).
@@ -268,6 +271,29 @@ data:
 
 Template files reference them the same way: `{{ .Data.controlPlaneEndpoint }}`.
 
+Encrypt only the `data` block so the rest of `topf.yaml` stays diffable and editable
+without `sops`, and move the values without ever writing plaintext to disk:
+
+```yaml
+# .sops.yaml — first matching rule wins, so list this before any catch-all
+creation_rules:
+  - path_regex: topf\.yaml$
+    encrypted_regex: ^data$
+    mac_only_encrypted: true
+    age: <recipient>
+```
+
+```bash
+# placeholders in data:, then encrypt in place, then overwrite each value from talenv
+sops encrypt -i topf.yaml
+sops set topf.yaml '["data"]["repoToken"]' "\"$(sops -d --extract '["REPO_TOKEN"]' talenv.sops.yaml)\""
+sops filestatus topf.yaml    # {"encrypted":true}
+```
+
+A `.tpl` file is parsed by Go's template engine **in full, YAML comments included** — a
+literal `{{` in a comment fails the render with `bad character` or `function not defined`.
+Values with characters YAML could misread are safer as `{{ .Data.x | quote }}`.
+
 **Per-node data**: a node's `data:` block is reachable in templates as
 `.Node.Data.<key>` (the node the patch is being rendered for). Use this for
 per-node values that used to be envsubst'd with node-specific vars.
@@ -296,7 +322,9 @@ git mv talsecret.sops.yaml secrets.yaml
 ```
 
 Delete `talenv.sops.yaml` / `talenv.yaml` — there is no equivalent in TOPF. Its
-contents either become `data:` in `topf.yaml` (if still needed) or are dropped.
+contents either become `data:` in `topf.yaml` (if still needed) or are dropped. Also
+delete `clusterconfig/` and its `.gitignore` entries (`talenv.yaml`, `talsecret.yaml`);
+add `output/` instead — that is where `topf render` writes full configs, secrets included.
 
 ### 7. Apply
 
@@ -320,17 +348,42 @@ topf apply
 ```
 
 `topf apply` generates the machine config from patches + secrets and applies it to
-each node over the Talos API (not `--insecure` file apply). It needs a valid
-`talosconfig` — generate one with `topf talosconfig > talosconfig` and merge it, or
-reuse the existing one from the talhelper-managed cluster.
+each node over the Talos API (not `--insecure` file apply). It authenticates with a
+client certificate minted from `secrets.yaml`, so the talhelper-era `talosconfig` keeps
+working too (same secrets bundle, same CA); `topf talosconfig` regenerates it if needed.
 
-### 8. Verify
+TOPF dials every node's `ip` (or `host`) on `:50000` **directly**. There is no
+`talosctl -e <control-plane> -n <worker>` style apid proxying, so a NAT'd or LAN-only
+node is only reachable when TOPF runs from a network that reaches it. Use
+`--nodes-filter` to apply the reachable nodes from elsewhere.
 
-- Re-read the generated `topf.yaml` and every patch file to confirm the YAML is
-  valid and field names match the Talos v1.13 machine config reference.
-- Run `topf nodes` to confirm the config compiles and all nodes are discovered.
-- Run `topf apply --dry-run` to diff against the live cluster. For an
-  already-running cluster, the diff should ideally show no unexpected changes.
+### 8. Verify: prove the render matches talhelper's
+
+Both tools emit Talos-machinery YAML, so the two renders can be diffed directly and
+every hunk must be explainable. Take the talhelper baseline **before** deleting
+`talconfig.yaml` / `talenv.sops.yaml`:
+
+```bash
+talhelper genconfig                                   # baseline, one last time
+topf render -o /tmp/topf-out
+diff <(yq -P . clusterconfig/<cluster>-<host>.yaml) <(yq -P . /tmp/topf-out/<host>.yaml)
+```
+
+Harmless hunks: multi-document **order** (TOPF emits documents in patch order — `all/`,
+then role, then node — where talhelper put node and role documents first; Talos keys
+documents by kind + name, so order is irrelevant), and any comment or quoting you changed
+inside inline manifests. Anything else is a real difference —
+typical culprits are a missing hostname patch, a role schematic that changed, or a field
+talhelper defaulted (`machine.install.wipe`, `certSANs`) that TOPF does not.
+
+- `topf schematic-ids` must print the IDs already in each node's `machine.install.image`;
+  only a genuinely new schematic needs `--submit-to-factory`.
+- `topf apply --dry-run` (exit code 2 = changes) shows Talos's own diff against the
+  **running** config. That diff is textual, so document reordering appears even when the
+  parsed config is identical — Talos still reports it as applicable without a reboot.
+  Anything that was changed in talhelper but never applied to the node surfaces here too;
+  review it, do not let the migration apply it unnoticed.
+- Delete the rendered files afterwards: they contain the cluster secrets in plaintext.
 - Only run `topf apply` with the user's explicit approval.
 
 ## Gotchas
@@ -350,6 +403,21 @@ In TOPF, set `schematicId` in `topf.yaml` (or per node). Prefer the `@schematic.
 reference form (see the topf configuration docs) over hand-computing the hash. The
 schematic YAML is the same shape as talhelper's `schematic:` block — move it into
 its own file.
+
+talhelper also accepts `controlPlane.schematic` / `worker.schematic`, and a node-level
+`schematic` **replaces** the role one rather than merging. Express that as one
+`schematic.yaml.tpl` (`schematicId: "@schematic.yaml.tpl"`) keyed on `.Node.Role`, or as
+per-node `schematicId` entries, and check the IDs with `topf schematic-ids`:
+
+```yaml
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/crun
+{{- if eq .Node.Role "worker" }}
+      - siderolabs/intel-ucode
+{{- end }}
+```
 
 ### `imageFactory` (self-hosted factory)
 
@@ -375,6 +443,47 @@ Becomes `cluster.network.cni`, `cluster.network.podSubnets`,
 
 The referenced file is already a standalone patch — copy it into the appropriate
 patch directory as-is (rename to `*.yaml` if needed).
+
+### `inlineManifests[].contents: "@./file.yaml"` and `skipEnvsubst`
+
+talhelper reads the file into `contents`; TOPF has no include mechanism (no `readFile`
+template function). Two options:
+
+- **Wrap the file into a plain patch** — no new tooling, and the manifest is visible in
+  `topf apply` diffs. Go through a temp file: a single environment string is capped at
+  128 KiB and an Argo CD or Cilium bundle exceeds that.
+
+  ```bash
+  SRC=./argocd-install.yaml yq -n \
+    '{"cluster": {"inlineManifests": [{"name": "argo-install", "contents": load_str(strenv(SRC))}]}}' \
+    > all/60-argo-install.yaml
+  ```
+
+- **vals `ref+file://`** in a plain patch (`contents: ref+file://argocd-install.yaml`).
+  Needs the `vals` binary, resolves the path against the working directory, and TOPF
+  redacts vals-resolved values, so the manifest shows as `*** redacted ***` in diffs.
+
+`skipEnvsubst: true` has no equivalent and needs none: plain `.yaml` patches are never
+templated, so `$f`, `${TMP}` and friends survive untouched. The trap is reversed — a
+manifest containing `{{` must NOT live in a `.tpl` patch.
+
+### Hostname: talhelper set it, TOPF does not
+
+talhelper emitted `machine.network.hostname` (or a `HostnameConfig` document on newer
+Talos) from each node's `hostname:`. TOPF's `host` is a display and selection label only.
+Without a patch, the first `topf apply` renames every node to `talos-xxx-xxx` and the
+render diff shows the hostname document missing:
+
+```yaml
+# all/05-hostname.yaml.tpl
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: {{ .Node.Host }}
+```
+
+Use `machine.network.hostname: {{ .Node.Host }}` instead if the baseline render used
+that form — match whatever talhelper produced.
 
 ### `extraManifests:` (deprecated in talhelper)
 
@@ -420,6 +529,11 @@ Before telling the user they're done, confirm:
    (`.Data`, `.Node.Data`, `.ClusterName`, `.Node.Host`, `.Node.IP`, …) — no
    envsubst `${VAR}` and no talhelper `.MachineConfig.…` left.
 6. `secrets.yaml` exists (renamed from `talsecret.sops.yaml`); `talenv.sops.yaml`
-   is removed or its values folded into `data:`.
-7. `topf apply --dry-run` runs clean and the diff against the live cluster matches
+   is removed or its values folded into `data:`; `sops filestatus` reports both
+   `topf.yaml` and `secrets.yaml` encrypted; `clusterconfig/` is gone, `output/` ignored.
+7. A hostname patch exists, and `topf schematic-ids` reproduces the IDs from the
+   talhelper render.
+8. `talhelper genconfig` vs `topf render` differ only in document order and hunks you
+   can name; the rendered files are deleted afterwards.
+9. `topf apply --dry-run` runs clean and the diff against the live cluster matches
    expectations.
