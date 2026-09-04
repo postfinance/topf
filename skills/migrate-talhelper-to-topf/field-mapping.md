@@ -28,7 +28,7 @@ v1.13 single-document `machine:` / `cluster:` format.
 | `clusterSvcNets`                | **patch** `all/`: `cluster.network.serviceSubnets`         | |
 | `cniConfig`                     | **patch** `all/`: `cluster.network.cni`                    | |
 | `patches`                       | **patch** `all/` (one file per entry)                      | split inline `|-` blocks into separate files |
-| `inlineManifests`               | **patch** `all/`: `cluster.inlineManifests`                | |
+| `inlineManifests`               | **patch** `all/`: `cluster.inlineManifests`                | `contents: "@./file"` has no equivalent — wrap the file into the patch (`yq … load_str`) or use a vals `ref+file://` ref; `skipEnvsubst` is moot, plain `.yaml` is never templated |
 | `imageFactory`                  | `factory` (partial)                                        | only `registryURL` → `factory`; URL templates not supported — flag if customized |
 
 ### `controlPlane:` / `worker:` blocks
@@ -39,6 +39,7 @@ v1.13 single-document `machine:` / `cluster:` format.
 | `worker.patches`        | `worker/`            | one file per entry |
 | `controlPlane.<other>`  | `control-plane/`     | node-config fields (networkInterfaces, nodeLabels, …) applied to all CP nodes |
 | `worker.<other>`        | `worker/`            | same, for worker nodes |
+| `controlPlane.schematic` / `worker.schematic` | `schematicId: "@schematic.yaml.tpl"` keyed on `.Node.Role`, or per-node `schematicId` | a node-level `schematic` REPLACES the role one in talhelper — express the full per-role list; verify with `topf schematic-ids` |
 
 The `controlPlane:` / `worker:` blocks in talhelper mirror the `NodeConfigs`
 fields below — translate each field the same way, just target the role directory.
@@ -49,7 +50,7 @@ fields below — translate each field the same way, just target the role directo
 
 | talconfig.yaml node field        | topf.yaml / patch                                       | Notes |
 | -------------------------------- | ------------------------------------------------------- | ----- |
-| `hostname`                       | node `host`                                             | renamed |
+| `hostname`                       | node `host` **plus** a hostname patch                   | TOPF does not set the hostname from `host`; add `all/05-hostname.yaml.tpl` (`HostnameConfig` or `machine.network.hostname`, whichever talhelper rendered) |
 | `ipAddress`                      | node `ip`                                               | renamed |
 | `controlPlane: true`             | node `role: control-plane`                              | bool → enum |
 | `controlPlane: false`            | node `role: worker`                                     | bool → enum |
@@ -93,7 +94,7 @@ entries and role blocks. They all map to patch files as shown above.
 | -------------------------- | -------------------------------------------- | ----- |
 | `talsecret.sops.yaml`      | `secrets.yaml` (SOPS-encrypted)              | same format, renamed; default path next to `topf.yaml` |
 | `talsecret.yaml`           | `secrets.yaml`                               | same, unencrypted |
-| `talenv.sops.yaml`         | `data:` in `topf.yaml` (SOPS-encrypted)      | no envsubst in TOPF; reference via `{{ .Data.<key> }}` in `.tpl` patches |
+| `talenv.sops.yaml`         | `data:` in `topf.yaml` (SOPS-encrypted)      | no envsubst in TOPF; reference via `{{ .Data.<key> }}` in `.tpl` patches; encrypt only `data` (`encrypted_regex: ^data$`, `mac_only_encrypted: true`) so the rest stays diffable |
 | `talenv.yaml`              | `data:` in `topf.yaml`                       | same, unencrypted |
 
 ---
@@ -119,8 +120,11 @@ file suffix triggers template rendering; plain `.yaml` files are not templated.
 
 - One strategic-merge document per file (v1.13 `machine:` / `cluster:` format).
 - Directories: `all/`, `control-plane/`, `worker/`, `node/<host>/`.
-- Applied in filesystem walk order — prefix `01-`, `02-` to control ordering.
-- `*.yaml` / `*.yml` = plain; `*.tpl` = Go template.
+- Applied in lexicographic order per directory — prefix `01-`, `02-` to control ordering.
+- `*.yaml` / `*.yml` = plain; `*.tpl` = Go template, parsed in full — a literal `{{` in a
+  YAML comment breaks the render.
+- Keyed lists (`cluster.inlineManifests` by `name`, `machine.files` by `path`) merge across
+  scopes; a `control-plane/` patch appends to the `all/` list.
 - No RFC 6902 JSON patches (arrays of `{op, path}`). Use `$patch: delete` for
   removals.
 - SOPS-encrypted patch files are decrypted at load time.
