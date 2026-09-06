@@ -50,6 +50,11 @@ type Options struct {
 	// server-side and has no force knob.
 	Force bool
 
+	// SkipNodePreChecks skips the pre-upgrade checks that require every
+	// node to be reachable and in the "running" stage. Needed to upgrade a
+	// node that is stuck in another stage, e.g. after a bad machine image.
+	SkipNodePreChecks bool
+
 	// Drain controls whether the Kubernetes node is cordoned and drained
 	// before the reboot and uncordoned after the node becomes Ready again.
 	Drain bool
@@ -104,7 +109,7 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
-	if err := preChecks(logger, nodes); err != nil {
+	if err := preChecks(logger, nodes, opts); err != nil {
 		return err
 	}
 
@@ -213,8 +218,15 @@ func validateOptions(opts *Options) error {
 }
 
 // preChecks verifies that every node is reachable and running before any
-// upgrade is attempted, reporting all problems at once.
-func preChecks(logger *slog.Logger, nodes []*topf.Node) error {
+// upgrade is attempted, reporting all problems at once. It is a no-op when
+// opts.SkipNodePreChecks is set.
+func preChecks(logger *slog.Logger, nodes []*topf.Node, opts Options) error {
+	if opts.SkipNodePreChecks {
+		logger.Warn("skipping node pre-checks: unreachable or non-running nodes will only fail once their upgrade is attempted")
+
+		return nil
+	}
+
 	abort := false
 
 	for _, node := range nodes {

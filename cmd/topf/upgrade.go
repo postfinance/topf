@@ -77,6 +77,12 @@ func newUpgradeCmd() *cli.Command {
 				DefaultText: defaultTextFalse,
 			},
 			&cli.BoolFlag{
+				Name:        "skip-node-prechecks",
+				Usage:       "skip the pre-upgrade checks that require every node to be reachable and in the \"running\" stage; needed to upgrade a node that is stuck in another stage (e.g. after a bad machine image), at the cost of no longer aborting early on unhealthy nodes",
+				Sources:     cli.EnvVars("TOPF_SKIP_NODE_PRECHECKS"),
+				DefaultText: defaultTextFalse,
+			},
+			&cli.BoolFlag{
 				Name:        "stage",
 				Usage:       "install upgrade artifacts without rebooting; the node can be rebooted later to complete the upgrade (Talos >= 1.13 only)",
 				Sources:     cli.EnvVars("TOPF_STAGE"),
@@ -116,6 +122,7 @@ func newUpgradeCmd() *cli.Command {
 				DryRun:                c.Bool("dry-run"),
 				RebootMode:            rebootMode,
 				Force:                 c.Bool("force"),
+				SkipNodePreChecks:     c.Bool("skip-node-prechecks"),
 				Drain:                 c.Bool("drain"),
 				DrainTimeout:          c.Duration("drain-timeout"),
 				StabilizationDuration: c.Duration("stabilization-duration"),
