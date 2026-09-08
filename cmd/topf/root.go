@@ -56,6 +56,12 @@ func main() {
 				Sources: cli.EnvVars("LOG_LEVEL"),
 			},
 			&cli.BoolFlag{
+				Name:    "json-log",
+				Value:   false,
+				Usage:   "emit json logs instead of human readable text",
+				Sources: cli.EnvVars("TOPF_JSON_LOG"),
+			},
+			&cli.BoolFlag{
 				Name:        "redact",
 				Value:       true,
 				Usage:       "redact sensitive values (secrets, private keys) from output",
@@ -86,6 +92,7 @@ func main() {
 				ConfigPath:       c.String("topfconfig"),
 				NodesRegexFilter: c.String("nodes-filter"),
 				LogLevel:         c.String("log-level"),
+				JsonLog:          c.Bool("json-log"),
 				Redact:           c.Bool("redact"),
 				Confirm:          c.Bool("confirm"),
 				SubmitToFactory:  c.Bool("submit-to-factory"),

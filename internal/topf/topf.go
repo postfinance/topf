@@ -84,6 +84,9 @@ type RuntimeConfig struct {
 	// LogLevel sets the logging verbosity (debug, info, warn, error)
 	LogLevel string
 
+	// Emit logs as JSON instead of human readable text
+	JsonLog bool
+
 	// Redact controls whether sensitive values are masked in output
 	Redact bool
 
@@ -138,7 +141,14 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	opts := &slog.HandlerOptions{
 		Level: level,
 	}
-	handler := slog.NewTextHandler(os.Stderr, opts)
+
+	var handler slog.Handler
+	if cfg.JsonLog {
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+
 	logger := slog.New(handler)
 
 	var mw *maskedwriter.Writer
