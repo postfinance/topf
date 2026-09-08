@@ -102,6 +102,12 @@ func main() {
 				return ctx, err
 			}
 
+			// Set the logger configured by the runtime as the default.
+			// 
+			// While commands should still use the one from the runtime,
+			// we need to have it available in the app error handler below.
+			slog.SetDefault(topf.Logger())
+
 			return context.WithValue(ctx, topfRuntimeCtxKey, topf), nil
 		},
 		Commands: []*cli.Command{
@@ -123,7 +129,7 @@ func main() {
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("error", "error", err)
+		slog.Error("error", "failed to run command", err)
 		os.Exit(1)
 	}
 }
