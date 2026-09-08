@@ -43,12 +43,14 @@ func newRenderCmd() *cli.Command {
 				return err
 			}
 
-			return writeMachineConfigs(nodes, c.String("output"))
+			return writeMachineConfigs(nodes, c.String("output"), t)
 		},
 	}
 }
 
-func writeMachineConfigs(nodes []*topf.Node, outputDir string) error {
+func writeMachineConfigs(nodes []*topf.Node, outputDir string, t topf.Topf) error {
+	logger := t.Logger().With("command", "render")
+
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -80,7 +82,7 @@ func writeMachineConfigs(nodes []*topf.Node, outputDir string) error {
 			return fmt.Errorf("failed to write config for %s: %w", node.Node.Host, err)
 		}
 
-		fmt.Fprintf(os.Stdout, "Wrote machine config for %s to %s\n", node.Node.Host, outputPath)
+		logger.Info("Wrote machine config", "node", node.Node.Host, "path", outputPath)
 	}
 
 	return errors.Join(errs...)
