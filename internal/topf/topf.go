@@ -81,11 +81,8 @@ type RuntimeConfig struct {
 	// Empty string means all nodes
 	NodesRegexFilter string
 
-	// LogLevel sets the logging verbosity (debug, info, warn, error)
-	LogLevel string
-
-	// Emit logs as JSON instead of human readable text
-	JsonLog bool
+	// Logger is the runtime logger
+	Logger *slog.Logger
 
 	// Redact controls whether sensitive values are masked in output
 	Redact bool
@@ -99,6 +96,27 @@ type RuntimeConfig struct {
 
 	// TopfVersion is the topf version string
 	TopfVersion string
+}
+
+// NewLogger builds the runtime logger from the given options
+func NewLogger(logLevel string, jsonLog bool) (*slog.Logger, error) {
+	level, err := parseLogLevel(logLevel)
+	if err != nil {
+		return nil, fmt.Errorf("invalid log level: %w", err)
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: level,
+	}
+
+	var handler slog.Handler
+	if jsonLog {
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	return slog.New(handler), nil
 }
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
@@ -121,12 +139,6 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		return nil, fmt.Errorf("patches path is not a directory: %s", topfConfig.PatchesDir)
 	}
 
-	// Parse log level
-	level, err := parseLogLevel(cfg.LogLevel)
-	if err != nil {
-		return nil, fmt.Errorf("invalid log level: %w", err)
-	}
-
 	// Compile nodes filter regex; empty means all nodes
 	nodesFilter := regexp.MustCompile(".*")
 
@@ -137,20 +149,6 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		}
 	}
 
-	// Create logger with TextHandler
-	opts := &slog.HandlerOptions{
-		Level: level,
-	}
-
-	var handler slog.Handler
-	if cfg.JsonLog {
-		handler = slog.NewJSONHandler(os.Stderr, opts)
-	} else {
-		handler = slog.NewTextHandler(os.Stderr, opts)
-	}
-
-	logger := slog.New(handler)
-
 	var mw *maskedwriter.Writer
 	if cfg.Redact {
 		mw = maskedwriter.New(os.Stdout, secrets)
@@ -159,11 +157,11 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	return &topf{
 		TopfConfig:   topfConfig,
 		patchesDir:   topfConfig.PatchesDir,
-		logger:       logger,
+		logger:       cfg.Logger,
 		maskedWriter: mw,
 		confirm:      cfg.Confirm,
 		version:      cfg.TopfVersion,
-		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(logger)),
+		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
 		decryptCache: decryptCache,
 		nodesFilter:  nodesFilter,
 	}, nil

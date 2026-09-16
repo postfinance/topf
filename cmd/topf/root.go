@@ -87,12 +87,17 @@ func main() {
 				return ctx, nil
 			}
 
-			// passing down the Topf runtime to all commands via context
+			logger, err := topf.NewLogger(c.String("log-level"), c.Bool("json-log"))
+			if err != nil {
+				return ctx, err
+			}
+
+			slog.SetDefault(logger)
+
 			topf, err := topf.NewTopfRuntime(topf.RuntimeConfig{
 				ConfigPath:       c.String("topfconfig"),
 				NodesRegexFilter: c.String("nodes-filter"),
-				LogLevel:         c.String("log-level"),
-				JsonLog:          c.Bool("json-log"),
+				Logger:           logger,
 				Redact:           c.Bool("redact"),
 				Confirm:          c.Bool("confirm"),
 				SubmitToFactory:  c.Bool("submit-to-factory"),
@@ -101,12 +106,6 @@ func main() {
 			if err != nil {
 				return ctx, err
 			}
-
-			// Set the logger configured by the runtime as the default.
-			// 
-			// While commands should still use the one from the runtime,
-			// we need to have it available in the app error handler below.
-			slog.SetDefault(topf.Logger())
 
 			return context.WithValue(ctx, topfRuntimeCtxKey, topf), nil
 		},
@@ -129,7 +128,7 @@ func main() {
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		slog.Error("error", "failed to run command", err)
+		slog.Error("failed to run command", "error", err)
 		os.Exit(1)
 	}
 }
