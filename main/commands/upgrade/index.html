@@ -1200,7 +1200,7 @@
 <tr>
 <td><code>--skip-node-prechecks</code></td>
 <td><code>false</code></td>
-<td>Skip the pre-upgrade checks that require every node to be reachable and in the <code>Running</code> stage; needed to upgrade a node that is stuck in another stage (e.g. after a bad machine image)</td>
+<td>Skip the pre-upgrade checks that require every node to be reachable and in the <code>running</code> stage; needed to upgrade a node that is stuck in another stage (e.g. after a bad machine image)</td>
 </tr>
 <tr>
 <td><code>--stage</code></td>
@@ -1252,15 +1252,17 @@ default behavior for a rebooting node and is not controlled by
 direct deletion for the fallback attempt, which is what lets it bypass
 PDBs.</p>
 <p><strong>When to use <code>--skip-node-prechecks</code>.</strong> By default the upgrade aborts if
-any node is unreachable or not in the <code>Running</code> stage, so a broken cluster
+any node is unreachable or not in the <code>running</code> stage, so a broken cluster
 is not made worse. That check also blocks the recovery case: a node that
 fails to boot after an upgrade (e.g. a bad machine image) never reaches
-<code>Running</code>, so no upgrade — not even one back to a known-good installer —
+<code>running</code>, so no upgrade — not even one back to a known-good installer —
 can be issued for it. <code>--skip-node-prechecks</code> bypasses the check and goes
 straight to the plan phase. Unhealthy nodes are no longer caught up front;
 they fail individually once their own upgrade is attempted. Combine it with
 <a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a> to target only the
-node that needs recovering.</p>
+node that needs recovering. Note that with <code>--dry-run</code> the pre-checks are
+still skipped and nothing is actually attempted, so a node that is stuck in
+a non-<code>running</code> stage will not surface an error in the dry-run output.</p>
 <p><strong>Staging upgrades with <code>--stage</code></strong> <em>(Talos &gt;= 1.13 only)</em>. Sometimes you
 want to install new Talos artifacts on nodes without immediately rebooting
 them — e.g. to spread reboots over a maintenance window or let an external
@@ -1280,7 +1282,7 @@ with <code>--stage</code>.</p>
 </blockquote>
 <h2 id="behavior">Behavior</h2>
 <ol>
-<li><strong>Pre-flight checks</strong>: Ensures all nodes are reachable and in the <code>Running</code> stage (skipped with <code>--skip-node-prechecks</code>)</li>
+<li><strong>Pre-flight checks</strong>: Ensures all nodes are reachable and in the <code>running</code> stage (skipped with <code>--skip-node-prechecks</code>)</li>
 <li><strong>Version comparison</strong>: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state</li>
 <li><strong>Per-node confirmation</strong>: Before each upgrade (unless <code>--confirm=false</code>, see <a href="../../configuration/#global-flags">global flags</a>)</li>
 <li><strong>API selection</strong>: Per node, if the running Talos version is &gt;= 1.13.0, the modern flow (a) is used; otherwise the legacy flow (b) is used</li>
