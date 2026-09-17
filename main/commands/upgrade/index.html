@@ -1198,6 +1198,11 @@
 <td>Skip etcd health checks; only applies to nodes running Talos &lt; 1.13 (legacy <code>MachineService.Upgrade</code> RPC); has no effect on Talos &gt;= 1.13, where the <code>LifecycleService.Upgrade</code> RPC validates etcd health server-side</td>
 </tr>
 <tr>
+<td><code>--skip-node-prechecks</code></td>
+<td><code>false</code></td>
+<td>Skip the pre-upgrade checks that require every node to be reachable and in the <code>Running</code> stage; needed to upgrade a node that is stuck in another stage (e.g. after a bad machine image)</td>
+</tr>
+<tr>
 <td><code>--stage</code></td>
 <td><code>false</code></td>
 <td>Install upgrade artifacts without rebooting; the node is left running and can be labeled/annotated/tainted (see <code>--stage-label</code>/<code>--stage-annotation</code>/<code>--stage-taint</code>) so an external controller or human reboots it later</td>
@@ -1246,6 +1251,16 @@ default behavior for a rebooting node and is not controlled by
 <code>--delete-if-eviction-fails</code>. The flag only switches the eviction API to
 direct deletion for the fallback attempt, which is what lets it bypass
 PDBs.</p>
+<p><strong>When to use <code>--skip-node-prechecks</code>.</strong> By default the upgrade aborts if
+any node is unreachable or not in the <code>Running</code> stage, so a broken cluster
+is not made worse. That check also blocks the recovery case: a node that
+fails to boot after an upgrade (e.g. a bad machine image) never reaches
+<code>Running</code>, so no upgrade — not even one back to a known-good installer —
+can be issued for it. <code>--skip-node-prechecks</code> bypasses the check and goes
+straight to the plan phase. Unhealthy nodes are no longer caught up front;
+they fail individually once their own upgrade is attempted. Combine it with
+<a href="../../configuration/#filtering-nodes"><code>--nodes-filter</code></a> to target only the
+node that needs recovering.</p>
 <p><strong>Staging upgrades with <code>--stage</code></strong> <em>(Talos &gt;= 1.13 only)</em>. Sometimes you
 want to install new Talos artifacts on nodes without immediately rebooting
 them — e.g. to spread reboots over a maintenance window or let an external
@@ -1265,7 +1280,7 @@ with <code>--stage</code>.</p>
 </blockquote>
 <h2 id="behavior">Behavior</h2>
 <ol>
-<li><strong>Pre-flight checks</strong>: Ensures all nodes are in the <code>Running</code> stage</li>
+<li><strong>Pre-flight checks</strong>: Ensures all nodes are reachable and in the <code>Running</code> stage (skipped with <code>--skip-node-prechecks</code>)</li>
 <li><strong>Version comparison</strong>: Extracts schematic and version from the installer image and only upgrades nodes where either differs from the current state</li>
 <li><strong>Per-node confirmation</strong>: Before each upgrade (unless <code>--confirm=false</code>, see <a href="../../configuration/#global-flags">global flags</a>)</li>
 <li><strong>API selection</strong>: Per node, if the running Talos version is &gt;= 1.13.0, the modern flow (a) is used; otherwise the legacy flow (b) is used</li>
@@ -1351,17 +1366,20 @@ the node's version.</p>
 <a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="c1"># Upgrade with a longer drain timeout (shared by graceful and fallback)</span>
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--delete-if-eviction-fails<span class="w"> </span>--drain-timeout<span class="o">=</span>10m
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
-<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="c1"># Stage an upgrade without rebooting (reboot manually later to complete it)</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="c1"># Upgrade a node stuck in a non-running stage (e.g. after a bad machine image)</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--skip-node-prechecks<span class="w"> </span>--nodes-filter<span class="w"> </span><span class="s1">'^node1$'</span>
 <a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>
-<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="c1"># Stage an upgrade and label the node so a controller can find it</span>
-<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-label<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="c1"># Stage an upgrade without rebooting (reboot manually later to complete it)</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage
 <a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>
-<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1"># Stage an upgrade and taint the node to discourage new pods from scheduling</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-taint<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span>true:PreferNoSchedule
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1"># Stage an upgrade and label the node so a controller can find it</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-label<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span><span class="nb">true</span>
 <a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>
-<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Stage an upgrade and annotate the node so a controller can find it</span>
-<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-annotation<span class="w"> </span>topf.postfinance.ch/staged-at<span class="o">=</span><span class="m">2026</span>-08-07
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Stage an upgrade and taint the node to discourage new pods from scheduling</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-taint<span class="w"> </span>topf.postfinance.ch/staged-upgrade<span class="o">=</span>true:PreferNoSchedule
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>
+<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a><span class="c1"># Stage an upgrade and annotate the node so a controller can find it</span>
+<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>topf<span class="w"> </span>upgrade<span class="w"> </span>--stage<span class="w"> </span>--stage-annotation<span class="w"> </span>topf.postfinance.ch/staged-at<span class="o">=</span><span class="m">2026</span>-08-07
 </code></pre></div>
 
 
