@@ -11,7 +11,7 @@ require (
 	github.com/siderolabs/image-factory v1.6.0
 	github.com/siderolabs/talos v1.14.1
 	github.com/siderolabs/talos/pkg/machinery v1.14.1
-	github.com/urfave/cli/v3 v3.11.0
+	github.com/urfave/cli/v3 v3.12.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.6.0.20260809190231-643e93b9c9be
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.0
