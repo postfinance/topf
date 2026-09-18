@@ -9,10 +9,28 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+
+	"github.com/mattn/go-isatty"
 )
 
-// ConfirmPrompt asks the user a y/n question
+var promptMu sync.Mutex //nolint:gochecknoglobals // guards stdin during interactive prompts
+
+var nonTTYWarned sync.Once //nolint:gochecknoglobals // warns once per process
+
+// ConfirmPrompt asks the user a y/n question.
 func ConfirmPrompt(prompt string) rune {
+	promptMu.Lock()
+	defer promptMu.Unlock()
+
+	if !isatty.IsTerminal(os.Stdin.Fd()) {
+		nonTTYWarned.Do(func() {
+			fmt.Fprintln(os.Stderr, "\nWARNING: stdin is not a terminal, declining confirmations automatically — pass --confirm=false to skip prompts")
+		})
+
+		return 'n'
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 
 	for {

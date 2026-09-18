@@ -111,15 +111,14 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
-	// Plan phase: determine which nodes require an upgrade. Interactive
-	// confirmations happen here, sequentially, before any concurrent work.
-	worklist, upgradeRequired, err := plan(t, logger, nodes, opts)
+	// Plan phase: determine which nodes require an upgrade.
+	worklist, err := plan(logger, nodes, opts)
 	if err != nil {
 		return err
 	}
 
 	if opts.DryRun {
-		if upgradeRequired {
+		if len(worklist) > 0 {
 			return topf.ErrDryRunChangesDetected
 		}
 
@@ -258,9 +257,8 @@ func preChecks(logger *slog.Logger, nodes []*topf.Node, opts Options) error {
 	return nil
 }
 
-// plan determines which nodes require an upgrade, performing interactive
-// confirmations sequentially before any concurrent work.
-func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (worklist []*topf.Node, upgradeRequired bool, err error) {
+// plan determines which nodes require an upgrade
+func plan(logger *slog.Logger, nodes []*topf.Node, opts Options) (worklist []*topf.Node, err error) {
 	for _, node := range nodes {
 		logger := logger.With(node.Attrs())
 
@@ -268,7 +266,7 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 
 		schematic, talosVersion, err := extractSchematicAndVersion(installerImage)
 		if err != nil {
-			return nil, false, fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
+			return nil, fmt.Errorf("couldn't extract schematic and version from installer image '%s': %w", installerImage, err)
 		}
 
 		nodeNeedsUpgrade := node.RunningVersion() != talosVersion || node.RunningSchematic() != schematic
@@ -284,32 +282,26 @@ func plan(t topf.Topf, logger *slog.Logger, nodes []*topf.Node, opts Options) (w
 			"version_desired", talosVersion,
 			"installer", installerImage)
 
-		upgradeRequired = true
-
 		if opts.Stage && !supportsLifecycleUpgrade(node.RunningVersion()) {
-			return nil, false, fmt.Errorf("node %s runs Talos %s: --stage requires Talos >= 1.13", node.Node.Host, node.RunningVersion())
-		}
-
-		if opts.DryRun {
-			continue
-		}
-
-		if t.Confirm() && !opts.Stage {
-			prompt := fmt.Sprintf("Do you want to upgrade node %s with installer %s? This will reboot the node.", node.Node.Host, installerImage)
-
-			if interactive.ConfirmPrompt(prompt) == 'n' {
-				logger.Info("skipping upgrade")
-				continue
-			}
+			return nil, fmt.Errorf("node %s runs Talos %s: --stage requires Talos >= 1.13", node.Node.Host, node.RunningVersion())
 		}
 
 		worklist = append(worklist, node)
 	}
 
-	return worklist, upgradeRequired, nil
+	return worklist, nil
 }
 
 func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+	if t.Confirm() {
+		prompt := fmt.Sprintf("Do you want to upgrade node %s with installer %s?", node.Node.Host, node.InstallerImageRef())
+
+		if interactive.ConfirmPrompt(prompt) == 'n' {
+			logger.Info("skipping upgrade")
+			return nil
+		}
+	}
+
 	if supportsLifecycleUpgrade(node.RunningVersion()) {
 		return upgradeNodeLifecycle(ctx, t, node, opts, logger)
 	}
