@@ -107,6 +107,10 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
+	if t.Confirm() && opts.MaxParallel.Resolve(len(nodes)) > 1 {
+		return errors.New("--max-parallel > 1 requires --confirm=false: interactive prompts cannot be answered during concurrent upgrades")
+	}
+
 	if err := preChecks(logger, nodes, opts); err != nil {
 		return err
 	}

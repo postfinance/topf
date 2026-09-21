@@ -52,6 +52,10 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return nil
 	}
 
+	if t.Confirm() && !opts.DryRun && opts.MaxParallel.Resolve(len(nodes)) > 1 {
+		return errors.New("--max-parallel > 1 requires --confirm=false: interactive prompts cannot be answered during concurrent applies")
+	}
+
 	// Pre-flight checks
 	filteredNodes, err := runPreflightChecks(logger, nodes, &opts)
 	if err != nil {
