@@ -9,7 +9,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.8.3
 	github.com/mattn/go-isatty v0.0.24
 	github.com/siderolabs/go-retry v0.3.3
-	github.com/siderolabs/image-factory v1.6.0
+	github.com/siderolabs/image-factory v1.7.0
 	github.com/siderolabs/talos v1.14.1
 	github.com/siderolabs/talos/pkg/machinery v1.14.1
 	github.com/urfave/cli/v3 v3.11.0
@@ -126,7 +126,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260709172345-9ea1abe57597 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
