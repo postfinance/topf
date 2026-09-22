@@ -352,10 +352,14 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	containerdInstance := systemContainerdInstance()
 
 	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, p); err != nil {
+		p.Fail("pulling installer image failed")
+
 		return fmt.Errorf("pulling installer image: %w", err)
 	}
 
 	if err := runUpgrade(ctx, nodeClient, containerdInstance, installerImage, p); err != nil {
+		p.Fail("upgrade failed")
+
 		return fmt.Errorf("upgrade: %w", err)
 	}
 
@@ -373,6 +377,8 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	if opts.Drain {
 		if err := drainNode(ctx, t, opts, k8sNodeName, p); err != nil {
+			p.Fail("draining node failed")
+
 			return err
 		}
 	}
@@ -380,6 +386,8 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	p.Running(fmt.Sprintf("rebooting node (mode %s)", opts.RebootMode.String()))
 
 	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil {
+		p.Fail("reboot failed")
+
 		return fmt.Errorf("reboot: %w", err)
 	}
 
@@ -390,6 +398,8 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 	p.Running("reboot initiated")
 
 	if err = node.Stabilize(ctx, p, opts.StabilizationDuration); err != nil {
+		p.Fail("node didn't stabilize")
+
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
@@ -406,6 +416,8 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 		}
 
 		if err := talosnodedrain.Uncordon(ctx, uncordonClientset, k8sNodeName, uncordonReport); err != nil {
+			p.Fail("uncordoning node failed")
+
 			return fmt.Errorf("uncordoning node: %w", err)
 		}
 
@@ -434,12 +446,16 @@ func upgradeNodeLegacy(ctx context.Context, node *topf.Node, opts Options, p pro
 		RebootMode: toLegacyRebootMode(opts.RebootMode),
 	})
 	if err != nil {
+		p.Fail("legacy upgrade failed")
+
 		return fmt.Errorf("legacy upgrade: %w", err)
 	}
 
 	p.Running("upgrade initiated")
 
 	if err = node.Stabilize(ctx, p, opts.StabilizationDuration); err != nil {
+		p.Fail("node didn't stabilize")
+
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 

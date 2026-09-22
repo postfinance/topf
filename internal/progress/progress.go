@@ -15,7 +15,7 @@ import (
 
 // Progress routes structural events to the embedded logger and transient
 // progress to the reporter. Without a colorized reporter, Running forwards
-// to debug and Done to info.
+// to debug, Done to info and Fail to error.
 type Progress struct {
 	*slog.Logger
 
@@ -48,6 +48,17 @@ func (p Progress) Done(msg string) {
 	}
 
 	p.reporter.Report(reporter.Update{Message: prefix(p.host, msg), Status: reporter.StatusSucceeded})
+}
+
+// Fail reports a failed phase. The error still propagates to the caller.
+func (p Progress) Fail(msg string) {
+	if p.reporter == nil || !p.reporter.IsColorized() {
+		p.Error("progress", "message", msg)
+
+		return
+	}
+
+	p.reporter.Report(reporter.Update{Message: prefix(p.host, msg), Status: reporter.StatusError})
 }
 
 func prefix(host, msg string) string {
