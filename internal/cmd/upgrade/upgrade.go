@@ -19,6 +19,7 @@ import (
 
 	"github.com/postfinance/topf/internal/interactive"
 	"github.com/postfinance/topf/internal/nodepool"
+	"github.com/postfinance/topf/internal/progress"
 	"github.com/postfinance/topf/internal/topf"
 	taloskubeclient "github.com/siderolabs/talos/cmd/talosctl/pkg/talos/kubeclient"
 	talosnodedrain "github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
@@ -92,6 +93,9 @@ type Options struct {
 	// MaxParallel controls how many worker nodes are upgraded concurrently.
 	// Control-plane nodes are always upgraded one at a time.
 	MaxParallel nodepool.MaxParallel
+
+	// ReporterMode controls per-node progress rendering (reporter vs slog).
+	ReporterMode reporter.OutputMode
 }
 
 // Execute performs the Talos OS upgrades for all nodes in the cluster
@@ -115,7 +119,6 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return err
 	}
 
-	// Plan phase: determine which nodes require an upgrade.
 	worklist, err := plan(logger, nodes, opts)
 	if err != nil {
 		return err
@@ -131,22 +134,22 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 	controlPlane, workers := nodepool.PartitionByRole(worklist)
 
-	// Control-plane nodes are upgraded strictly one at a time to preserve etcd
-	// quorum; this also satisfies "control-plane upgrades cannot be scheduled
-	// concurrently".
+	concurrency := opts.MaxParallel.Resolve(len(workers))
+	rep := progress.NewReporter(opts.ReporterMode, concurrency)
+
+	// control-plane nodes are upgraded one at a time to preserve etcd quorum
 	for _, node := range controlPlane {
-		if err := upgradeNode(ctx, t, node, opts, logger.With(node.Attrs())); err != nil {
+		if err := upgradeNode(ctx, t, node, opts, progress.New(logger.With(node.Attrs()), rep, node.Node.Host)); err != nil {
 			return err
 		}
 	}
 
 	if len(workers) > 0 {
-		concurrency := opts.MaxParallel.Resolve(len(nodes))
 		logger.Info("upgrading worker nodes", "count", len(workers), "concurrency", concurrency)
 
 		return nodepool.RunConcurrent(ctx, workers, concurrency,
 			func(ctx context.Context, node *topf.Node, logger *slog.Logger) error {
-				return upgradeNode(ctx, t, node, opts, logger)
+				return upgradeNode(ctx, t, node, opts, progress.New(logger, rep, node.Node.Host))
 			}, logger)
 	}
 
@@ -296,23 +299,23 @@ func plan(logger *slog.Logger, nodes []*topf.Node, opts Options) (worklist []*to
 	return worklist, nil
 }
 
-func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+func upgradeNode(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, p progress.Progress) error {
 	if t.Confirm() {
 		prompt := fmt.Sprintf("Do you want to upgrade node %s with installer %s?", node.Node.Host, node.InstallerImageRef())
 
 		if interactive.ConfirmPrompt(prompt) == 'n' {
-			logger.Info("skipping upgrade")
+			p.Info("skipping upgrade")
 			return nil
 		}
 	}
 
 	if supportsLifecycleUpgrade(node.RunningVersion()) {
-		return upgradeNodeLifecycle(ctx, t, node, opts, logger)
+		return upgradeNodeLifecycle(ctx, t, node, opts, p)
 	}
 
-	logger.Info("node running Talos < 1.13, using legacy upgrade RPC", "running_version", node.RunningVersion())
+	p.Info("node running Talos < 1.13, using legacy upgrade RPC", "running_version", node.RunningVersion())
 
-	return upgradeNodeLegacy(ctx, t, node, opts, logger)
+	return upgradeNodeLegacy(ctx, node, opts, p)
 }
 
 func supportsLifecycleUpgrade(runningVersion string) bool {
@@ -328,7 +331,7 @@ func supportsLifecycleUpgrade(runningVersion string) bool {
 	return v.GTE(semver.MustParse("1.13.0"))
 }
 
-func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opts Options, p progress.Progress) error {
 	installerImage := node.InstallerImageRef()
 
 	nodeClient, err := node.Client(ctx)
@@ -348,70 +351,72 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	containerdInstance := systemContainerdInstance()
 
-	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
+	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, p); err != nil {
 		return fmt.Errorf("pulling installer image: %w", err)
 	}
 
-	if err := runUpgrade(ctx, nodeClient, containerdInstance, installerImage, logger); err != nil {
+	if err := runUpgrade(ctx, nodeClient, containerdInstance, installerImage, p); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
 	}
 
 	if opts.Stage {
 		if hasStagePatch(opts.stagePatch) {
-			if err := applyStagePatch(ctx, t, k8sNodeName, opts.stagePatch, logger); err != nil {
+			if err := applyStagePatch(ctx, t, k8sNodeName, opts.stagePatch, p); err != nil {
 				return err
 			}
 		}
 
-		logger.Info("upgrade staged; node not rebooted — reboot manually to complete the upgrade", "k8s_node", k8sNodeName)
+		p.Done("upgrade staged; node not rebooted — reboot manually to complete the upgrade")
 
 		return nil
 	}
 
 	if opts.Drain {
-		if err := drainNode(ctx, t, opts, k8sNodeName, logger); err != nil {
+		if err := drainNode(ctx, t, opts, k8sNodeName, p); err != nil {
 			return err
 		}
 	}
 
-	logger.Info("upgrade artifacts installed, rebooting node", "reboot_mode", opts.RebootMode.String())
+	p.Running(fmt.Sprintf("rebooting node (mode %s)", opts.RebootMode.String()))
 
 	if err := nodeClient.Reboot(ctx, client.WithRebootMode(opts.RebootMode)); err != nil {
 		return fmt.Errorf("reboot: %w", err)
 	}
 
 	if cerr := nodeClient.Close(); cerr != nil {
-		logger.Debug("closing per-node client after reboot", "error", cerr)
+		p.Debug("closing per-node client after reboot", "error", cerr)
 	}
 
-	logger.Info("reboot initiated")
+	p.Running("reboot initiated")
 
-	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
+	if err = node.Stabilize(ctx, p, opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
+	p.Done("node stable")
+
 	if opts.Drain {
-		uncordonClientset, err := newK8sClientset(ctx, t, logger)
+		uncordonClientset, err := newK8sClientset(ctx, t, p)
 		if err != nil {
 			return fmt.Errorf("creating kubernetes client for uncordon: %w", err)
 		}
 
 		uncordonReport := func(u reporter.Update) {
-			logger.Info("uncordon", "k8s_node", k8sNodeName, "message", u.Message)
+			p.Running("uncordon: " + u.Message)
 		}
 
 		if err := talosnodedrain.Uncordon(ctx, uncordonClientset, k8sNodeName, uncordonReport); err != nil {
 			return fmt.Errorf("uncordoning node: %w", err)
 		}
 
-		logger.Info("kubernetes node uncordoned", "k8s_node", k8sNodeName)
+		p.Done("kubernetes node uncordoned")
 	}
 
 	return nil
 }
 
 //nolint:staticcheck // the non-deprecated replacement (LifecycleClient.Upgrade) requires Talos >= 1.13
-func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts Options, logger *slog.Logger) error {
+func upgradeNodeLegacy(ctx context.Context, node *topf.Node, opts Options, p progress.Progress) error {
 	installerImage := node.InstallerImageRef()
 
 	nodeClient, err := node.Client(ctx)
@@ -420,7 +425,7 @@ func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts O
 	}
 	defer nodeClient.Close()
 
-	logger.Info("issuing legacy upgrade", "installer", installerImage, "force", opts.Force)
+	p.Info("issuing legacy upgrade", "installer", installerImage, "force", opts.Force)
 
 	_, err = nodeClient.MachineClient.Upgrade(ctx, &machine.UpgradeRequest{
 		Image:      installerImage,
@@ -432,11 +437,13 @@ func upgradeNodeLegacy(ctx context.Context, _ topf.Topf, node *topf.Node, opts O
 		return fmt.Errorf("legacy upgrade: %w", err)
 	}
 
-	logger.Info("upgrade initiated")
+	p.Running("upgrade initiated")
 
-	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
+	if err = node.Stabilize(ctx, p, opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
+
+	p.Done("node stable")
 
 	return nil
 }
@@ -450,7 +457,7 @@ func toLegacyRebootMode(mode machine.RebootRequest_Mode) machine.UpgradeRequest_
 	}
 }
 
-func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kubernetes.Interface, error) {
+func newK8sClientset(ctx context.Context, t topf.Topf, p progress.Progress) (kubernetes.Interface, error) {
 	cpClient, err := t.ControlPlaneClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("creating control-plane client: %w", err)
@@ -459,7 +466,7 @@ func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kub
 	clientset, err := taloskubeclient.FromTalosClient(ctx, cpClient)
 
 	if cerr := cpClient.Close(); cerr != nil {
-		logger.Debug("closing control-plane client", "error", cerr)
+		p.Debug("closing control-plane client", "error", cerr)
 	}
 
 	if err != nil {
@@ -469,24 +476,24 @@ func newK8sClientset(ctx context.Context, t topf.Topf, logger *slog.Logger) (kub
 	return clientset, nil
 }
 
-func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName string, logger *slog.Logger) error {
-	clientset, err := newK8sClientset(ctx, t, logger)
+func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName string, p progress.Progress) error {
+	clientset, err := newK8sClientset(ctx, t, p)
 	if err != nil {
 		return fmt.Errorf("creating kubernetes client for drain: %w", err)
 	}
 
-	logger.Info("draining kubernetes node", "k8s_node", k8sNodeName)
+	p.Running("draining kubernetes node")
 
 	drainCtx, cancel := context.WithTimeout(ctx, opts.DrainTimeout)
 	defer cancel()
 
-	if err := cordonNode(drainCtx, clientset, k8sNodeName, logger); err != nil {
+	if err := cordonNode(drainCtx, clientset, k8sNodeName, p); err != nil {
 		return err
 	}
 
-	gracefulErr := drainPods(drainCtx, clientset, k8sNodeName, opts.DrainTimeout, false, logger)
+	gracefulErr := drainPods(drainCtx, clientset, k8sNodeName, opts.DrainTimeout, false, p)
 	if gracefulErr == nil {
-		logger.Info("kubernetes node drained", "k8s_node", k8sNodeName)
+		p.Done("kubernetes node drained")
 
 		return nil
 	}
@@ -495,19 +502,19 @@ func drainNode(ctx context.Context, t topf.Topf, opts Options, k8sNodeName strin
 		return fmt.Errorf("draining node: %w", gracefulErr)
 	}
 
-	logger.Warn("graceful drain failed, retrying with forced pod deletion", "k8s_node", k8sNodeName, "error", gracefulErr)
+	p.Warn("graceful drain failed, retrying with forced pod deletion", "k8s_node", k8sNodeName, "error", gracefulErr)
 
-	forcedErr := drainPods(ctx, clientset, k8sNodeName, opts.DrainTimeout, true, logger)
+	forcedErr := drainPods(ctx, clientset, k8sNodeName, opts.DrainTimeout, true, p)
 	if forcedErr != nil {
 		return fmt.Errorf("draining node: %w", errors.Join(gracefulErr, forcedErr))
 	}
 
-	logger.Info("kubernetes node drained (forced)", "k8s_node", k8sNodeName)
+	p.Done("kubernetes node drained (forced)")
 
 	return nil
 }
 
-func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName string, logger *slog.Logger) error {
+func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName string, p progress.Progress) error {
 	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("getting node %q: %w", nodeName, err)
@@ -520,18 +527,18 @@ func cordonNode(ctx context.Context, clientset kubernetes.Interface, nodeName st
 		ErrOut: io.Discard,
 	}
 
-	logger.Info("drain", "k8s_node", nodeName, "message", "cordoning node")
+	p.Running("cordoning kubernetes node")
 
 	if err := drain.RunCordonOrUncordon(drainer, node, true); err != nil {
 		return fmt.Errorf("cordoning node %q: %w", nodeName, err)
 	}
 
-	logger.Info("drain", "k8s_node", nodeName, "message", "node cordoned")
+	p.Running("kubernetes node cordoned")
 
 	return nil
 }
 
-func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, deleteIfEvictionFails bool, logger *slog.Logger) error {
+func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName string, timeout time.Duration, deleteIfEvictionFails bool, p progress.Progress) error {
 	drainCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -564,18 +571,18 @@ func drainPods(ctx context.Context, clientset kubernetes.Interface, nodeName str
 				verb = "evicting"
 			}
 
-			logger.Info("drain", "k8s_node", nodeName, "message", fmt.Sprintf("%s pod %s/%s", verb, pod.Namespace, pod.Name))
+			p.Running(fmt.Sprintf("%s pod %s/%s", verb, pod.Namespace, pod.Name))
 		},
 		OnPodDeletionOrEvictionFinished: func(pod *corev1.Pod, _ bool, err error) {
 			announced.Delete(pod.Namespace + "/" + pod.Name)
 
 			if err != nil {
-				logger.Warn("drain", "k8s_node", nodeName, "message", fmt.Sprintf("failed to %s pod %s/%s: %v", action, pod.Namespace, pod.Name, err))
+				p.Warn("drain", "k8s_node", nodeName, "message", fmt.Sprintf("failed to %s pod %s/%s: %v", action, pod.Namespace, pod.Name, err))
 
 				return
 			}
 
-			logger.Info("drain", "k8s_node", nodeName, "message", fmt.Sprintf("%s pod %s/%s", action, pod.Namespace, pod.Name))
+			p.Running(fmt.Sprintf("%s pod %s/%s", action, pod.Namespace, pod.Name))
 		},
 	}
 
@@ -590,8 +597,8 @@ func hasStagePatch(p corev1.Node) bool {
 	return len(p.Labels) > 0 || len(p.Annotations) > 0 || len(p.Spec.Taints) > 0
 }
 
-func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch corev1.Node, logger *slog.Logger) error {
-	clientset, err := newK8sClientset(ctx, t, logger)
+func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch corev1.Node, p progress.Progress) error {
+	clientset, err := newK8sClientset(ctx, t, p)
 	if err != nil {
 		return fmt.Errorf("creating kubernetes client for staging: %w", err)
 	}
@@ -601,7 +608,7 @@ func applyStagePatch(ctx context.Context, t topf.Topf, nodeName string, patch co
 		return fmt.Errorf("marshaling node patch: %w", err)
 	}
 
-	logger.Info("staging: applying node patch", "k8s_node", nodeName)
+	p.Running("applying node patch")
 
 	if _, err := clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("patching node %q: %w", nodeName, err)
@@ -617,7 +624,7 @@ func systemContainerdInstance() *common.ContainerdInstance {
 	}
 }
 
-func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
+func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, p progress.Progress) error {
 	stream, err := c.ImageClient.Pull(ctx, &machine.ImageServicePullRequest{
 		Containerd: containerdInstance,
 		ImageRef:   imageRef,
@@ -638,18 +645,21 @@ func pullInstallerImage(ctx context.Context, c *client.Client, containerdInstanc
 
 		switch payload := resp.GetResponse().(type) {
 		case *machine.ImageServicePullResponse_PullProgress:
-			logger.Debug("image pull progress",
-				"layer", payload.PullProgress.GetLayerId(),
-				"progress", payload.PullProgress.GetProgress())
+			msg := payload.PullProgress.GetProgress().Fmt()
+			if msg == "" {
+				continue
+			}
+
+			p.Running(fmt.Sprintf("layer %s: %s", payload.PullProgress.GetLayerId(), msg))
 		case *machine.ImageServicePullResponse_Name:
-			logger.Info("installer image pulled", "image", payload.Name)
+			p.Done("pulled installer image " + payload.Name)
 
 			return nil
 		}
 	}
 }
 
-func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, logger *slog.Logger) error {
+func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *common.ContainerdInstance, imageRef string, p progress.Progress) error {
 	stream, err := c.LifecycleClient.Upgrade(ctx, &machine.LifecycleServiceUpgradeRequest{
 		Containerd: containerdInstance,
 		Source: &machine.InstallArtifactsSource{
@@ -675,15 +685,15 @@ func runUpgrade(ctx context.Context, c *client.Client, containerdInstance *commo
 			continue
 		}
 
-		switch p := progress.GetResponse().(type) {
+		switch update := progress.GetResponse().(type) {
 		case *machine.LifecycleServiceInstallProgress_Message:
-			logger.Debug("upgrade progress", "message", p.Message)
+			p.Running(update.Message)
 		case *machine.LifecycleServiceInstallProgress_ExitCode:
-			if p.ExitCode != 0 {
-				return fmt.Errorf("upgrade failed with exit code %d", p.ExitCode)
+			if update.ExitCode != 0 {
+				return fmt.Errorf("upgrade failed with exit code %d", update.ExitCode)
 			}
 
-			logger.Info("upgrade artifacts installed", "exit_code", p.ExitCode)
+			p.Done("upgrade artifacts installed")
 
 			return nil
 		}

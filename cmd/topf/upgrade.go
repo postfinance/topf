@@ -18,6 +18,7 @@ import (
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
+	"github.com/siderolabs/talos/pkg/reporter"
 	"github.com/urfave/cli/v3"
 )
 
@@ -103,6 +104,12 @@ func newUpgradeCmd() *cli.Command {
 				Usage:   "Kubernetes node taint to apply after staging an upgrade (key[=value]:Effect); can be repeated; requires --stage",
 				Sources: cli.EnvVars("TOPF_STAGE_TAINT"),
 			},
+			&cli.StringFlag{
+				Name:    "progress",
+				Value:   "AUTO",
+				Usage:   "render per-node progress with the talos console reporter: \"AUTO\" enables it when stderr is a terminal and upgrades run sequentially, \"PLAIN\" always uses slog",
+				Sources: cli.EnvVars("TOPF_PROGRESS"),
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -114,6 +121,11 @@ func newUpgradeCmd() *cli.Command {
 			}
 
 			maxParallel, err := nodepool.ParseMaxParallel(c.String("max-parallel"))
+			if err != nil {
+				return err
+			}
+
+			reporterMode, err := parseProgressMode(c.String("progress"))
 			if err != nil {
 				return err
 			}
@@ -132,6 +144,7 @@ func newUpgradeCmd() *cli.Command {
 				StageAnnotations:      c.StringSlice("stage-annotation"),
 				StageTaints:           c.StringSlice("stage-taint"),
 				MaxParallel:           maxParallel,
+				ReporterMode:          reporterMode,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
 				return cli.Exit(err.Error(), 2)
@@ -167,4 +180,15 @@ func parseRebootMode(mode string) (machine.RebootRequest_Mode, error) {
 	}
 
 	return val, nil
+}
+
+func parseProgressMode(mode string) (reporter.OutputMode, error) {
+	switch strings.ToUpper(mode) {
+	case "AUTO":
+		return reporter.OutputModeAuto, nil
+	case "PLAIN":
+		return reporter.OutputModePlain, nil
+	default:
+		return 0, fmt.Errorf("invalid progress mode %q, valid values: AUTO, PLAIN", mode)
+	}
 }

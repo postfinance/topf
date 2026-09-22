@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cosi-project/runtime/pkg/safe"
+	"github.com/postfinance/topf/internal/progress"
 	"github.com/siderolabs/go-retry/retry"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/client"
@@ -17,7 +18,7 @@ import (
 )
 
 // Stabilize waits for the talos machine to be stable (running and ready) for a given duration
-func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilizationDuration time.Duration) error { //nolint:gocognit // TODO: refactor
+func (n *Node) Stabilize(ctx context.Context, p progress.Progress, stabilizationDuration time.Duration) error { //nolint:gocognit // TODO: refactor
 	// machine status covers apid, machined, kubelet, etcd, trustd, time, network, service, staticPods, nodeReady
 	waitForMachineReady := func(ctx context.Context) error {
 		// immediately start watching for machine status events such that we don't miss those between
@@ -56,7 +57,7 @@ func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilization
 		// we're healthy but we wait for another 30 seconds, to see if nothing bad happens
 		stabilizationDeadline := time.After(stabilizationDuration)
 
-		logger.Info("machine ready, waiting for stabilization...", "duration", stabilizationDuration)
+		p.Running("machine ready, waiting for stabilization...")
 
 		for {
 			select {
@@ -85,13 +86,13 @@ func (n *Node) Stabilize(ctx context.Context, logger *slog.Logger, stabilization
 					}
 				default:
 					// just for debugging we show unrelated events
-					logger.Debug("event", "type", e.Event.TypeURL, "payload", e.Event.Payload)
+					p.Debug("event", "type", e.Event.TypeURL, "payload", e.Event.Payload)
 				}
 			}
 		}
 	}
 
-	return retry.Constant(time.Minute*15, retry.WithErrorLogging(logger.Enabled(ctx, slog.LevelDebug))).RetryWithContext(ctx, waitForMachineReady)
+	return retry.Constant(time.Minute*15, retry.WithErrorLogging(p.Enabled(ctx, slog.LevelDebug))).RetryWithContext(ctx, waitForMachineReady)
 }
 
 // WaitForMaintenance waits for the talos machine to reach maintenance mode

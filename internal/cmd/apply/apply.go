@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/postfinance/topf/internal/nodepool"
+	"github.com/postfinance/topf/internal/progress"
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
@@ -202,7 +203,7 @@ func applyNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.
 		return nil
 	}
 
-	if err = node.Stabilize(ctx, logger, opts.StabilizationDuration); err != nil {
+	if err = node.Stabilize(ctx, progress.New(logger, nil, node.Node.Host), opts.StabilizationDuration); err != nil {
 		return fmt.Errorf("node didn't stabilize: %w", err)
 	}
 
