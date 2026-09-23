@@ -9,9 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/mattn/go-isatty"
 
 	"github.com/postfinance/topf/internal/cmd/apply"
 	"github.com/postfinance/topf/internal/nodepool"
@@ -19,6 +22,8 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/urfave/cli/v3"
 )
+
+const coloredAuto = "auto"
 
 func newApplyCmd() *cli.Command {
 	return &cli.Command{
@@ -74,6 +79,12 @@ func newApplyCmd() *cli.Command {
 				Usage:   "number of worker nodes to apply to concurrently, as an integer (e.g. \"5\") or a percentage of the total node count (e.g. \"25%\"); control-plane nodes are always applied to one at a time",
 				Sources: cli.EnvVars("TOPF_MAX_PARALLEL"),
 			},
+			&cli.StringFlag{
+				Name:    "colored",
+				Value:   coloredAuto,
+				Usage:   "colorize the reported diff: auto (color when stdout is a terminal, honoring NO_COLOR), always, never",
+				Sources: cli.EnvVars("TOPF_COLORED"),
+			},
 		},
 		Before: noPositionalArgs,
 		Action: func(ctx context.Context, c *cli.Command) error {
@@ -89,6 +100,11 @@ func newApplyCmd() *cli.Command {
 				return err
 			}
 
+			colored, err := parseColored(c.String("colored"))
+			if err != nil {
+				return err
+			}
+
 			err = apply.Execute(ctx, t, apply.Options{
 				DryRun:                c.Bool("dry-run"),
 				AutoBootstrap:         c.Bool("auto-bootstrap"),
@@ -97,6 +113,7 @@ func newApplyCmd() *cli.Command {
 				StabilizationDuration: c.Duration("stabilization-duration"),
 				AllowNotReady:         c.Bool("allow-not-ready"),
 				Mode:                  mode,
+				Colored:               colored,
 				MaxParallel:           maxParallel,
 			})
 			if errors.Is(err, topf.ErrDryRunChangesDetected) {
@@ -136,4 +153,17 @@ func parseApplyMode(mode string) (machine.ApplyConfigurationRequest_Mode, error)
 	}
 
 	return val, nil
+}
+
+func parseColored(colored string) (bool, error) {
+	switch colored {
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	case coloredAuto, "":
+		return isatty.IsTerminal(os.Stdout.Fd()) && os.Getenv("NO_COLOR") == "", nil
+	default:
+		return false, fmt.Errorf("invalid colored value %q, valid values: auto, always, never", colored)
+	}
 }

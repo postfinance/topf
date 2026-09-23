@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/postfinance/topf/internal/diffcolor"
 	"github.com/postfinance/topf/internal/interactive"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/config/encoder"
@@ -21,7 +22,7 @@ var ErrDryRunChangesDetected = errors.New("dry-run: changes detected")
 
 // Apply applies the configuration bundle to the node.
 // If dryRun is true, only shows what changes would be applied without actually applying them.
-func (n *Node) Apply(ctx context.Context, logger *slog.Logger, dryRun bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
+func (n *Node) Apply(ctx context.Context, logger *slog.Logger, dryRun bool, colored bool, mode machine.ApplyConfigurationRequest_Mode) (bool, error) {
 	logger = logger.With(n.Attrs())
 
 	if n.ConfigBundle == nil {
@@ -65,14 +66,14 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, dryRun bool, mode
 
 	// in dry-run mode, print the changes and signal that changes were detected
 	if dryRun {
-		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
+		n.printDiff(applyResponse.GetModeDetails(), colored)
 
 		return false, ErrDryRunChangesDetected
 	}
 
 	// ask for user confirmation
 	if n.t.Confirm() {
-		fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(applyResponse.GetModeDetails(), "\n", "\n     "))
+		n.printDiff(applyResponse.GetModeDetails(), colored)
 
 		if interactive.ConfirmPrompt(fmt.Sprintf("Do you want to apply the above changes to %s (Mode: %s)?", n.Node.Host, applyResponse.GetMode().String())) == 'n' {
 			logger.Info("skipping")
@@ -94,4 +95,12 @@ func (n *Node) Apply(ctx context.Context, logger *slog.Logger, dryRun bool, mode
 	logger.Info("applied machine config", "mode", applyResponse.GetMode())
 
 	return true, nil
+}
+
+func (n *Node) printDiff(diff string, colored bool) {
+	if colored {
+		diff = diffcolor.Colorize(diff)
+	}
+
+	fmt.Fprintln(n.t.Writer(), "     "+strings.ReplaceAll(diff, "\n", "\n     "))
 }

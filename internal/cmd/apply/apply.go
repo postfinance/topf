@@ -36,6 +36,8 @@ type Options struct {
 	StabilizationDuration time.Duration
 	// Apply mode passed to Talos (auto, reboot, no-reboot, staged, try)
 	Mode machine.ApplyConfigurationRequest_Mode
+	// Colorize the reported diff
+	Colored bool
 	// MaxParallel controls how many worker nodes are applied to concurrently.
 	// Control-plane nodes are always applied to one at a time.
 	MaxParallel nodepool.MaxParallel
@@ -189,7 +191,7 @@ func applyDryRun(ctx context.Context, logger *slog.Logger, nodes []*topf.Node, o
 // the node's attributes. In dry-run mode it returns ErrDryRunChangesDetected
 // when changes are detected.
 func applyNode(ctx context.Context, node *topf.Node, opts Options, logger *slog.Logger) error {
-	applied, err := node.Apply(ctx, logger, opts.DryRun, opts.Mode)
+	applied, err := node.Apply(ctx, logger, opts.DryRun, opts.Colored, opts.Mode)
 	if errors.Is(err, topf.ErrDryRunChangesDetected) {
 		return err
 	}
