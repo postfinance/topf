@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - main
-      - feat/e2e # TODO: remove once the workflow has run successfully once
+  # opt-in per PR: apply the "e2e" label to a PR to run this workflow on it
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -13,10 +15,16 @@ permissions:
 jobs:
   e2e:
     name: e2e (3 control-plane, upgrade)
+    # only run for PRs that carry the "e2e" label (push/dispatch events pass through)
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e') }}
+    # one e2e cluster at a time per ref: re-adding the label cancels the superseded run
+    concurrency:
+      group: e2e-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref }}
+      cancel-in-progress: true
     # pinned to match the talosctl-cluster-action's tested runners; needs
     # nested KVM for the qemu provider
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
