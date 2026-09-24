@@ -1,0 +1,16 @@
+---
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+    diskSelector:
+        match: disk.dev_path == "/dev/vda"
+    wipe: false
+---
+apiVersion: v1alpha1
+kind: TimeSyncConfig
+enabled: false
+---
+apiVersion: v1alpha1
+kind: DiscoveryServiceConfig
+name: default
+$patch: delete

@@ -1,0 +1,18 @@
+apiVersion: v1alpha1
+kind: TalosCluster
+metadata:
+  name: topf-e2e # short name: appears twice in the QEMU monitor socket path (107 char limit)
+spec:
+  controlplanes:
+    count: 3
+  workers:
+    count: 0
+  network:
+    cidr: 10.5.0.0/24
+  qemu:
+    # Boot an older patch than topf's go.mod dependency so `topf upgrade`
+    # has real work to do. Only bump on Talos minor changes.
+    talos-version: v1.14.0
+    # Maintenance preset: boot unconfigured Talos nodes and let topf drive
+    # its real install/bootstrap flow, the same way a user would on bare metal.
+    presets: [iso, maintenance]

@@ -1,0 +1,146 @@
+name: e2e
+
+on:
+  push:
+    branches:
+      - main
+      - feat/e2e # TODO: remove once the workflow has run successfully once
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e (3 control-plane, upgrade)
+    # pinned to match the talosctl-cluster-action's tested runners; needs
+    # nested KVM for the qemu provider
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      # talosctl-cluster-action requires talosctl v1.14+; pin to the same
+      # version as the talos dependency in go.mod so it tracks bumps.
+      - name: Install talosctl
+        run: |
+          TALOSCTL_VERSION="v$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"
+          echo "Installing talosctl ${TALOSCTL_VERSION}"
+          curl -fsSLo talosctl "https://github.com/siderolabs/talos/releases/download/${TALOSCTL_VERSION}/talosctl-linux-amd64"
+          chmod +x talosctl
+          sudo mv talosctl /usr/local/bin/
+          talosctl version --client
+
+      - name: Install QEMU and envsubst
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf gettext-base
+
+      # The nodes are QEMU VMs, so their RAM is host memory: under an upgrade's
+      # transient spike the kernel pages a QEMU process out to swap instead of
+      # OOM-killing it (which would read as a flaky test). See
+      # https://github.com/home-operations/talosctl-cluster-action#runner-setup
+      - name: Enable swap
+        run: |
+          sudo fallocate -l 8G /mnt/e2e-swapfile
+          sudo chmod 600 /mnt/e2e-swapfile
+          sudo mkswap /mnt/e2e-swapfile
+          sudo swapon /mnt/e2e-swapfile
+
+      # Boots 3 control-plane VMs at v1.14.0 in maintenance mode (no config
+      # applied); topf drives the real install/bootstrap flow from there.
+      - uses: home-operations/talosctl-cluster-action@fb6a31bf5de43218acc80d2e23958a16eee7380c # v0.2.2
+        id: cluster
+        with:
+          config: test/e2e/cluster.yaml
+          cache: true
+
+      - name: Build topf
+        run: |
+          go build -ldflags "-X main.version=dev" -o bin/topf ./cmd/topf
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+
+      - name: Set up topf config
+        env:
+          CP_IPS: ${{ steps.cluster.outputs.controlplane-ips }}
+        run: |
+          # the version the VMs booted from (and topf apply installs);
+          # must match spec.qemu.talos-version in test/e2e/cluster.yaml
+          BOOT_VERSION="$(grep -oP 'talos-version: \Kv\S+' test/e2e/cluster.yaml)"
+          echo "Installing Talos ${BOOT_VERSION} on apply"
+
+          IFS=',' read -r CP1_IP CP2_IP CP3_IP <<< "$CP_IPS"
+          for ip in "$CP1_IP" "$CP2_IP" "$CP3_IP"; do
+            [ -n "$ip" ] || { echo "expected 3 control-plane IPs, got: $CP_IPS"; exit 1; }
+          done
+
+          export BOOT_VERSION CP1_IP CP2_IP CP3_IP
+          mkdir -p test/e2e/work
+          cp -r test/e2e/patches test/e2e/work/patches
+          envsubst < test/e2e/topf.yaml.tpl > test/e2e/work/topf.yaml
+
+      - name: topf apply
+        working-directory: test/e2e/work
+        env:
+          # non-interactive CI: topf auto-generates secrets.yaml when missing
+          TOPF_CONFIRM: "false"
+        run: |
+          topf apply --auto-bootstrap --allow-not-ready
+
+      # apply triggers a reboot; wait until etcd/kubelet are up and every
+      # node reports ready before upgrading
+      - name: Wait for nodes ready
+        working-directory: test/e2e/work
+        env:
+          TOPF_CONFIRM: "false"
+        run: |
+          for i in $(seq 1 30); do
+            topf nodes -o yaml > nodes.yaml
+
+            READY="$(grep -c 'ready: true' nodes.yaml || true)"
+            echo "attempt ${i}/30: ${READY}/3 nodes ready"
+
+            [ "$READY" -eq 3 ] && exit 0
+            sleep 10
+          done
+
+          echo "::error::nodes did not become ready within 5 minutes"
+          cat nodes.yaml
+          exit 1
+
+      # bump talosVersion in the config so `topf upgrade` targets the go.mod
+      # version: apply installed the boot version, upgrade rolls to the latest
+      - name: Bump talosVersion to go.mod version
+        run: |
+          TARGET="$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"
+          echo "Upgrading to Talos v${TARGET}"
+          sed -i "s/^talosVersion: .*/talosVersion: ${TARGET}/" test/e2e/work/topf.yaml
+          grep '^talosVersion:' test/e2e/work/topf.yaml
+
+      - name: topf upgrade
+        working-directory: test/e2e/work
+        env:
+          TOPF_CONFIRM: "false"
+        run: |
+          topf upgrade
+
+      - name: Verify upgrade
+        working-directory: test/e2e/work
+        run: |
+          TARGET="$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"
+          echo "Verifying all nodes run Talos v${TARGET}"
+
+          topf nodes -o yaml > nodes.yaml
+          cat nodes.yaml
+
+          RUNNING="$(grep -c 'talosversion: '"${TARGET}"'$' nodes.yaml || true)"
+          if [ "$RUNNING" -ne 3 ]; then
+            echo "expected 3 nodes on v${TARGET}, found ${RUNNING}"
+            exit 1
+          fi
