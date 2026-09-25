@@ -351,6 +351,8 @@ func upgradeNodeLifecycle(ctx context.Context, t topf.Topf, node *topf.Node, opt
 
 	containerdInstance := systemContainerdInstance()
 
+	p.Running("beginning to pull the installer image")
+
 	if err := pullInstallerImage(ctx, nodeClient, containerdInstance, installerImage, p); err != nil {
 		p.Fail("pulling installer image failed")
 
