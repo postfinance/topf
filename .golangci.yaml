@@ -213,6 +213,9 @@ linters:
     - third_party$
     - builtin$
     - examples$
+    # integration test package: all code lives in _test.go files, which are
+    # invisible to the linter with run.tests=false
+    - ^internal/integration
 
 issues:
   max-same-issues: 0

@@ -5,8 +5,9 @@ on:
     branches:
       - main
   # opt-in per PR: apply the "e2e" label to a PR to run this workflow on it
+  # (synchronize keeps it running for subsequent pushes while labeled)
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
   workflow_dispatch:
 
 permissions:
@@ -93,143 +94,14 @@ jobs:
           cp -r test/e2e/patches test/e2e/work/patches
           envsubst < test/e2e/topf.yaml.tpl > test/e2e/work/topf.yaml
 
-      - name: topf apply
-        working-directory: test/e2e/work
-        env:
-          # non-interactive CI: topf auto-generates secrets.yaml when missing
-          TOPF_CONFIRM: "false"
+      # the integration suite covers the whole lifecycle in-process: dry-run
+      # on unconfigured nodes, apply + bootstrap, dry-run convergence, a label
+      # patch reconciled to the Kubernetes nodes, and the rolling upgrade to
+      # the go.mod Talos version. The config path must be absolute: the test
+      # binary runs with CWD set to the package dir.
+      - name: Run integration tests
+        timeout-minutes: 15
         run: |
-          topf apply --auto-bootstrap --allow-not-ready
-
-      # apply triggers a reboot; wait until etcd/kubelet are up and every
-      # node reports ready before upgrading
-      - name: Wait for nodes ready
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-        run: |
-          for i in $(seq 1 30); do
-            topf nodes -o yaml > nodes.yaml
-
-            READY="$(grep -c 'ready: true' nodes.yaml || true)"
-            echo "attempt ${i}/30: ${READY}/3 nodes ready"
-
-            [ "$READY" -eq 3 ] && exit 0
-            sleep 10
-          done
-
-          echo "::error::nodes did not become ready within 5 minutes"
-          cat nodes.yaml
-          exit 1
-
-      # a KubeNodeConfig label makes the pending change explicit (independent
-      # of installer-image semantics), so dry-run must report changes
-      - name: Add node label patch
-        run: |
-          cat > test/e2e/work/patches/all/01-e2e-label.yaml << 'EOF'
-          ---
-          apiVersion: v1alpha1
-          kind: KubeNodeConfig
-          labels:
-              topf.e2e: works
-          EOF
-          cat test/e2e/work/patches/all/01-e2e-label.yaml
-
-      # the label patch changed the desired config, so a dry-run must report
-      # pending changes and exit 2
-      - name: dry-run detects pending changes
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-        run: |
-          set +e
-          topf apply --dry-run
-          RC=$?
-          set -e
-
-          if [ "$RC" -ne 2 ]; then
-            echo "::error::expected --dry-run to exit 2 (changes detected), got ${RC}"
-            exit 1
-          fi
-          echo "dry-run correctly detected pending changes (exit 2)"
-
-      - name: topf apply (reconcile)
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-          TOPF_STABILIZATION_DURATION: "5s"
-        run: |
-          topf apply
-
-      # the config is now fully applied, so a dry-run must report no changes
-      # and exit 0
-      - name: dry-run reports no changes
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-        run: |
-          set +e
-          topf apply --dry-run
-          RC=$?
-          set -e
-
-          if [ "$RC" -ne 0 ]; then
-            echo "::error::expected --dry-run to exit 0 (no changes), got ${RC}"
-            exit 1
-          fi
-          echo "dry-run correctly reported no pending changes (exit 0)"
-
-      # bump talosVersion in the config so `topf upgrade` targets the go.mod
-      # version: apply installed the boot version, upgrade rolls to the latest
-      - name: Bump talosVersion to go.mod version
-        run: |
-          TARGET="$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"
-          echo "Upgrading to Talos v${TARGET}"
-          sed -i "s/^talosVersion: .*/talosVersion: ${TARGET}/" test/e2e/work/topf.yaml
-          grep '^talosVersion:' test/e2e/work/topf.yaml
-
-      # verify the label reached the Kubernetes Node object (the kubelet
-      # syncs it after the apply; kubectl is preinstalled on the runner)
-      - name: Verify node label applied
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-        run: |
-          topf kubeconfig > kubeconfig
-          chmod 600 kubeconfig
-
-          for i in $(seq 1 12); do
-            LABELED="$(kubectl --kubeconfig kubeconfig get nodes \
-              -o jsonpath='{range .items[*]}{.metadata.labels.topf\.e2e}{"\n"}{end}' \
-              | grep -c '^works$' || true)"
-            echo "attempt ${i}/12: ${LABELED}/3 nodes labeled"
-
-            [ "$LABELED" -eq 3 ] && exit 0
-            sleep 10
-          done
-
-          echo "::error::label topf.e2e=works did not reach all nodes within 2 minutes"
-          kubectl --kubeconfig kubeconfig get nodes --show-labels
-          exit 1
-
-      - name: topf upgrade
-        working-directory: test/e2e/work
-        env:
-          TOPF_CONFIRM: "false"
-        run: |
-          topf upgrade
-
-      - name: Verify upgrade
-        working-directory: test/e2e/work
-        run: |
-          TARGET="$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"
-          echo "Verifying all nodes run Talos v${TARGET}"
-
-          topf nodes -o yaml > nodes.yaml
-          cat nodes.yaml
-
-          RUNNING="$(grep -c 'talosversion: '"${TARGET}"'$' nodes.yaml || true)"
-          if [ "$RUNNING" -ne 3 ]; then
-            echo "expected 3 nodes on v${TARGET}, found ${RUNNING}"
-            exit 1
-          fi
+          go test -tags integration -v -timeout 15m ./internal/integration \
+            --topf.config="$PWD/test/e2e/work/topf.yaml" \
+            --expected.talos.version="$(go list -m -f '{{.Version}}' github.com/siderolabs/talos | sed 's/^v//')"

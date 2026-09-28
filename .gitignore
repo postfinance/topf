@@ -12,3 +12,5 @@ CHANGES.md
 venv/mkdocs
 site/
 output/
+# local e2e working directory (rendered config, secrets, mutated patches)
+test/e2e/work/

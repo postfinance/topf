@@ -31,6 +31,91 @@ tasks:
     cmds:
       - go test -v -race ./...
 
+  e2e:cluster:
+    desc: Create a local QEMU Talos cluster in maintenance mode for e2e tests
+    preconditions:
+      - sh: test -e /dev/kvm
+        msg: "/dev/kvm not found: KVM support is required"
+      - sh: command -v talosctl >/dev/null
+        msg: "talosctl not found in PATH"
+      - sh: command -v qemu-system-x86_64 >/dev/null
+        msg: "qemu-system-x86_64 not found in PATH"
+    vars:
+      NAME: topf-e2e
+      CIDR: 10.5.0.0/24
+      SCHEMATIC: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
+      # must match spec.qemu.talos-version in test/e2e/cluster.yaml
+      BOOT_VERSION:
+        sh: "grep -oP 'talos-version: \\Kv\\S+' test/e2e/cluster.yaml"
+      # sudo's secure_path may not include talosctl (e.g. mise shims)
+      TALOSCTL:
+        sh: command -v talosctl
+      CP1_IP: 10.5.0.2
+      CP2_IP: 10.5.0.3
+      CP3_IP: 10.5.0.4
+    cmds:
+      # a leftover cluster on the same CIDR would corrupt the new one
+      - sudo -E {{.TALOSCTL}} cluster destroy --name {{.NAME}} 2>/dev/null || true
+      - sudo -E {{.TALOSCTL}} cluster create dev
+        --name {{.NAME}}
+        --controlplanes 3
+        --workers 0
+        --cidr {{.CIDR}}
+        --talos-version {{.BOOT_VERSION}}
+        --iso-path https://factory.talos.dev/image/{{.SCHEMATIC}}/{{.BOOT_VERSION}}/metal-amd64.iso
+        --install-image factory.talos.dev/metal-installer/{{.SCHEMATIC}}:{{.BOOT_VERSION}}
+        --skip-injecting-config
+        --wait=false
+        --disk-preallocate=false
+        --with-cluster-discovery=false
+      - mkdir -p test/e2e/work
+      - rm -rf test/e2e/work/patches && cp -r test/e2e/patches test/e2e/work/patches
+      - |
+        export NAME="{{.NAME}}" BOOT_VERSION="{{.BOOT_VERSION}}" \
+          CP1_IP={{.CP1_IP}} CP2_IP={{.CP2_IP}} CP3_IP={{.CP3_IP}}
+        envsubst < test/e2e/topf.yaml.tpl > test/e2e/work/topf.yaml
+        echo "Rendered test/e2e/work/topf.yaml:"
+        cat test/e2e/work/topf.yaml
+      # wait until all nodes answer on the maintenance API port (/dev/tcp needs bash)
+      - |
+        for ip in {{.CP1_IP}} {{.CP2_IP}} {{.CP3_IP}}; do
+          for i in $(seq 1 60); do
+            if timeout 3 bash -c "echo > /dev/tcp/$ip/50000" 2>/dev/null; then
+              echo "node $ip is up"
+              continue 2
+            fi
+            [ $((i % 6)) -eq 0 ] && echo "... still waiting for $ip ($((i * 10))s)"
+            sleep 10
+          done
+          echo "node $ip did not come up within 10 minutes"; exit 1
+        done
+        echo "All nodes are up in maintenance mode. Run 'task e2e' next."
+
+  e2e:
+    desc: Run the e2e integration suite (requires 'task e2e:cluster' first)
+    sources:
+      - internal/integration/**/*.go
+      - test/e2e/work/topf.yaml
+    cmds:
+      # awk instead of go list -f (template syntax collides with Task's
+      # interpolation); absolute config path since the test binary's CWD
+      # is the package dir
+      - |
+        TALOS_VERSION="$(go list -m github.com/siderolabs/talos | awk '{print $2}' | sed 's/^v//')"
+        echo "Expected Talos version: ${TALOS_VERSION}"
+        go test -tags integration -v -timeout 15m ./internal/integration \
+          --topf.config="$PWD/test/e2e/work/topf.yaml" \
+          --expected.talos.version="$TALOS_VERSION"
+
+  e2e:destroy:
+    desc: Destroy the local e2e cluster
+    vars:
+      NAME: topf-e2e
+      TALOSCTL:
+        sh: command -v talosctl
+    cmds:
+      - sudo -E {{.TALOSCTL}} cluster destroy --name {{.NAME}}
+
   lint:
     desc: Run linter
     cmds:
