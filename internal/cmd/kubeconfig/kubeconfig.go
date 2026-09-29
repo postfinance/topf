@@ -81,7 +81,9 @@ func generateClientCertificate(secretsBundle *secrets.Bundle, validity time.Dura
 			CommonName:   "topf",
 			Organization: []string{"system:masters"},
 		},
-		NotBefore:             time.Now(),
+		// skew into the past so the cert is valid even with some time
+		// drift between the talos node and the machine running topf
+		NotBefore:             time.Now().Add(-time.Minute),
 		NotAfter:              time.Now().Add(validity),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},

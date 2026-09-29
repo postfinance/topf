@@ -4,10 +4,15 @@ on:
   push:
     branches:
       - main
-  # opt-in per PR: apply the "e2e" label to a PR to run this workflow on it
-  # (synchronize keeps it running for subsequent pushes while labeled)
   pull_request:
-    types: [labeled, synchronize]
+    paths:
+      - .github/workflows/e2e.yml
+      - cmd/**
+      - internal/**
+      - pkg/**
+      - test/e2e/**
+      - go.mod
+      - go.sum
   workflow_dispatch:
 
 permissions:
@@ -16,11 +21,9 @@ permissions:
 jobs:
   e2e:
     name: e2e (3 control-plane, upgrade)
-    # only run for PRs that carry the "e2e" label (push/dispatch events pass through)
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e') }}
-    # one e2e cluster at a time per ref: re-adding the label cancels the superseded run
+    # one e2e cluster at a time per ref: a superseded run is canceled
     concurrency:
-      group: e2e-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref }}
+      group: e2e-${{ github.ref }}
       cancel-in-progress: true
     # pinned to match the talosctl-cluster-action's tested runners; needs
     # nested KVM for the qemu provider
