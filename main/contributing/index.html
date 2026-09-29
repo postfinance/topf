@@ -940,6 +940,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1018,6 +1035,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1074,6 +1108,26 @@ feature in an issue before starting to implement it.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>task<span class="w"> </span><span class="nb">test</span><span class="w">    </span><span class="c1"># go test -v -race ./...</span>
 </code></pre></div>
 <p>Requires Go 1.26+, <a href="https://taskfile.dev/">Task</a>, and <code>sops</code>/<code>age</code>/<code>vals</code> for secrets tests.</p>
+<h3 id="integration-tests">Integration tests</h3>
+<p>The integration tests in <code>internal/integration</code> are gated behind the
+<code>integration</code> build tag and run against a live Talos cluster. When developing
+them, export:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GOFLAGS</span><span class="o">=</span><span class="s2">"-tags=integration"</span>
+</code></pre></div>
+<p>so your editor and plain <code>go build</code>/<code>go test</code> invocations include the
+tagged files without having to remember <code>-tags integration</code> on every command.</p>
+<p>Against a local QEMU cluster (requires <code>/dev/kvm</code>, <code>talosctl</code> and
+<code>qemu-system-x86_64</code>; the cluster boots in maintenance mode and the suite
+drives the full lifecycle, so re-run <code>task e2e:cluster</code> for a fresh cluster
+before each full suite run):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>task<span class="w"> </span>e2e:cluster<span class="w">   </span><span class="c1"># create the cluster + render test/e2e/work/topf.yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>task<span class="w"> </span>e2e<span class="w">           </span><span class="c1"># run the suite</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>task<span class="w"> </span>e2e:destroy<span class="w">   </span><span class="c1"># tear the cluster down</span>
+</code></pre></div>
+<p>CI runs the same suite against an equivalent cluster provisioned by
+<a href="https://github.com/home-operations/talosctl-cluster-action">talosctl-cluster-action</a>
+(see <code>.github/workflows/e2e.yml</code>); <code>task e2e:cluster</code> issues the same
+<code>talosctl cluster create dev</code> invocation the action does.</p>
 <h2 id="pull-requests">Pull requests</h2>
 <p>Pull requests against this repo must allow maintainers to push to your branch.
 On GitHub this is the "Allow edits by maintainers" option, which is only
@@ -1084,8 +1138,8 @@ feat/my-feature).</p>
 <li>Conventional commits (<code>feat:</code>, <code>fix:</code>, <code>docs:</code>, …); changelog is generated from them.</li>
 <li>
 <p>Every <code>.go</code> file starts with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Copyright 2026 PostFinance AG</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1">// SPDX-License-Identifier: MIT</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Copyright 2026 PostFinance AG</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1">// SPDX-License-Identifier: MIT</span>
 </code></pre></div>
 </li>
 </ul>
