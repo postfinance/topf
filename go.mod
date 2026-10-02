@@ -10,7 +10,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24
 	github.com/siderolabs/crypto v0.6.5
 	github.com/siderolabs/go-retry v0.3.3
-	github.com/siderolabs/image-factory v1.7.1
+	github.com/siderolabs/image-factory v1.7.2
 	github.com/siderolabs/talos v1.14.1
 	github.com/siderolabs/talos/pkg/machinery v1.14.1
 	github.com/stretchr/testify v1.12.1
