@@ -67,7 +67,7 @@ jobs:
 
       # Boots 3 control-plane VMs at v1.14.0 in maintenance mode (no config
       # applied); topf drives the real install/bootstrap flow from there.
-      - uses: home-operations/talosctl-cluster-action@fb6a31bf5de43218acc80d2e23958a16eee7380c # v0.2.2
+      - uses: home-operations/talosctl-cluster-action@7c2f4c051e8a99c9b92c3e0e43fd024e33c4c4ce # main - 14th of October
         id: cluster
         with:
           config: test/e2e/cluster.yaml
