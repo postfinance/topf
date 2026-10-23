@@ -1,6 +1,6 @@
 # Dynamic Providers
 
-TOPF supports external provider binaries to dynamically supply nodes and secrets instead of relying solely on static configuration.
+TOPF supports external provider binaries to dynamically supply nodes, patches and secrets instead of relying solely on static configuration.
 
 ## Nodes Provider
 
@@ -48,6 +48,97 @@ nodes:
   - host: static-node-01
     ip: 192.168.1.1
     role: control-plane
+```
+
+## Patches Provider
+
+By default, patches are read from the [patches directory](configuration-model.md). When `patchesProvider` is set, TOPF also executes the binary **once per node** to generate patches for that node. The patches directory then becomes optional: if it does not exist, only the provider patches are applied.
+
+### Binary Contract
+
+The binary is invoked as:
+
+```bash
+<binary> patches
+```
+
+The patch context of the node is passed as JSON via **stdin**. It holds the same data available to [patch templates](configuration-model.md#templating), and keys match the template field names, so `.Node.Data.uuid` in a template is `.Node.Data.uuid` in the JSON:
+
+```json
+{
+  "ClusterName": "mycluster",
+  "ClusterEndpoint": "https://192.168.1.100:6443",
+  "KubernetesVersion": "1.34.1",
+  "TalosVersion": "1.12.7",
+  "SchematicID": "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba",
+  "Data": {
+    "region": "us-west-2"
+  },
+  "Node": {
+    "Host": "node1",
+    "IP": "172.20.10.2",
+    "Role": "control-plane",
+    "Data": {
+      "uuid": "550e8400-e29b-41d4-a716-446655440000"
+    },
+    "TalosVersion": "",
+    "SchematicID": "",
+    "Factory": "",
+    "Platform": "",
+    "SecureBoot": false,
+    "RuntimeData": {
+      "TalosVersion": "1.12.7",
+      "SchematicID": "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba",
+      "Stage": "running"
+    }
+  },
+  "PatchesDir": "/path/to/cluster"
+}
+```
+
+All keys are always present: unset values are empty strings, `false` or `null`. `SchematicID` holds the resolved ID (after [`@` references](configuration.md#schematic-reference-resolution) are resolved), and `RuntimeData` is only filled when TOPF contacts the live node (see [templating](configuration-model.md#templating)).
+
+The binary must output the patches for the node to **stdout**, in the same format as a [patch file](configuration-model.md#patch-formats): one or more YAML documents containing strategic merge patches.
+
+```yaml
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: node1
+```
+
+- Exit code `0` on success, non-zero on failure. A failure aborts config generation for that node
+- **stderr** is passed through to the user for diagnostics, without [redaction](configuration.md#redacting-sensitive-output)
+- Empty output means there are no additional patches for the node
+- The binary is executed concurrently for all processed nodes
+
+A minimal provider written in bash with [jq](https://jqlang.org/):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+host=$(jq -r '.Node.Host')
+
+cat <<EOF
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: ${host}
+EOF
+```
+
+Like the output of a [template](configuration-model.md#templating), the output is used as-is and doesn't go through [secret resolution](configuration-model.md#secret-resolution). Secrets copied from `data` stay [redacted](configuration.md#redacting-sensitive-output), but any other secret the provider outputs is not.
+
+### Merge Order
+
+Patches from the provider are applied **before** the patches from the patches directory (`all/`, `<role>/` and `node/<host>/`), so local patches can override fields set by the provider. See [merge order](configuration-model.md#merge-order).
+
+### Configuration
+
+```yaml
+# topf.yaml
+patchesProvider: /path/to/patches-provider
 ```
 
 ## Secrets Provider
@@ -101,6 +192,12 @@ The provider interface is intentionally simple (a binary with arguments and stdi
 - Query a cloud API (AWS, GCP, Azure) to discover instances by tag
 - Read Terraform state to extract node IPs and metadata
 - Query a CMDB or inventory system
+
+**Patches provider ideas:**
+
+- Generate per-node network configuration (addresses, routes, VLANs) from an IPAM system
+- Fetch hardware-specific settings (install disk, kernel arguments) from an inventory system
+- Generate patches with a configuration language (CUE, Jsonnet, KCL) instead of Go templates
 
 **Secrets provider ideas:**
 
