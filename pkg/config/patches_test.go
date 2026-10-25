@@ -5,9 +5,15 @@ package config
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"net/netip"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/postfinance/topf/internal/decryption"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 )
 
@@ -228,6 +234,184 @@ machine:
 			}
 
 			if tt.wantPatchCount != len(patches) {
+				t.Fatalf("unexpected patch count: got %d, want %d", len(patches), tt.wantPatchCount)
+			}
+
+			if tt.applyAndCheck == nil {
+				return
+			}
+
+			out, err := configpatcher.Apply(configpatcher.WithBytes([]byte(minimalMachineConfig)), patches)
+			if err != nil {
+				t.Fatalf("configpatcher.Apply() error: %v", err)
+			}
+
+			merged, err := out.Bytes()
+			if err != nil {
+				t.Fatalf("out.Bytes() error: %v", err)
+			}
+
+			tt.applyAndCheck(t, merged)
+		})
+	}
+}
+
+// patchesProviderFunc adapts a function to a providers.PatchesProvider
+type patchesProviderFunc func(ctx context.Context, patchContext []byte) ([]byte, error)
+
+func (f patchesProviderFunc) GetPatches(ctx context.Context, patchContext []byte) ([]byte, error) {
+	return f(ctx, patchContext)
+}
+
+func TestLoadFromProvider(t *testing.T) {
+	ip := netip.MustParseAddr("10.0.0.1")
+
+	patchCtx := &PatchContext{
+		ClusterName:       "test-cluster",
+		ClusterEndpoint:   "https://10.0.0.100:6443",
+		KubernetesVersion: "1.35.1",
+		TalosVersion:      "1.14.0",
+		SchematicID:       "abc123",
+		Data:              map[string]any{"region": "eu-west-1"},
+		Node: &Node{
+			Host:        "node1",
+			IP:          &ip,
+			Role:        RoleControlPlane,
+			Data:        map[string]any{"rack": "A3"},
+			RuntimeData: RuntimeData{Stage: "running"},
+		},
+		PatchesDir:   "/patches",
+		DecryptCache: decryption.NewCache(),
+	}
+
+	t.Run("passesPatchContextAsJSON", func(t *testing.T) {
+		var got []byte
+
+		provider := patchesProviderFunc(func(_ context.Context, patchContext []byte) ([]byte, error) {
+			got = patchContext
+			return nil, nil
+		})
+
+		if _, err := patchCtx.LoadFromProvider(context.Background(), provider); err != nil {
+			t.Fatalf("LoadFromProvider() error: %v", err)
+		}
+
+		// keys mirror the fields available in templates (e.g. .Node.Data.rack)
+		// and the decryption cache is not part of the payload
+		want := `{
+			"ClusterName": "test-cluster",
+			"ClusterEndpoint": "https://10.0.0.100:6443",
+			"KubernetesVersion": "1.35.1",
+			"TalosVersion": "1.14.0",
+			"SchematicID": "abc123",
+			"Data": {"region": "eu-west-1"},
+			"Node": {
+				"Host": "node1",
+				"IP": "10.0.0.1",
+				"Role": "control-plane",
+				"Data": {"rack": "A3"},
+				"TalosVersion": "",
+				"SchematicID": "",
+				"Factory": "",
+				"Platform": "",
+				"SecureBoot": false,
+				"RuntimeData": {"TalosVersion": "", "SchematicID": "", "Stage": "running"}
+			},
+			"PatchesDir": "/patches"
+		}`
+
+		var gotValue, wantValue any
+		if err := json.Unmarshal(got, &gotValue); err != nil {
+			t.Fatalf("provider received invalid JSON %s: %v", got, err)
+		}
+
+		if err := json.Unmarshal([]byte(want), &wantValue); err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(gotValue, wantValue) {
+			t.Errorf("unexpected patch context:\ngot:  %s\nwant: %s", got, want)
+		}
+	})
+
+	errProvider := errors.New("provider failed")
+
+	tests := []struct {
+		name           string
+		output         string
+		err            error
+		wantErr        bool
+		wantPatchCount int
+		// applyAndCheck, if non-nil, applies the patches to minimalMachineConfig
+		// and runs extra assertions on the merged YAML bytes.
+		applyAndCheck func(t *testing.T, merged []byte)
+	}{
+		{
+			name:           "emptyOutput",
+			output:         "",
+			wantPatchCount: 0,
+		},
+		{
+			name: "multiDocumentOutput",
+			output: `machine:
+  network:
+    hostname: from-provider
+---
+# empty documents are skipped
+---
+machine:
+  install:
+    disk: /dev/vda
+`,
+			wantPatchCount: 2,
+			applyAndCheck: func(t *testing.T, merged []byte) {
+				t.Helper()
+
+				for _, want := range []string{"hostname: from-provider", "disk: /dev/vda"} {
+					if !bytes.Contains(merged, []byte(want)) {
+						t.Errorf("merged config missing %q; got:\n%s", want, merged)
+					}
+				}
+			},
+		},
+		{
+			name: "jsonPatchOutput",
+			output: `- op: replace
+  path: /machine/network/hostname
+  value: worker1`,
+			wantErr: true,
+		},
+		{
+			name:    "providerError",
+			err:     errProvider,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := patchesProviderFunc(func(context.Context, []byte) ([]byte, error) {
+				return []byte(tt.output), tt.err
+			})
+
+			patches, err := patchCtx.LoadFromProvider(context.Background(), provider)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("LoadFromProvider() expected error, got nil")
+				}
+
+				if tt.err != nil && !errors.Is(err, tt.err) {
+					t.Errorf("expected error wrapping %v, got: %v", tt.err, err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("LoadFromProvider() error: %v", err)
+			}
+
+			if len(patches) != tt.wantPatchCount {
 				t.Fatalf("unexpected patch count: got %d, want %d", len(patches), tt.wantPatchCount)
 			}
 
