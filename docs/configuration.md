@@ -91,7 +91,7 @@ Each entry in the `nodes` list has the following fields:
 Instead of hard-coding a schematic ID hash, you can reference a schematic definition file using the `@` prefix:
 
 ```yaml
-schematicId: @schematic.yaml
+schematicId: "@schematic.yaml"
 ```
 
 Topf will:
@@ -106,7 +106,7 @@ This allows you to define your extensions declaratively:
 `topf.yaml`:
 
 ```yaml
-schematicId: @schematic.yaml
+schematicId: "@schematic.yaml"
 ```
 
 `schematic.yaml`:
