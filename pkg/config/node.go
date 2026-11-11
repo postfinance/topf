@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"net/netip"
+	"slices"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -15,9 +16,10 @@ type Node struct {
 	// Host is the name of the node. Can be FQDN or short name
 	Host string `yaml:"host"`
 	// IP is optional and used to connect to nodes directly instead of using DNS to resolve "host"
-	IP   *netip.Addr    `yaml:"ip,omitempty"`
-	Role NodeRole       `yaml:"role"`
-	Data map[string]any `yaml:"data,omitempty"`
+	IP      *netip.Addr    `yaml:"ip,omitempty"`
+	Role    NodeRole       `yaml:"role"`
+	Classes []string       `yaml:"classes,omitempty"`
+	Data    map[string]any `yaml:"data,omitempty"`
 
 	// TalosVersion overrides the cluster-level Talos version for this node
 	TalosVersion string `yaml:"talosVersion,omitempty"`
@@ -67,6 +69,10 @@ func (n *Node) UnmarshalYAML(yamlNode *yaml.Node) error {
 
 	if n.Role == "" {
 		return errors.New("node 'role' can't be empty")
+	}
+
+	if slices.Contains(n.Classes, "") {
+		return errors.New("node 'classes' can't contain an empty class")
 	}
 
 	return nil
