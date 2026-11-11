@@ -6,6 +6,7 @@ The final machine configuration for each node is assembled from a series of conf
 
 Patches are applied in the following order:
 
+1. **patches provider** — patches generated for that specific node by the [patches provider](providers.md#patches-provider) binary, if `patchesProvider` is configured
 1. **`all/`** — applied to all nodes
 1. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
 1. **`node/<host>/`** — applied only to that specific node
@@ -57,7 +58,7 @@ TOPF reads all non-template files (including `topf.yaml` itself) through a two-s
 1. **SOPS decryption** — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.
 1. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
 
-Template files (ending with `.tpl`) skip this pipeline entirely and are rendered through [Go templates](#templating) instead.
+Template files (ending with `.tpl`) skip this pipeline entirely and are rendered through [Go templates](#templating) instead. The same applies to the output of the [patches provider](providers.md#patches-provider).
 
 This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via [vals](https://github.com/helmfile/vals).
 
@@ -82,6 +83,8 @@ Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/
 | `.Node.RuntimeData.Stage` | Machine stage reported by the live node (`booting`, `installing`, `maintenance`, `running`, `rebooting`, `shutting down`, `resetting`, `upgrading`) |
 
 Runtime data is collected from live nodes by `apply`, `upgrade`, `reset`, and `render --online`. When rendering offline (`render` without `--online`), all runtime fields are empty.
+
+The same context is passed as JSON to the [patches provider](providers.md#patches-provider).
 
 ### Template Functions
 

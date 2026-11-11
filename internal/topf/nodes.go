@@ -158,10 +158,22 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	node.resolvedSchematic = resolvedSchematic
 	patchContext.SchematicID = resolvedSchematic
 
-	patches, patchSecrets, err := patchContext.Load()
+	var patches []configpatcher.Patch
+
+	// provider patches come first, so local patches can override them
+	if provider := cfg.GetPatchesProvider(); provider != nil {
+		patches, err = patchContext.LoadFromProvider(ctx, provider)
+		if err != nil {
+			return fmt.Errorf("couldn't load patches from provider: %w", err)
+		}
+	}
+
+	localPatches, patchSecrets, err := patchContext.Load()
 	if err != nil {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
+
+	patches = append(patches, localPatches...)
 
 	versionContract, err := talosconfig.ParseContractFromVersion(node.TalosVersion())
 	if err != nil {

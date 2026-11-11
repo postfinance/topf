@@ -128,13 +128,16 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		return nil, err
 	}
 
-	// Validate patchesDir exists and is a directory
+	// Validate patchesDir exists and is a directory. It is optional when a
+	// patches provider is configured.
 	if stat, err := os.Stat(topfConfig.PatchesDir); err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("patches directory does not exist: %s", topfConfig.PatchesDir)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to access patches directory: %w", err)
 		}
 
-		return nil, fmt.Errorf("failed to access patches directory: %w", err)
+		if topfConfig.PatchesProvider == "" {
+			return nil, fmt.Errorf("patches directory does not exist: %s", topfConfig.PatchesDir)
+		}
 	} else if !stat.IsDir() {
 		return nil, fmt.Errorf("patches path is not a directory: %s", topfConfig.PatchesDir)
 	}

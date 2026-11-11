@@ -115,3 +115,35 @@ nodes:
 		}
 	})
 }
+
+func TestGetPatchesProvider(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		cfg := &TopfConfig{}
+
+		if provider := cfg.GetPatchesProvider(); provider != nil {
+			t.Errorf("expected no patches provider, got %T", provider)
+		}
+	})
+
+	t.Run("loadedFromFile", func(t *testing.T) {
+		cfg, _, err := LoadFromFile(writeTestConfig(t, t.TempDir(), `clusterName: test
+clusterEndpoint: https://1.2.3.4:6443
+kubernetesVersion: 1.30.0
+patchesProvider: patches-provider
+nodes:
+  - host: n1
+    role: worker
+`))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cfg.PatchesProvider != "patches-provider" {
+			t.Errorf("PatchesProvider: got %q, want %q", cfg.PatchesProvider, "patches-provider")
+		}
+
+		if cfg.GetPatchesProvider() == nil {
+			t.Error("expected a patches provider, got nil")
+		}
+	})
+}
