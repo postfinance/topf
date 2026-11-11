@@ -60,7 +60,11 @@ func (s *ConfigSuite) TestLabelPatchLifecycle() {
 	})
 	s.NoError(err, "dry-run after reconcile must report no changes")
 
-	s.WaitForNodeLabel(s.T().Context(), "topf.e2e", "works")
+	s.WaitForNodeLabel(s.T().Context(), "topf.e2e", "works", *expectedNodesNum)
+}
+
+func (s *ConfigSuite) TestClassPatch() {
+	s.WaitForNodeLabel(s.T().Context(), "topf.e2e/class", "labeled", 1)
 }
 
 func (s *ConfigSuite) TearDownSuite() {
@@ -71,20 +75,20 @@ func (s *ConfigSuite) TearDownSuite() {
 	}
 }
 
-func (s *TopfSuite) WaitForNodeLabel(ctx context.Context, key, value string) {
+func (s *TopfSuite) WaitForNodeLabel(ctx context.Context, key, value string, want int) {
 	err := retry.Constant(2*time.Minute, retry.WithUnits(5*time.Second)).Retry(func() error {
 		labeled, err := labeledNodes(ctx, s.Runtime(), key, value)
 		if err != nil {
 			return retry.ExpectedError(err)
 		}
 
-		if labeled != *expectedNodesNum {
-			return retry.ExpectedErrorf("%d/%d nodes carry label %s=%s", labeled, *expectedNodesNum, key, value)
+		if labeled != want {
+			return retry.ExpectedErrorf("%d/%d nodes carry label %s=%s", labeled, want, key, value)
 		}
 
 		return nil
 	})
-	s.Require().NoErrorf(err, "label %s=%s did not reach all nodes within 2 minutes", key, value)
+	s.Require().NoErrorf(err, "label %s=%s did not reach %d nodes within 2 minutes", key, value, want)
 }
 
 func labeledNodes(ctx context.Context, t topf.Topf, key, value string) (int, error) {
