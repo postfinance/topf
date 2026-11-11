@@ -8,10 +8,13 @@ Patches are applied in the following order:
 
 1. **`all/`** — applied to all nodes
 1. **`<role>/`** — applied to nodes matching the role (`control-plane` or `worker`)
+1. **`class/<class>/`** — applied to nodes listing that class in their `classes`, in the order listed
 1. **`node/<host>/`** — applied only to that specific node
 
 !!! tip
     The per-host directory is `node/` (singular), not `nodes/` as each `<host>/` subfolder targets a single node at a time.
+
+Classes group nodes that share traits beyond their role, e.g. a hardware type or the presence of a GPU. Unlike the other folders, a class folder must exist: a class without a matching `class/<class>/` folder is reported as an error, to catch typos.
 
 Within each folder, patches are applied in **lexicographical order**. Later patches take precedence over earlier ones when the same field is set. This layering is useful for per-node overrides — for example, pinning a different [installer image](commands/upgrade.md#installer-image) on a single host.
 
@@ -27,6 +30,9 @@ A typical cluster folder looks like this:
 │   └── 03-allow-cp-scheduling.yaml
 ├── worker
 │   └── 01-worker-taints.yaml
+├── class
+│   └── gpu
+│       └── 01-nvidia-modules.yaml
 ├── node
 │   └── node1
 │       └── 01-some-nodespecific-patch.yaml
@@ -76,6 +82,7 @@ Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/
 | `.Node.Host` | Node hostname |
 | `.Node.Role` | Node role (`control-plane` or `worker`) |
 | `.Node.IP` | Node IP address (if set) |
+| `.Node.Classes` | Node classes (if set) |
 | `.Node.Data.<key>` | Per-node data (if set) |
 | `.Node.RuntimeData.TalosVersion` | Talos version reported by the **live node** (no `v` prefix; empty when rendering offline or before the node was contacted) |
 | `.Node.RuntimeData.SchematicID` | Schematic ID reported by the live node |

@@ -79,6 +79,7 @@ Each entry in the `nodes` list has the following fields:
 | `host`         | Yes      | Name of the node. Can be a FQDN or short name. Used for display, logging, and certificate validation            |
 | `ip`           | No       | IP address used to connect to the node directly instead of resolving `host` via DNS                             |
 | `role`         | Yes      | Role of the node: `control-plane` or `worker`                                                                   |
+| `classes`      | No       | List of classes; patches from `class/<class>/` are applied after role patches (see [merge order](configuration-model.md#merge-order)) |
 | `talosVersion` | No       | Overrides the cluster-level `talosVersion` for this node                                                         |
 | `schematicId`  | No       | Overrides the cluster-level `schematicId` for this node. Supports `@`-prefixed paths                         |
 | `factory`      | No       | Overrides the cluster-level `factory` for this node                                                             |
