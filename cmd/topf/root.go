@@ -36,6 +36,9 @@ func main() {
 		Description:           "Topf is a CLI for managing Talos clusters.",
 		Version:               fmt.Sprintf("%s (Talos %s)", version, talosversion.Tag),
 		EnableShellCompletion: true,
+		ConfigureShellCompletionCommand: func(c *cli.Command) {
+			c.Hidden = false
+		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "topfconfig",
