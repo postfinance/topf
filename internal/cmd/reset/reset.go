@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/postfinance/topf/internal/interactive"
@@ -64,9 +65,9 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 		nodeClient, err := n.Client(ctx)
 		if err != nil {
-			logger.Info("couldn't get client", "error", err)
+			logger.Error("couldn't get client", "error", err)
 
-			result.SkipCount++
+			result.FailCount++
 
 			continue
 		}
@@ -116,45 +117,55 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 
 	logger.Info("reset completed", "result", *result)
 
+	var failErr error
+	if result.FailCount > 0 {
+		failErr = fmt.Errorf("reset failed on %d node(s)", result.FailCount)
+	}
+
 	if opts.WaitForMaintenance && len(resetNodes) > 0 {
-		logger.Info("waiting for nodes to reach maintenance mode", "count", len(resetNodes))
-
-		var wg sync.WaitGroup
-
-		errs := make(chan error, len(resetNodes))
-
-		for _, n := range resetNodes {
-			wg.Add(1)
-
-			go func(n *topf.Node) {
-				defer wg.Done()
-
-				logger := logger.With(n.Attrs())
-
-				if err := n.WaitForMaintenance(ctx, logger); err != nil {
-					logger.Error("failed waiting for maintenance mode", "error", err)
-
-					errs <- err
-
-					return
-				}
-
-				logger.Info("node is in maintenance mode")
-			}(n)
-		}
-
-		wg.Wait()
-		close(errs)
-
-		var waitErrs []error
-		for err := range errs {
-			waitErrs = append(waitErrs, err)
-		}
-
-		if err := errors.Join(waitErrs...); err != nil {
-			return err
+		if err := waitForMaintenance(ctx, logger, resetNodes); err != nil {
+			return errors.Join(failErr, err)
 		}
 	}
 
-	return nil
+	return failErr
+}
+
+// waitForMaintenance waits in parallel for all nodes to reach maintenance mode.
+func waitForMaintenance(ctx context.Context, logger *slog.Logger, nodes []*topf.Node) error {
+	logger.Info("waiting for nodes to reach maintenance mode", "count", len(nodes))
+
+	var wg sync.WaitGroup
+
+	errs := make(chan error, len(nodes))
+
+	for _, n := range nodes {
+		wg.Add(1)
+
+		go func(n *topf.Node) {
+			defer wg.Done()
+
+			logger := logger.With(n.Attrs())
+
+			if err := n.WaitForMaintenance(ctx, logger); err != nil {
+				logger.Error("failed waiting for maintenance mode", "error", err)
+
+				errs <- err
+
+				return
+			}
+
+			logger.Info("node is in maintenance mode")
+		}(n)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	var waitErrs []error
+	for err := range errs {
+		waitErrs = append(waitErrs, err)
+	}
+
+	return errors.Join(waitErrs...)
 }

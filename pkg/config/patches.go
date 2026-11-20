@@ -64,10 +64,24 @@ func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, 
 	return patches, secrets, nil
 }
 
-func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []string, error) {
-	var filePaths []string
+// patchFilePattern matches patch file names: *.yaml, *.yml and their .tpl
+// variants. Hidden files and names with trailing suffixes (editor backups like
+// "a.yaml~" or "a.yaml.bak") are not matched.
+var patchFilePattern = regexp.MustCompile(`^[^.].*\.ya?ml(\.tpl)?$`)
 
-	pattern := regexp.MustCompile(`.*\.ya?ml(\.tpl)?`)
+func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []string, error) {
+	// A missing folder is fine, it simply contains no patches. Any other
+	// error (including a dangling symlink inside the folder) must surface,
+	// otherwise patches would be silently dropped.
+	if _, err := os.Lstat(folder); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil, nil
+		}
+
+		return nil, nil, err
+	}
+
+	var filePaths []string
 
 	var walkFunc fs.WalkDirFunc
 
@@ -80,12 +94,12 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 		if d.Type()&os.ModeSymlink != 0 {
 			realPath, err := filepath.EvalSymlinks(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to resolve symlink %s: %w", path, err)
 			}
 
 			info, err := os.Stat(realPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to stat symlink target %s: %w", realPath, err)
 			}
 
 			// If symlink points to a directory, walk it recursively
@@ -94,27 +108,22 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 			}
 
 			// If symlink points to a file, check the pattern
-			if pattern.MatchString(info.Name()) {
+			if patchFilePattern.MatchString(info.Name()) {
 				filePaths = append(filePaths, path)
 			}
 
 			return nil
 		}
 
-		if !d.IsDir() && pattern.MatchString(d.Name()) {
+		if !d.IsDir() && patchFilePattern.MatchString(d.Name()) {
 			filePaths = append(filePaths, path)
 		}
 
 		return nil
 	}
 
-	err := filepath.WalkDir(folder, walkFunc)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil, nil
-		}
-
-		return nil, nil, err
+	if err := filepath.WalkDir(folder, walkFunc); err != nil {
+		return nil, nil, fmt.Errorf("failed to load patches from %s: %w", folder, err)
 	}
 
 	var (
