@@ -76,8 +76,9 @@ Each entry in the `nodes` list has the following fields:
 
 | Field          | Required | Description                                                                                                     |
 | -------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| `host`         | Yes      | Name of the node. Can be a FQDN or short name. Used for display, logging, and certificate validation            |
-| `ip`           | No       | IP address used to connect to the node directly instead of resolving `host` via DNS                             |
+| `host`         | Yes      | Name of the node (FQDN or short name). Used for display and logging, and as address if `ip` is not set |
+| `ip`           | No       | IP address of the node within the cluster. Takes precedence over `host` as the node's address |
+| `endpoint`     | No       | Endpoint (`host[:port]`) topf connects to for the node's Talos API. Defaults to `ip`, then `host`. |
 | `role`         | Yes      | Role of the node: `control-plane` or `worker`                                                                   |
 | `classes`      | No       | List of classes; patches from `class/<class>/` are applied after role patches (see [merge order](configuration-model.md#merge-order)) |
 | `talosVersion` | No       | Overrides the cluster-level `talosVersion` for this node                                                         |

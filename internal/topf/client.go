@@ -8,67 +8,47 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/client"
+	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/client/dialer"
+	"github.com/siderolabs/talos/pkg/machinery/client/resolver"
 	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
-	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/constants"
+	"google.golang.org/grpc"
 )
 
-// Client returns a talos API client, either insecure (if maintenance
-// mode) or authenticated (if bootstrapped already) by probing the node endpoint
-// for mTLS.
+// Client returns a Talos API client for the node. Nodes in maintenance mode
+// get an insecure client, all others an mTLS client which targets the node
+// through its endpoint.
 func (n *Node) Client(ctx context.Context) (*client.Client, error) {
-	mTLSRequired, err := checkForMTLS(ctx, net.JoinHostPort(n.Node.Endpoint(), "50000"))
+	endpoint := n.Node.EffectiveEndpoint()
+
+	mTLSRequired, err := checkForMTLS(ctx, endpoint)
 	if err != nil {
 		return nil, err
 	}
 
+	opts := []client.OptionFunc{client.WithDefaultGRPCDialOptions()}
+
 	if mTLSRequired {
-		secrets, err := n.t.Secrets()
+		talosConfig, err := n.talosConfig()
 		if err != nil {
 			return nil, err
 		}
 
-		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, n.KubernetesVersion(), n.Node.Endpoint())
+		opts = append(opts,
+			client.WithConfig(talosConfig),
+			client.WithEndpoints(endpoint),
+			withNode(n.Node.Address()),
+		)
+	} else {
+		opts = append(opts, client.WithMaintenanceMode(endpoint, nil))
 	}
 
-	return createInsecureClient(ctx, n.Node.Endpoint())
-}
-
-// createAuthenticatedClient creates a talos client using the given secrets bundle
-func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundle, clusterName, kubeVersion string, endpoints ...string) (*client.Client, error) {
-	// Generate config bundle from secrets
-	configBundleOpts := []bundle.Option{
-		bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
-		bundle.WithInputOptions(
-			&bundle.InputOptions{
-				ClusterName: clusterName,
-				Endpoint:    "", // endpoint will be set from client options
-				KubeVersion: kubeVersion,
-				GenOptions: []generate.Option{
-					generate.WithSecretsBundle(secretsBundle),
-				},
-			},
-		),
-	}
-
-	configBundle, err := bundle.NewBundle(configBundleOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate config bundle: %w", err)
-	}
-
-	// Create client from talos config
-	talosConfig := configBundle.TalosCfg
-
-	c, err := client.New(ctx,
-		client.WithConfig(talosConfig),
-		client.WithEndpoints(endpoints...),
-		client.WithDefaultGRPCDialOptions(),
-	)
+	c, err := client.New(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create talos client: %w", err)
 	}
@@ -76,23 +56,38 @@ func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundl
 	return c, nil
 }
 
-// createInsecureClient creates a talos client that skips TLS verification. Only
-// useful for maintenance mode nodes.
-func createInsecureClient(ctx context.Context, endpoint string) (*client.Client, error) {
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true, //nolint:gosec // Required for Talos maintenance mode
+// talosConfig generates a Talos client config from the cluster secrets.
+func (n *Node) talosConfig() (*clientconfig.Config, error) {
+	secretsBundle, err := n.t.Secrets()
+	if err != nil {
+		return nil, err
 	}
 
-	c, err := client.New(ctx,
-		client.WithTLSConfig(tlsConfig),
-		client.WithEndpoints(endpoint),
-		client.WithDefaultGRPCDialOptions(),
+	configBundle, err := bundle.NewBundle(
+		bundle.WithVerbose(false),
+		bundle.WithInputOptions(&bundle.InputOptions{
+			ClusterName: n.t.Config().ClusterName,
+			KubeVersion: n.KubernetesVersion(),
+			GenOptions:  []generate.Option{generate.WithSecretsBundle(secretsBundle)},
+		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create insecure talos client: %w", err)
+		return nil, fmt.Errorf("failed to generate config bundle: %w", err)
 	}
 
-	return c, nil
+	return configBundle.TalosCfg, nil
+}
+
+// withNode routes every request through the endpoint to the given node.
+func withNode(node string) client.OptionFunc {
+	return client.WithGRPCDialOptions(
+		grpc.WithChainUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+			return invoker(client.WithNode(ctx, node), method, req, reply, cc, opts...)
+		}),
+		grpc.WithChainStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+			return streamer(client.WithNode(ctx, node), desc, cc, method, opts...)
+		}),
+	)
 }
 
 // checkForMTLS checks if the given endpoint requires mTLS by attempting a TLS
@@ -112,7 +107,9 @@ func checkForMTLS(ctx context.Context, endpoint string) (bool, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	conn, err := dialer.DynamicProxyDialer(dialCtx, endpoint)
+	address := resolver.EnsureEndpointsHavePorts([]string{endpoint}, constants.ApidPort)[0]
+
+	conn, err := dialer.DynamicProxyDialer(dialCtx, address)
 	if err != nil {
 		return false, fmt.Errorf("connection failed: %w", err)
 	}

@@ -7,6 +7,7 @@ package talosconfig
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/postfinance/topf/internal/topf"
@@ -44,34 +45,25 @@ func Generate(t topf.Topf) ([]byte, error) {
 	clusterName := t.Config().ClusterName
 	nodes := t.Config().Nodes
 
-	// For single-node clusters, add the single node as both endpoint and node
-	if len(nodes) == 1 {
-		endpoint := nodes[0].Endpoint()
-		configBundle.TalosCfg.Contexts[clusterName].Endpoints = []string{endpoint}
-		configBundle.TalosCfg.Contexts[clusterName].Nodes = []string{endpoint}
-	} else {
-		// For multi-node clusters:
-		// - endpoints: all control-plane nodes
-		// - nodes: all nodes
-		var (
-			endpoints []string
-			allNodes  []string
-		)
+	var endpoints, targets []string
 
-		for _, node := range nodes {
-			allNodes = append(allNodes, node.Endpoint())
-			if node.Role == config.RoleControlPlane {
-				endpoints = append(endpoints, node.Endpoint())
-			}
-		}
+	for _, node := range nodes {
+		targets = append(targets, node.Address())
 
-		if len(endpoints) > 0 {
-			configBundle.TalosCfg.Contexts[clusterName].Endpoints = endpoints
+		endpoint := node.EffectiveEndpoint()
+		if node.Role == config.RoleControlPlane && !slices.Contains(endpoints, endpoint) {
+			endpoints = append(endpoints, endpoint)
 		}
+	}
 
-		if len(allNodes) > 0 {
-			configBundle.TalosCfg.Contexts[clusterName].Nodes = allNodes
-		}
+	talosContext := configBundle.TalosCfg.Contexts[clusterName]
+
+	if len(endpoints) > 0 {
+		talosContext.Endpoints = endpoints
+	}
+
+	if len(targets) > 0 {
+		talosContext.Nodes = targets
 	}
 
 	return configBundle.TalosCfg.Bytes()

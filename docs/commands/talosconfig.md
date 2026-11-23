@@ -1,20 +1,10 @@
 # Talosconfig Command
 
-The `talosconfig` command generates a Talos client configuration from the cluster's secrets bundle.
+The `talosconfig` command generates a Talos client configuration file (talosconfig) from the cluster's secrets bundle.
 
-## Behavior
+The endpoints will be set to the control-plane nodes. Duplicates are removed.
 
-The generated talosconfig is configured differently based on cluster size:
-
-**Single-node cluster:**
-
-- Endpoints: the single node
-- Nodes: the single node
-
-**Multi-node cluster:**
-
-- Endpoints: all control-plane nodes
-- Nodes: all nodes (control-plane and workers)
+The nodes list contains all nodes.
 
 ## Example Usage
 
