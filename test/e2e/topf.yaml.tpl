@@ -15,6 +15,7 @@ nodes:
   - host: controlplane-1
     ip: ${CP1_IP}
     role: control-plane
+    classes: [labeled]
   - host: controlplane-2
     ip: ${CP2_IP}
     role: control-plane

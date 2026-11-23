@@ -34,32 +34,31 @@ type PatchContext struct {
 	DecryptCache      *decryption.Cache
 }
 
-// Load loads all patches applicable for the node This includes general patches,
-// role (worker/control-plane) specific patches and node specific patches in
-// that order. It also returns any secrets discovered from SOPS-encrypted patch files.
+// Load loads the node's patches in merge order, plus any SOPS secrets found in them.
 func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, err error) {
-	patches, secrets, err = p.loadFolder(filepath.Join(p.PatchesDir, "all"))
-	if err != nil {
-		return nil, nil, err
+	folders := []string{"all", string(p.Node.Role)}
+
+	for _, c := range p.Node.Classes {
+		folder := filepath.Join("class", c)
+		// unlike other folders, a missing class folder is most likely a typo
+		if _, err := os.Stat(filepath.Join(p.PatchesDir, folder)); err != nil {
+			return nil, nil, fmt.Errorf("class %q of node %s: %w", c, p.Node.Host, err)
+		}
+
+		folders = append(folders, folder)
 	}
 
-	// patches relating to role of node, control-plane or worker
-	rolePatches, roleSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, string(p.Node.Role)))
-	if err != nil {
-		return nil, nil, err
+	folders = append(folders, filepath.Join("node", p.Node.Host))
+
+	for _, folder := range folders {
+		folderPatches, folderSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, folder))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		patches = append(patches, folderPatches...)
+		secrets = append(secrets, folderSecrets...)
 	}
-
-	patches = append(patches, rolePatches...)
-	secrets = append(secrets, roleSecrets...)
-
-	// patches relating to single specific node
-	nodePatches, nodeSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, "node", p.Node.Host))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	patches = append(patches, nodePatches...)
-	secrets = append(secrets, nodeSecrets...)
 
 	return patches, secrets, nil
 }
