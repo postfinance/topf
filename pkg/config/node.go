@@ -4,6 +4,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"net/netip"
 	"slices"
@@ -15,11 +16,13 @@ import (
 type Node struct {
 	// Host is the name of the node. Can be FQDN or short name
 	Host string `yaml:"host"`
-	// IP is optional and used to connect to nodes directly instead of using DNS to resolve "host"
-	IP      *netip.Addr    `yaml:"ip,omitempty"`
-	Role    NodeRole       `yaml:"role"`
-	Classes []string       `yaml:"classes,omitempty"`
-	Data    map[string]any `yaml:"data,omitempty"`
+	// IP is optional and used instead of Host to address the node
+	IP *netip.Addr `yaml:"ip,omitempty"`
+	// Endpoint overrides the address (host or host:port) used to connect to the node's Talos API
+	Endpoint string         `yaml:"endpoint,omitempty"`
+	Role     NodeRole       `yaml:"role"`
+	Classes  []string       `yaml:"classes,omitempty"`
+	Data     map[string]any `yaml:"data,omitempty"`
 
 	// TalosVersion overrides the cluster-level Talos version for this node
 	TalosVersion string `yaml:"talosVersion,omitempty"`
@@ -45,14 +48,18 @@ type RuntimeData struct {
 	Stage string `yaml:"stage,omitempty"`
 }
 
-// Endpoint returns the IP address if set, otherwise returns the Host.
-// Use this for connections; use Host for display/logging and certificate validation.
-func (n *Node) Endpoint() string {
+// Address returns the address under which the cluster reaches the node: IP if set, otherwise Host.
+func (n *Node) Address() string {
 	if n.IP != nil {
 		return n.IP.String()
 	}
 
 	return n.Host
+}
+
+// EffectiveEndpoint returns the address topf connects to: Endpoint if set, otherwise Address.
+func (n *Node) EffectiveEndpoint() string {
+	return cmp.Or(n.Endpoint, n.Address())
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler and performs additional validation

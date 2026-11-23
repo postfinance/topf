@@ -79,14 +79,17 @@ Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/
 | `.TalosVersion` | Talos version (if set in `topf.yaml`) |
 | `.SchematicID` | Schematic ID (if set in `topf.yaml`) |
 | `.Data.<key>` | Arbitrary global data from `topf.yaml` (see [configuration](configuration.md#configuration-fields)) |
-| `.Node.Host` | Node hostname |
-| `.Node.Role` | Node role (`control-plane` or `worker`) |
-| `.Node.IP` | Node IP address (if set) |
+| `.Node.Address` | Node address: `ip` if set, otherwise `host` |
 | `.Node.Classes` | Node classes (if set) |
 | `.Node.Data.<key>` | Per-node data (if set) |
-| `.Node.RuntimeData.TalosVersion` | Talos version reported by the **live node** (no `v` prefix; empty when rendering offline or before the node was contacted) |
+| `.Node.EffectiveEndpoint` | Talos API endpoint: `endpoint` if set, otherwise `.Node.Address` |
+| `.Node.Endpoint` | Talos API endpoint (if set) |
+| `.Node.Host` | Node hostname |
+| `.Node.IP` | Node IP address (if set) |
+| `.Node.Role` | Node role (`control-plane` or `worker`) |
 | `.Node.RuntimeData.SchematicID` | Schematic ID reported by the live node |
 | `.Node.RuntimeData.Stage` | Machine stage reported by the live node (`booting`, `installing`, `maintenance`, `running`, `rebooting`, `shutting down`, `resetting`, `upgrading`) |
+| `.Node.RuntimeData.TalosVersion` | Talos version reported by the **live node** (no `v` prefix; empty when rendering offline or before the node was contacted) |
 
 Runtime data is collected from live nodes by `apply`, `upgrade`, `reset`, and `render --online`. When rendering offline (`render` without `--online`), all runtime fields are empty.
 
