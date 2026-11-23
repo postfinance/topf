@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/logo.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1324,6 +1324,11 @@
 <td><code>role</code></td>
 <td>Yes</td>
 <td>Role of the node: <code>control-plane</code> or <code>worker</code></td>
+</tr>
+<tr>
+<td><code>classes</code></td>
+<td>No</td>
+<td>List of classes; patches from <code>class/&lt;class&gt;/</code> are applied after role patches (see <a href="../configuration-model/#merge-order">merge order</a>)</td>
 </tr>
 <tr>
 <td><code>talosVersion</code></td>
