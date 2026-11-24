@@ -53,14 +53,20 @@ type resolver struct {
 
 // ReadFile reads a file, decrypting it with SOPS if encrypted and resolving vals references.
 func (r *resolver) ReadFile(path string) ([]byte, error) {
-	// make sure we cache if the file is accessed through different symlinks or relative paths
-	key, err := filepath.Abs(path)
+	// key by the resolved absolute path, so relative paths and symlinks
+	// to the same file share one cache entry
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		return nil, err
 	}
 
 	content, err := r.sopsCache.get(key, func() ([]byte, error) {
-		return r.decrypt(path)
+		return r.decrypt(key)
 	})
 	if err != nil {
 		return nil, err
