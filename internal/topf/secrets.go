@@ -23,7 +23,7 @@ func (t *topf) Secrets() (*secrets.Bundle, error) {
 		return t.secretsBundle, nil
 	}
 
-	provider := t.GetSecretsProvider(t.secretsResolver)
+	provider := t.secretsProvider
 
 	// use a clock skewed slightly to the past to ensure generated certs are valid even
 	// if there is some time drift between the talos node and the machine running topf

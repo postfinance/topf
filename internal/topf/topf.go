@@ -21,6 +21,7 @@ import (
 	"github.com/postfinance/topf/internal/schematic"
 	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/pkg/config"
+	"github.com/postfinance/topf/pkg/providers"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	talossecrets "github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
@@ -162,8 +163,9 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		nodesFilter:  nodesFilter,
 	}
 
-	t.secretsResolver = secrets.NewResolver(t.AddSecretsToMask)
-	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: t.secretsResolver}
+	secretsResolver := secrets.NewResolver(t.AddSecretsToMask)
+	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: secretsResolver}
+	t.secretsProvider = newSecretsProvider(topfConfig, secretsResolver)
 
 	return t, nil
 }
@@ -179,7 +181,7 @@ type topf struct {
 	confirm         bool
 	version         string
 	resolver        *schematic.Resolver
-	secretsResolver secrets.Resolver
+	secretsProvider providers.SecretsProvider
 	nodesFilter     *regexp.Regexp
 }
 
