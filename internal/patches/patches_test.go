@@ -177,6 +177,7 @@ func TestLoadFiles(t *testing.T) {
 		dir := t.TempDir()
 		writePatch(t, dir, "all/01.yaml", "from-all")
 		writeFile(t, dir, "all/README.md", "not: [yaml")
+		writeFile(t, dir, "all/02.yaml.bak", "not: [yaml")
 
 		if got := hostname(t, dir, config.Node{Host: "n1", Role: config.RoleWorker}); got != "from-all" {
 			t.Errorf("hostname = %q, want from-all", got)

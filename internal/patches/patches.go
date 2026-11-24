@@ -21,7 +21,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-var patchFilePattern = regexp.MustCompile(`.*\.ya?ml(\.tpl)?`)
+var patchFilePattern = regexp.MustCompile(`\.ya?ml(\.tpl)?$`)
 
 // Loader loads patches from a patches directory.
 type Loader struct {
