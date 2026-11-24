@@ -43,9 +43,9 @@ type Node struct {
 }
 
 // TalosVersion returns the Talos version to use for config generation.
-// Fallback chain: running (from live node) -> topf.yaml -> bundled Talos version.
+// Fallback chain: running (from live node) -> node override -> topf.yaml -> bundled Talos version.
 func (n *Node) TalosVersion() string {
-	return strings.TrimPrefix(cmp.Or(n.runtimeData.TalosVersion, n.t.Config().TalosVersion, version.Tag), "v")
+	return strings.TrimPrefix(cmp.Or(n.runtimeData.TalosVersion, n.Node.TalosVersion, n.t.Config().TalosVersion, version.Tag), "v")
 }
 
 // KubernetesVersion returns the Kubernetes version to use for config generation.

@@ -14,7 +14,7 @@ The `render` command generates machine configuration files for all nodes using l
 
 For each node, `render` assembles the full machine configuration using:
 
-1. The Talos version for config generation (fallback chain: running version from `--online` → `talosVersion` from `topf.yaml` → bundled Talos version)
+1. The Talos version for config generation (fallback chain: running version from `--online` → node `talosVersion` → `talosVersion` from `topf.yaml` → bundled Talos version)
 1. The `schematicId` from `topf.yaml` (falls back to the default no-extensions schematic)
 1. All applicable patches from `all/`, `<role>/`, and `node/<host>/`
 
