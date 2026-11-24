@@ -18,12 +18,13 @@ import (
 
 // Options contains the options for the reset execution
 type Options struct {
-	// Whether to perform a full wipe of the installation disk. If false, only
-	// STATE and EPHEMERAL partitions are wiped.
-	Full               bool
-	Graceful           bool
-	Shutdown           bool
-	WaitForMaintenance bool
+	WipeStateAndEphemeral bool
+	Graceful              bool
+	Shutdown              bool
+	WaitForMaintenance    bool
+	WipeMode              machine.ResetRequest_WipeMode
+	SystemLabels          []string
+	UserDisks             []string
 }
 
 // Result contains the result of the reset operation
@@ -49,6 +50,23 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		return nil
 	}
 
+	var systemPartitionsToWipe []*machine.ResetPartitionSpec
+
+	if opts.WipeStateAndEphemeral {
+		systemPartitionsToWipe = []*machine.ResetPartitionSpec{
+			{Label: "STATE", Wipe: true},
+			{Label: "EPHEMERAL", Wipe: true},
+		}
+	} else {
+		systemPartitionsToWipe = make([]*machine.ResetPartitionSpec, 0, len(opts.SystemLabels))
+		for _, label := range opts.SystemLabels {
+			systemPartitionsToWipe = append(systemPartitionsToWipe, &machine.ResetPartitionSpec{
+				Label: label,
+				Wipe:  true,
+			})
+		}
+	}
+
 	var resetNodes []*topf.Node
 
 	for _, n := range nodes {
@@ -72,16 +90,6 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 		defer nodeClient.Close()
 
-		partitions := []*machine.ResetPartitionSpec{
-			{Label: "STATE", Wipe: true},
-			{Label: "EPHEMERAL", Wipe: true},
-		}
-
-		// full wipe blindly wipes all partitions
-		if opts.Full {
-			partitions = nil
-		}
-
 		// ask for user confirmation
 		if t.Confirm() {
 			message := fmt.Sprintf("Do you want to reset %s ?", n.Node.Host)
@@ -95,9 +103,11 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 		}
 
 		_, err = nodeClient.MachineClient.Reset(ctx, &machine.ResetRequest{
-			SystemPartitionsToWipe: partitions,
 			Graceful:               opts.Graceful,
 			Reboot:                 !opts.Shutdown,
+			UserDisksToWipe:        opts.UserDisks,
+			Mode:                   machine.ResetRequest_WipeMode(opts.WipeMode),
+			SystemPartitionsToWipe: systemPartitionsToWipe,
 		})
 		if err != nil {
 			logger.Error("failed to initiate reset", "error", err)
