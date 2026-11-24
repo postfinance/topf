@@ -34,6 +34,7 @@ It must output a YAML list of nodes to **stdout**:
 - Exit code `0` on success, non-zero on failure
 - **stderr** is passed through to the user for diagnostics
 - The `data` field is optional and can carry arbitrary key-value pairs for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>`
+- - Values may contain [vals](https://github.com/helmfile/vals) references (e.g. \ref+vault://…`), resolved like in `topf.yaml``
 
 ### Merging
 

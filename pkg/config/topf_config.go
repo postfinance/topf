@@ -1,7 +1,7 @@
 // Copyright 2026 PostFinance AG
 // SPDX-License-Identifier: MIT
 
-// Package config contains the config structs and loading logic for Topf
+// Package config contains the topf.yaml configuration schema and parsing.
 package config
 
 import (
@@ -11,8 +11,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/postfinance/topf/internal/decryption"
-	"github.com/postfinance/topf/pkg/providers"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -122,45 +120,4 @@ func sortNodes(nodes []Node) {
 
 		return strings.Compare(a.Host, b.Host)
 	})
-}
-
-// LoadFromFile loads the TopfConfig from a YAML file.
-// PatchesDir defaults to the directory containing the config file.
-// SecretsPath defaults to "secrets.yaml" next to the config file (not inside PatchesDir).
-// Relative paths for both are resolved against the directory containing the config file.
-func LoadFromFile(path string) (config *TopfConfig, secrets []string, err error) {
-	var content []byte
-
-	content, secrets, err = decryption.ReadFileWithSecrets(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve config path: %w", err)
-	}
-
-	config, err = Parse(content, filepath.Dir(absPath))
-	if err != nil {
-		return nil, nil, fmt.Errorf("config file %s: %w", path, err)
-	}
-
-	if config.NodesProvider != "" {
-		provider := providers.NewBinaryNodesProvider(config.NodesProvider)
-
-		nodesYAML, err := providers.LoadNodesYAML(provider, config.ClusterName)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		nodes, err := ParseNodes(nodesYAML)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse nodes from provider: %w", err)
-		}
-
-		config.AddNodes(nodes)
-	}
-
-	return config, secrets, nil
 }

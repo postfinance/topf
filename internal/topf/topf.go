@@ -122,7 +122,21 @@ func NewLogger(logLevel string, jsonLog bool) (*slog.Logger, error) {
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
-	topfConfig, topfConfigSecrets, err := config.LoadFromFile(cfg.ConfigPath)
+	t := &topf{
+		logger:   cfg.Logger,
+		confirm:  cfg.Confirm,
+		version:  cfg.TopfVersion,
+		resolver: schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
+	}
+
+	// created before anything is read, so secrets found while loading are masked
+	if cfg.Redact {
+		t.maskedWriter = maskedwriter.New(os.Stdout, nil)
+	}
+
+	secretsResolver := secrets.NewResolver(t.AddSecretsToMask)
+
+	topfConfig, err := loadConfig(cfg.ConfigPath, secretsResolver)
 	if err != nil {
 		return nil, err
 	}
@@ -139,31 +153,16 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	}
 
 	// Compile nodes filter regex; empty means all nodes
-	nodesFilter := regexp.MustCompile(".*")
+	t.nodesFilter = regexp.MustCompile(".*")
 
 	if cfg.NodesRegexFilter != "" {
-		nodesFilter, err = regexp.Compile(cfg.NodesRegexFilter)
+		t.nodesFilter, err = regexp.Compile(cfg.NodesRegexFilter)
 		if err != nil {
 			return nil, fmt.Errorf("invalid nodes selector regex: %w", err)
 		}
 	}
 
-	var mw *maskedwriter.Writer
-	if cfg.Redact {
-		mw = maskedwriter.New(os.Stdout, topfConfigSecrets)
-	}
-
-	t := &topf{
-		TopfConfig:   topfConfig,
-		logger:       cfg.Logger,
-		maskedWriter: mw,
-		confirm:      cfg.Confirm,
-		version:      cfg.TopfVersion,
-		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
-		nodesFilter:  nodesFilter,
-	}
-
-	secretsResolver := secrets.NewResolver(t.AddSecretsToMask)
+	t.TopfConfig = topfConfig
 	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: secretsResolver}
 	t.secretsProvider = newSecretsProvider(topfConfig, secretsResolver)
 
