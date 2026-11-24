@@ -16,12 +16,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/postfinance/topf/internal/decryption"
 	"github.com/postfinance/topf/internal/maskedwriter"
 	"github.com/postfinance/topf/internal/schematic"
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/client"
-	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	talossecrets "github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
 
 // Topf is the main interface to interact with a Topf cluster runtime
@@ -30,7 +30,7 @@ type Topf interface {
 	Config() *config.TopfConfig
 
 	// Secrets returns the lazy loaded secrets bundle
-	Secrets() (*secrets.Bundle, error)
+	Secrets() (*talossecrets.Bundle, error)
 
 	// Logger returns the configured logger
 	Logger() *slog.Logger
@@ -121,9 +121,7 @@ func NewLogger(logLevel string, jsonLog bool) (*slog.Logger, error) {
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
-	decryptCache := decryption.NewCache()
-
-	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath)
+	topfConfig, topfConfigSecrets, err := config.LoadFromFile(cfg.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +149,10 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 
 	var mw *maskedwriter.Writer
 	if cfg.Redact {
-		mw = maskedwriter.New(os.Stdout, secrets)
+		mw = maskedwriter.New(os.Stdout, topfConfigSecrets)
 	}
 
-	return &topf{
+	t := &topf{
 		TopfConfig:   topfConfig,
 		patchesDir:   topfConfig.PatchesDir,
 		logger:       cfg.Logger,
@@ -162,24 +160,27 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 		confirm:      cfg.Confirm,
 		version:      cfg.TopfVersion,
 		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
-		decryptCache: decryptCache,
 		nodesFilter:  nodesFilter,
-	}, nil
+	}
+
+	t.secretsResolver = secrets.NewResolver(t.AddSecretsToMask)
+
+	return t, nil
 }
 
 type topf struct {
 	*config.TopfConfig
 	mu sync.Mutex
 
-	patchesDir    string
-	secretsBundle *secrets.Bundle
-	logger        *slog.Logger
-	maskedWriter  *maskedwriter.Writer
-	confirm       bool
-	version       string
-	resolver      *schematic.Resolver
-	decryptCache  *decryption.Cache
-	nodesFilter   *regexp.Regexp
+	patchesDir      string
+	secretsBundle   *talossecrets.Bundle
+	logger          *slog.Logger
+	maskedWriter    *maskedwriter.Writer
+	confirm         bool
+	version         string
+	resolver        *schematic.Resolver
+	secretsResolver secrets.Resolver
+	nodesFilter     *regexp.Regexp
 }
 
 func (t *topf) Config() *config.TopfConfig {

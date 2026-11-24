@@ -89,7 +89,7 @@ func TestLoadFileTemplate(t *testing.T) {
 
 		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ env \"TOPF_TEST_VAR\" }}\n")
 
-		content, _, err := ctx.loadFile(f)
+		content, err := ctx.loadFile(f)
 		if err != nil {
 			t.Fatalf("loadFile() error: %v", err)
 		}
@@ -102,7 +102,7 @@ func TestLoadFileTemplate(t *testing.T) {
 	t.Run("sprig function is available", func(t *testing.T) {
 		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ .Data.region | upper | trunc 2 }}\n")
 
-		content, _, err := ctx.loadFile(f)
+		content, err := ctx.loadFile(f)
 		if err != nil {
 			t.Fatalf("loadFile() error: %v", err)
 		}
@@ -115,7 +115,7 @@ func TestLoadFileTemplate(t *testing.T) {
 	t.Run("missing key returns error", func(t *testing.T) {
 		f := writeTempTpl(t, "machine:\n  network:\n    hostname: {{ .Data.nonexistent }}\n")
 
-		_, _, err := ctx.loadFile(f)
+		_, err := ctx.loadFile(f)
 		if err == nil {
 			t.Fatal("expected error for missing key, got nil")
 		}

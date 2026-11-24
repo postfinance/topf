@@ -147,7 +147,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 		Node:              node.Node,
 		Data:              cfg.Data,
 		PatchesDir:        t.patchesDir,
-		DecryptCache:      t.decryptCache,
+		SecretsResolver:   t.secretsResolver,
 	}
 
 	resolvedSchematic, err := t.resolver.Resolve(ctx, cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory), patchContext.SchematicID, patchContext)
@@ -158,7 +158,7 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	node.resolvedSchematic = resolvedSchematic
 	patchContext.SchematicID = resolvedSchematic
 
-	patches, patchSecrets, err := patchContext.Load()
+	patches, err := patchContext.Load()
 	if err != nil {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
@@ -174,8 +174,6 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	}
 
 	patches = append([]configpatcher.Patch{installPatch}, patches...)
-
-	t.AddSecretsToMask(patchSecrets)
 
 	secretsBundle, err := t.Secrets()
 	if err != nil {

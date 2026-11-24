@@ -9,26 +9,25 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/postfinance/topf/internal/decryption"
+	"github.com/postfinance/topf/internal/secrets"
 )
 
 // NewFilesystemSecretsProvider returns a SecretsProvider that reads and writes
 // secrets.yaml at the given path with optional SOPS support.
-func NewFilesystemSecretsProvider(secretsPath string, cache *decryption.Cache) SecretsProvider {
+func NewFilesystemSecretsProvider(secretsPath string, resolver secrets.Resolver) SecretsProvider {
 	return &filesystemSecrets{
-		path:  secretsPath,
-		cache: cache,
+		path:     secretsPath,
+		resolver: resolver,
 	}
 }
 
 type filesystemSecrets struct {
-	path  string
-	cache *decryption.Cache
+	path     string
+	resolver secrets.Resolver
 }
 
 func (s *filesystemSecrets) Get(_ string) ([]byte, error) {
-	content, _, err := s.cache.ReadFileWithSecrets(s.path)
-	return content, err
+	return s.resolver.ReadFile(s.path)
 }
 
 func (s *filesystemSecrets) Put(_ string, bundle []byte) error {

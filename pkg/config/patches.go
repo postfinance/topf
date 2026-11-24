@@ -16,7 +16,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/postfinance/topf/internal/decryption"
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"gopkg.in/yaml.v3"
 )
@@ -31,18 +31,18 @@ type PatchContext struct {
 	Data              map[string]any
 	Node              *Node
 	PatchesDir        string
-	DecryptCache      *decryption.Cache
+	SecretsResolver   secrets.Resolver
 }
 
-// Load loads the node's patches in merge order, plus any SOPS secrets found in them.
-func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, err error) {
+// Load loads the node's patches in merge order
+func (p *PatchContext) Load() (patches []configpatcher.Patch, err error) {
 	folders := []string{"all", string(p.Node.Role)}
 
 	for _, c := range p.Node.Classes {
 		folder := filepath.Join("class", c)
 		// unlike other folders, a missing class folder is most likely a typo
 		if _, err := os.Stat(filepath.Join(p.PatchesDir, folder)); err != nil {
-			return nil, nil, fmt.Errorf("class %q of node %s: %w", c, p.Node.Host, err)
+			return nil, fmt.Errorf("class %q of node %s: %w", c, p.Node.Host, err)
 		}
 
 		folders = append(folders, folder)
@@ -51,19 +51,18 @@ func (p *PatchContext) Load() (patches []configpatcher.Patch, secrets []string, 
 	folders = append(folders, filepath.Join("node", p.Node.Host))
 
 	for _, folder := range folders {
-		folderPatches, folderSecrets, err := p.loadFolder(filepath.Join(p.PatchesDir, folder))
+		folderPatches, err := p.loadFolder(filepath.Join(p.PatchesDir, folder))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		patches = append(patches, folderPatches...)
-		secrets = append(secrets, folderSecrets...)
 	}
 
-	return patches, secrets, nil
+	return patches, nil
 }
 
-func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []string, error) {
+func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, error) {
 	var filePaths []string
 
 	pattern := regexp.MustCompile(`.*\.ya?ml(\.tpl)?`)
@@ -110,34 +109,29 @@ func (p *PatchContext) loadFolder(folder string) ([]configpatcher.Patch, []strin
 	err := filepath.WalkDir(folder, walkFunc)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil, nil
+			return nil, nil
 		}
 
-		return nil, nil, err
+		return nil, err
 	}
 
-	var (
-		patches []configpatcher.Patch
-		secrets []string
-	)
+	var patches []configpatcher.Patch
 
 	for _, filePath := range filePaths {
-		templatedFileContent, fileSecrets, err := p.loadFile(filePath)
+		templatedFileContent, err := p.loadFile(filePath)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-
-		secrets = append(secrets, fileSecrets...)
 
 		patchesInFile, err := parsePatches(templatedFileContent)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse patches in file %s: %w", filePath, err)
+			return nil, fmt.Errorf("failed to parse patches in file %s: %w", filePath, err)
 		}
 
 		patches = append(patches, patchesInFile...)
 	}
 
-	return patches, secrets, nil
+	return patches, nil
 }
 
 // RenderTemplate renders a Go template file with the given data.
@@ -164,26 +158,12 @@ func RenderTemplate(filename string, data any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (p *PatchContext) loadFile(filename string) ([]byte, []string, error) {
-	var (
-		content []byte
-		secrets []string
-		err     error
-	)
-
+func (p *PatchContext) loadFile(filename string) ([]byte, error) {
 	if strings.HasSuffix(filename, ".tpl") {
-		content, err = RenderTemplate(filename, p)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		content, secrets, err = p.DecryptCache.ReadFileWithSecrets(filename)
-		if err != nil {
-			return nil, nil, err
-		}
+		return RenderTemplate(filename, p)
 	}
 
-	return content, secrets, nil
+	return p.SecretsResolver.ReadFile(filename)
 }
 
 func parsePatches(data []byte) (patches []configpatcher.Patch, err error) {

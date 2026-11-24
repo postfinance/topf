@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/postfinance/topf/internal/decryption"
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"go.yaml.in/yaml/v4"
 )
@@ -52,9 +52,9 @@ func TestLoadClassesMergeOrder(t *testing.T) {
 	hostname := func(t *testing.T, node *Node) string {
 		t.Helper()
 
-		ctx := &PatchContext{Node: node, PatchesDir: dir, DecryptCache: decryption.NewCache()}
+		ctx := &PatchContext{Node: node, PatchesDir: dir, SecretsResolver: secrets.NewResolver(nil)}
 
-		patches, _, err := ctx.Load()
+		patches, err := ctx.Load()
 		if err != nil {
 			t.Fatalf("Load() error: %v", err)
 		}
@@ -88,12 +88,12 @@ func TestLoadClassesMergeOrder(t *testing.T) {
 
 	t.Run("missing class folder is an error", func(t *testing.T) {
 		ctx := &PatchContext{
-			Node:         &Node{Host: "n1", Role: RoleWorker, Classes: []string{"gpuu"}},
-			PatchesDir:   dir,
-			DecryptCache: decryption.NewCache(),
+			Node:            &Node{Host: "n1", Role: RoleWorker, Classes: []string{"gpuu"}},
+			PatchesDir:      dir,
+			SecretsResolver: secrets.NewResolver(nil),
 		}
 
-		if _, _, err := ctx.Load(); err == nil || !strings.Contains(err.Error(), `class "gpuu"`) {
+		if _, err := ctx.Load(); err == nil || !strings.Contains(err.Error(), `class "gpuu"`) {
 			t.Fatalf("expected missing class error, got %v", err)
 		}
 	})

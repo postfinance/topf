@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/postfinance/topf/internal/decryption"
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/pkg/providers"
 	"go.yaml.in/yaml/v4"
 )
@@ -134,10 +135,10 @@ func LoadFromFile(path string) (config *TopfConfig, secrets []string, err error)
 }
 
 // GetSecretsProvider returns the configured secrets provider, or the default filesystem provider
-func (t *TopfConfig) GetSecretsProvider(cache *decryption.Cache) providers.SecretsProvider {
+func (t *TopfConfig) GetSecretsProvider(resolver secrets.Resolver) providers.SecretsProvider {
 	if t.SecretsProvider != "" {
 		return providers.NewBinarySecretsProvider(t.SecretsProvider)
 	}
 
-	return providers.NewFilesystemSecretsProvider(t.SecretsPath, cache)
+	return providers.NewFilesystemSecretsProvider(t.SecretsPath, resolver)
 }
