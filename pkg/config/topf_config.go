@@ -5,6 +5,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -57,71 +58,63 @@ type TopfConfig struct {
 	Data map[string]any `yaml:"data"`
 }
 
-// LoadFromFile loads the TopfConfig from a YAML file.
-// PatchesDir defaults to the directory containing the config file.
-// SecretsPath defaults to "secrets.yaml" next to the config file (not inside PatchesDir).
-// Relative paths for both are resolved against the directory containing the config file.
-func LoadFromFile(path string) (config *TopfConfig, secrets []string, err error) {
-	// Read file with automatic SOPS decryption if needed
-	var content []byte
-
-	content, secrets, err = decryption.ReadFileWithSecrets(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
+// Parse decodes a topf.yaml document. Relative PatchesDir and SecretsPath are
+// resolved against baseDir, the absolute directory containing the config file.
+// Nodes are sorted control-plane first, then by host.
+// Parse does not access the filesystem.
+func Parse(content []byte, baseDir string) (*TopfConfig, error) {
+	if !filepath.IsAbs(baseDir) {
+		return nil, fmt.Errorf("base directory %q is not absolute", baseDir)
 	}
 
-	config = &TopfConfig{}
-
-	err = yaml.Unmarshal(content, config)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode config: %w", err)
+	cfg := &TopfConfig{}
+	if err := yaml.Unmarshal(content, cfg); err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
-	if config.ConfigDir != "" {
-		return nil, nil, fmt.Errorf("deprecated field 'configDir' found in %s: use 'patchesDir' instead", path)
+	if cfg.ConfigDir != "" {
+		return nil, errors.New("deprecated field 'configDir' found: use 'patchesDir' instead")
 	}
 
-	// Resolve config file directory as absolute path
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve config path: %w", err)
+	cfg.PatchesDir = resolvePath(baseDir, cfg.PatchesDir, ".")
+	cfg.SecretsPath = resolvePath(baseDir, cfg.SecretsPath, "secrets.yaml")
+	sortNodes(cfg.Nodes)
+
+	return cfg, nil
+}
+
+// ParseNodes decodes a YAML list of nodes, as returned by a nodes provider.
+func ParseNodes(content []byte) ([]Node, error) {
+	var nodes []Node
+	if err := yaml.Unmarshal(content, &nodes); err != nil {
+		return nil, fmt.Errorf("failed to decode nodes: %w", err)
 	}
 
-	configFileDir := filepath.Dir(absPath)
+	return nodes, nil
+}
 
-	// Set default patchesDir if not specified
-	if config.PatchesDir == "" {
-		config.PatchesDir = configFileDir
-	} else if !filepath.IsAbs(config.PatchesDir) {
-		config.PatchesDir = filepath.Join(configFileDir, config.PatchesDir)
+// AddNodes appends nodes and restores the node order.
+func (t *TopfConfig) AddNodes(nodes []Node) {
+	t.Nodes = append(t.Nodes, nodes...)
+	sortNodes(t.Nodes)
+}
+
+// resolvePath resolves path against baseDir, using fallback if path is empty.
+func resolvePath(baseDir, path, fallback string) string {
+	if path == "" {
+		path = fallback
 	}
 
-	// Set default secretsPath if not specified (next to topf.yaml, not inside patchesDir)
-	if config.SecretsPath == "" {
-		config.SecretsPath = filepath.Join(configFileDir, "secrets.yaml")
-	} else if !filepath.IsAbs(config.SecretsPath) {
-		config.SecretsPath = filepath.Join(configFileDir, config.SecretsPath)
+	if filepath.IsAbs(path) {
+		return path
 	}
 
-	// If a nodes provider is given, add those to the list of nodes
-	if config.NodesProvider != "" {
-		provider := providers.NewBinaryNodesProvider(config.NodesProvider)
+	return filepath.Join(baseDir, path)
+}
 
-		nodesYAML, err := providers.LoadNodesYAML(provider, config.ClusterName)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var nodes []Node
-		if err := yaml.Unmarshal(nodesYAML, &nodes); err != nil {
-			return nil, nil, fmt.Errorf("failed to parse nodes from provider: %w", err)
-		}
-
-		config.Nodes = append(config.Nodes, nodes...)
-	}
-
-	// Sort nodes by role and hostname, such that control plane nodes come first
-	slices.SortStableFunc(config.Nodes, func(a, b Node) int {
+// sortNodes sorts control-plane nodes first, then by host.
+func sortNodes(nodes []Node) {
+	slices.SortStableFunc(nodes, func(a, b Node) int {
 		if a.Role == RoleControlPlane && b.Role == RoleWorker {
 			return -1
 		} else if a.Role == RoleWorker && b.Role == RoleControlPlane {
@@ -130,8 +123,47 @@ func LoadFromFile(path string) (config *TopfConfig, secrets []string, err error)
 
 		return strings.Compare(a.Host, b.Host)
 	})
+}
 
-	return config, secrets, err
+// LoadFromFile loads the TopfConfig from a YAML file.
+// PatchesDir defaults to the directory containing the config file.
+// SecretsPath defaults to "secrets.yaml" next to the config file (not inside PatchesDir).
+// Relative paths for both are resolved against the directory containing the config file.
+func LoadFromFile(path string) (config *TopfConfig, secrets []string, err error) {
+	var content []byte
+
+	content, secrets, err = decryption.ReadFileWithSecrets(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve config path: %w", err)
+	}
+
+	config, err = Parse(content, filepath.Dir(absPath))
+	if err != nil {
+		return nil, nil, fmt.Errorf("config file %s: %w", path, err)
+	}
+
+	if config.NodesProvider != "" {
+		provider := providers.NewBinaryNodesProvider(config.NodesProvider)
+
+		nodesYAML, err := providers.LoadNodesYAML(provider, config.ClusterName)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		nodes, err := ParseNodes(nodesYAML)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse nodes from provider: %w", err)
+		}
+
+		config.AddNodes(nodes)
+	}
+
+	return config, secrets, nil
 }
 
 // GetSecretsProvider returns the configured secrets provider, or the default filesystem provider
