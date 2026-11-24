@@ -63,27 +63,27 @@ TOPF reads all non-template files (including `topf.yaml` itself) through a two-s
 1. **SOPS decryption** — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.
 1. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
 
-Template files (ending with `.tpl`) skip this pipeline entirely and are rendered through [Go templates](#templating) instead.
+Patch templates (`.yaml.tpl`) are not SOPS-decrypted; SOPS-encrypted templates are rejected. They are rendered first, then the output is passed through vals, so references can be built dynamically (e.g. `ref+sops://secrets.yaml#/{{ .Node.Host }}/token`). To use secrets in templates, use data in a SOPS-encrypted `topf.yaml` or vals references.
 
 This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via [vals](https://github.com/helmfile/vals).
 
 ## Templating
 
-Patches ending with `.yaml.tpl` support [Go templating](https://pkg.go.dev/text/template). The following context fields are available:
+Templates (`.yaml.tpl` patches and `.tpl` schematics) receive the complete `topf.yaml` configuration plus the node being rendered. Use Go field names, not YAML keys (e.g. `.Node.SchematicID`, not `.Node.schematicId`).
 
 | Field | Description |
 | ------- | ------------- |
-| `.ClusterName` | Cluster name from `topf.yaml` |
-| `.ClusterEndpoint` | Cluster endpoint URL |
-| `.KubernetesVersion` | Kubernetes version |
-| `.TalosVersion` | Talos version (if set in `topf.yaml`) |
-| `.SchematicID` | Schematic ID (if set in `topf.yaml`) |
-| `.Data.<key>` | Arbitrary global data from `topf.yaml` (see [configuration](configuration.md#configuration-fields)) |
-| `.Node.Host` | Node hostname |
-| `.Node.Role` | Node role (`control-plane` or `worker`) |
-| `.Node.IP` | Node IP address (if set) |
-| `.Node.Classes` | Node classes (if set) |
-| `.Node.Data.<key>` | Per-node data (if set) |
+| `.ClusterName` | Cluster name |
+| `.ClusterEndpoint` | Cluster endpoint URL. Prints as a string; use `.ClusterEndpoint.String` with string functions or `eq`, `.ClusterEndpoint.Host` for `host:port` |
+| `.KubernetesVersion` | Kubernetes version (if set) |
+| `.TalosVersion` | Cluster Talos version (if set) |
+| `.SchematicID` | Cluster schematic ID as written in `topf.yaml` (may be an `@file` reference or empty) |
+| `.Factory`, `.Platform`, `.SecureBoot` | Cluster-level settings (if set) |
+| `.Data.<key>` | Global data |
+| `.Nodes` | All configured nodes, including provider nodes; not limited by `--nodes-filter`. Each has the configuration fields of `.Node` |
+| `.Node.Host`, `.Node.Role`, `.Node.IP`, `.Node.Classes`, `.Node.Data.<key>` | Node configuration |
+| `.Node.TalosVersion`, `.Node.SchematicID`, `.Node.Factory`, `.Node.Platform`, `.Node.SecureBoot` | Per-node overrides as written in `topf.yaml` (empty if not set) |
+| `.Node.ResolvedSchematicID` | Effective schematic ID (node → cluster → default, `@file` resolved). Empty in schematic templates |
 | `.Node.RuntimeData.TalosVersion` | Talos version reported by the **live node** (no `v` prefix; empty when rendering offline or before the node was contacted) |
 | `.Node.RuntimeData.SchematicID` | Schematic ID reported by the live node |
 | `.Node.RuntimeData.Stage` | Machine stage reported by the live node (`booting`, `installing`, `maintenance`, `running`, `rebooting`, `shutting down`, `resetting`, `upgrading`) |
@@ -112,6 +112,18 @@ machine:
   kubelet:
     extraArgs:
       provider-id: {{ .Node.Data.uuid }}
+```
+
+Add all control-plane hosts as certificate SANs:
+
+```yaml
+machine:
+  certSANs:
+{{- range .Nodes }}
+{{- if eq .Role "control-plane" }}
+    - {{ .Host }}
+{{- end }}
+{{- end }}
 ```
 
 Use the `env` function in a multi-document template to conditionally configure a registry mirror:

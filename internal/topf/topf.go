@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/postfinance/topf/internal/maskedwriter"
+	"github.com/postfinance/topf/internal/patches"
 	"github.com/postfinance/topf/internal/schematic"
 	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/pkg/config"
@@ -65,11 +66,10 @@ type Topf interface {
 	// TopfVersion returns the topf version string
 	TopfVersion() string
 
-	// ResolveSchematic resolves a schematic ID string. If the ID starts with @,
-	// it is treated as a path to a schematic file (relative to the directory
-	// containing topf.yaml) and the resolved hash is returned. Non-@-prefixed
-	// IDs are returned unchanged.
-	ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error)
+	// ResolveSchematic returns the effective schematic ID of node
+	// (node -> cluster -> default). @-prefixed references are resolved
+	// relative to the directory containing topf.yaml.
+	ResolveSchematic(ctx context.Context, node *config.Node) (string, error)
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -154,7 +154,6 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 
 	t := &topf{
 		TopfConfig:   topfConfig,
-		patchesDir:   topfConfig.PatchesDir,
 		logger:       cfg.Logger,
 		maskedWriter: mw,
 		confirm:      cfg.Confirm,
@@ -164,6 +163,7 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	}
 
 	t.secretsResolver = secrets.NewResolver(t.AddSecretsToMask)
+	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: t.secretsResolver}
 
 	return t, nil
 }
@@ -172,7 +172,7 @@ type topf struct {
 	*config.TopfConfig
 	mu sync.Mutex
 
-	patchesDir      string
+	patches         *patches.Loader
 	secretsBundle   *talossecrets.Bundle
 	logger          *slog.Logger
 	maskedWriter    *maskedwriter.Writer
@@ -214,8 +214,8 @@ func (t *topf) Confirm() bool {
 	return t.confirm
 }
 
-func (t *topf) ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error) {
-	return t.resolver.Resolve(ctx, factory, schematicID, patchCtx)
+func (t *topf) ResolveSchematic(ctx context.Context, node *config.Node) (string, error) {
+	return t.resolveSchematic(ctx, &Node{Node: node, t: t})
 }
 
 // ControlPlaneClient returns a Talos API client connected to a control-plane

@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/postfinance/topf/internal/tmpl"
 	"github.com/postfinance/topf/pkg/config"
 )
 
@@ -92,8 +93,10 @@ func TestResolve(t *testing.T) {
 `), 0o644)
 
 		r := NewResolver(dir, "test")
-		got, err := r.Resolve(context.Background(), "", "@s.yaml.tpl", &config.PatchContext{
-			Data: map[string]any{"extensions": []string{"siderolabs/qemu-guest-agent"}},
+		got, err := r.Resolve(context.Background(), "", "@s.yaml.tpl", &tmpl.Context{
+			TopfConfig: &config.TopfConfig{
+				Data: map[string]any{"extensions": []string{"siderolabs/qemu-guest-agent"}},
+			},
 		})
 		if err != nil {
 			t.Fatal(err)

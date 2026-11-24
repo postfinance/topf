@@ -5,14 +5,12 @@
 package schematicids
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"sort"
 
 	"github.com/postfinance/topf/internal/topf"
-	"github.com/postfinance/topf/pkg/config"
 )
 
 // Execute resolves all schematic IDs for the configured nodes and prints
@@ -24,21 +22,10 @@ func Execute(ctx context.Context, t topf.Topf, w io.Writer) error {
 
 	ids := make(map[string]struct{})
 
-	for _, node := range cfg.Nodes {
-		factory := cmp.Or(node.Factory, cfg.Factory, topf.DefaultFactory)
-		schematicID := cmp.Or(node.SchematicID, cfg.SchematicID, topf.DefaultSchematic)
+	for i := range cfg.Nodes {
+		node := &cfg.Nodes[i]
 
-		patchCtx := &config.PatchContext{
-			ClusterName:       cfg.ClusterName,
-			ClusterEndpoint:   cfg.ClusterEndpoint.String(),
-			KubernetesVersion: cfg.KubernetesVersion,
-			TalosVersion:      cfg.TalosVersion,
-			SchematicID:       schematicID,
-			Data:              cfg.Data,
-			Node:              &node,
-		}
-
-		resolved, err := t.ResolveSchematic(ctx, factory, schematicID, patchCtx)
+		resolved, err := t.ResolveSchematic(ctx, node)
 		if err != nil {
 			return fmt.Errorf("failed to resolve schematic for node %s: %w", node.Host, err)
 		}

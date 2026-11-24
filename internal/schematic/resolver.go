@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/postfinance/topf/pkg/config"
+	"github.com/postfinance/topf/internal/tmpl"
 	factoryclient "github.com/siderolabs/image-factory/pkg/client"
 	"github.com/siderolabs/image-factory/pkg/schematic"
 	"golang.org/x/sync/singleflight"
@@ -103,11 +103,11 @@ func (r *Resolver) getOrCreateClient(factory string) (*factoryclient.Client, err
 
 // Resolve resolves a schematic ID. If the ID starts with @, it is treated as a path
 // to a schematic file (relative to configDir). Files ending in .tpl are rendered
-// through Go templates using the provided PatchContext as data.
+// through Go templates using the provided template context.
 // By default, the schematic ID is computed locally from the canonical YAML hash.
 // When SubmitToFactory is set, the schematic is submitted to the image factory API instead.
 // Non-@-prefixed IDs are returned unchanged.
-func (r *Resolver) Resolve(ctx context.Context, factory, schematicID string, tmplData *config.PatchContext) (string, error) {
+func (r *Resolver) Resolve(ctx context.Context, factory, schematicID string, data *tmpl.Context) (string, error) {
 	if !strings.HasPrefix(schematicID, "@") {
 		return schematicID, nil
 	}
@@ -119,7 +119,7 @@ func (r *Resolver) Resolve(ctx context.Context, factory, schematicID string, tmp
 		path = filepath.Join(r.configDir, path)
 	}
 
-	content, err := r.readFile(path, tmplData)
+	content, err := r.readFile(path, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to read schematic file %s: %w", path, err)
 	}
@@ -172,13 +172,18 @@ func (r *Resolver) submitSchematic(ctx context.Context, factory, id string, sc *
 	return err
 }
 
-func (r *Resolver) readFile(path string, tmplData *config.PatchContext) ([]byte, error) {
-	if !strings.HasSuffix(path, ".tpl") {
-		//nolint:gosec // loading arbitrary schematic files is by design
-		return os.ReadFile(path)
+func (r *Resolver) readFile(path string, data *tmpl.Context) ([]byte, error) {
+	//nolint:gosec // loading arbitrary schematic files is by design
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
 
-	return config.RenderTemplate(path, tmplData)
+	if !strings.HasSuffix(path, ".tpl") {
+		return content, nil
+	}
+
+	return tmpl.Render(path, content, data)
 }
 
 func withUserAgent(version string) factoryclient.Option {

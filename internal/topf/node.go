@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/postfinance/topf/internal/tmpl"
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/images"
 	talosconfig "github.com/siderolabs/talos/pkg/machinery/config"
@@ -35,8 +36,7 @@ type Node struct {
 	Node *config.Node
 
 	MachineStatus     runtime.MachineStatusSpec
-	runningVersion    string
-	runningSchematic  string
+	runtimeData       tmpl.RuntimeData
 	resolvedSchematic string
 	ConfigBundle      *bundle.Bundle `yaml:"-"`
 	Error             error          `yaml:",omitempty"`
@@ -45,7 +45,7 @@ type Node struct {
 // TalosVersion returns the Talos version to use for config generation.
 // Fallback chain: running (from live node) -> topf.yaml -> bundled Talos version.
 func (n *Node) TalosVersion() string {
-	return strings.TrimPrefix(cmp.Or(n.runningVersion, n.t.Config().TalosVersion, version.Tag), "v")
+	return strings.TrimPrefix(cmp.Or(n.runtimeData.TalosVersion, n.t.Config().TalosVersion, version.Tag), "v")
 }
 
 // KubernetesVersion returns the Kubernetes version to use for config generation.
@@ -57,13 +57,13 @@ func (n *Node) KubernetesVersion() string {
 // RunningVersion returns the Talos version reported by the live node.
 // Empty if collectNodeInfo has not been called.
 func (n *Node) RunningVersion() string {
-	return n.runningVersion
+	return n.runtimeData.TalosVersion
 }
 
 // RunningSchematic returns the schematic ID reported by the live node.
 // Empty if collectNodeInfo has not been called.
 func (n *Node) RunningSchematic() string {
-	return n.runningSchematic
+	return n.runtimeData.SchematicID
 }
 
 // ResolvedSchematic returns the schematic ID after @-prefixed references
@@ -101,8 +101,8 @@ func (n *Node) MarshalYAML() (any, error) {
 	}{
 		Node:          n.Node,
 		MachineStatus: n.MachineStatus,
-		Schematic:     n.runningSchematic,
-		TalosVersion:  n.runningVersion,
+		Schematic:     n.runtimeData.SchematicID,
+		TalosVersion:  n.runtimeData.TalosVersion,
 	}
 
 	if n.Error != nil {
