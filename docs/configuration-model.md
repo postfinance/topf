@@ -62,7 +62,8 @@ TOPF reads all non-template files (including `topf.yaml` itself) through a two-s
 
 1. **SOPS decryption** — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.
 1. **vals evaluation** — after decryption, any [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://`, `ref+file://`) are resolved. If no vals references are present, this step is skipped. The `vals` binary must be on `PATH` when vals references are used.
-1. Nodes provider output is passed through vals as well; SOPS does not apply.
+
+Nodes provider output is passed through vals as well; SOPS does not apply.
 
 Patch templates (`.yaml.tpl`) are not SOPS-decrypted; SOPS-encrypted templates are rejected. They are rendered first, then the output is passed through vals, so references can be built dynamically (e.g. `ref+sops://secrets.yaml#/{{ .Node.Host }}/token`). To use secrets in templates, use data in a SOPS-encrypted `topf.yaml` or vals references.
 
