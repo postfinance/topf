@@ -13,10 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/internal/tmpl"
+	"github.com/postfinance/topf/internal/userfile"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"go.yaml.in/yaml/v4"
 )
@@ -73,7 +73,7 @@ func (l *Loader) loadFolder(folder string, data *tmpl.Context) ([]configpatcher.
 	var patches []configpatcher.Patch
 
 	for _, path := range files {
-		content, err := l.loadFile(path, data)
+		content, err := userfile.Read(path, data, l.Secrets)
 		if err != nil {
 			return nil, err
 		}
@@ -140,31 +140,6 @@ func findFiles(folder string) ([]string, error) {
 	}
 
 	return files, nil
-}
-
-// loadFile returns the content of a patch file with secrets resolved.
-// Templates are read as plain text (SOPS is not supported), rendered, then passed to vals.
-func (l *Loader) loadFile(path string, data *tmpl.Context) ([]byte, error) {
-	if !strings.HasSuffix(path, ".tpl") {
-		return l.Secrets.ReadFile(path)
-	}
-
-	src, err := os.ReadFile(path) //nolint:gosec // patch files are user-provided by design
-	if err != nil {
-		return nil, err
-	}
-
-	rendered, err := tmpl.Render(path, src, data)
-	if err != nil {
-		return nil, err
-	}
-
-	content, err := l.Secrets.Eval(rendered)
-	if err != nil {
-		return nil, fmt.Errorf("resolve vals references in %s: %w", path, err)
-	}
-
-	return content, nil
 }
 
 func parsePatches(data []byte) (patches []configpatcher.Patch, err error) {

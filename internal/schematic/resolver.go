@@ -10,20 +10,22 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/internal/tmpl"
+	"github.com/postfinance/topf/internal/userfile"
 	factoryclient "github.com/siderolabs/image-factory/pkg/client"
 	"github.com/siderolabs/image-factory/pkg/schematic"
 	"golang.org/x/sync/singleflight"
 )
 
-// Resolver resolves @-prefixed schematic IDs by reading schematic definition files,
-// optionally rendering them as Go templates, and computing or submitting schematic IDs.
+// Resolver resolves @-prefixed schematic IDs by reading schematic definition files
+// (secrets resolved, .tpl files rendered as Go templates) and computing or
+// submitting schematic IDs.
 // By default, schematic IDs are computed locally from the canonical YAML representation.
 // When SubmitToFactory is set, schematics are submitted to the image factory API instead.
 type Resolver struct {
@@ -35,6 +37,7 @@ type Resolver struct {
 	logger          *slog.Logger
 	configDir       string
 	topfVersion     string
+	secrets         secrets.Resolver
 }
 
 // Option configures a Resolver.
@@ -63,7 +66,8 @@ func WithSubmitToFactory(submit bool) Option {
 }
 
 // NewResolver creates a new Resolver. configDir is used to resolve relative file paths.
-func NewResolver(configDir, topfVersion string, opts ...Option) *Resolver {
+// Schematic files are read with secrets resolved by secretsResolver.
+func NewResolver(configDir, topfVersion string, secretsResolver secrets.Resolver, opts ...Option) *Resolver {
 	r := &Resolver{
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
@@ -72,6 +76,7 @@ func NewResolver(configDir, topfVersion string, opts ...Option) *Resolver {
 		logger:      slog.Default(),
 		configDir:   configDir,
 		topfVersion: topfVersion,
+		secrets:     secretsResolver,
 	}
 
 	for _, opt := range opts {
@@ -102,8 +107,9 @@ func (r *Resolver) getOrCreateClient(factory string) (*factoryclient.Client, err
 }
 
 // Resolve resolves a schematic ID. If the ID starts with @, it is treated as a path
-// to a schematic file (relative to configDir). Files ending in .tpl are rendered
-// through Go templates using the provided template context.
+// to a schematic file (relative to configDir).
+// Files ending in .tpl are rendered with data first.
+// The file is read with secrets resolved.
 // By default, the schematic ID is computed locally from the canonical YAML hash.
 // When SubmitToFactory is set, the schematic is submitted to the image factory API instead.
 // Non-@-prefixed IDs are returned unchanged.
@@ -119,7 +125,7 @@ func (r *Resolver) Resolve(ctx context.Context, factory, schematicID string, dat
 		path = filepath.Join(r.configDir, path)
 	}
 
-	content, err := r.readFile(path, data)
+	content, err := userfile.Read(path, data, r.secrets)
 	if err != nil {
 		return "", fmt.Errorf("failed to read schematic file %s: %w", path, err)
 	}
@@ -170,20 +176,6 @@ func (r *Resolver) submitSchematic(ctx context.Context, factory, id string, sc *
 	r.logger.Debug("submitSchematic result", "factory", factory, "id", id, "shared", shared, "err", err)
 
 	return err
-}
-
-func (r *Resolver) readFile(path string, data *tmpl.Context) ([]byte, error) {
-	//nolint:gosec // loading arbitrary schematic files is by design
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if !strings.HasSuffix(path, ".tpl") {
-		return content, nil
-	}
-
-	return tmpl.Render(path, content, data)
 }
 
 func withUserAgent(version string) factoryclient.Option {

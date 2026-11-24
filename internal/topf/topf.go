@@ -123,10 +123,9 @@ func NewLogger(logLevel string, jsonLog bool) (*slog.Logger, error) {
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	t := &topf{
-		logger:   cfg.Logger,
-		confirm:  cfg.Confirm,
-		version:  cfg.TopfVersion,
-		resolver: schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
+		logger:  cfg.Logger,
+		confirm: cfg.Confirm,
+		version: cfg.TopfVersion,
 	}
 
 	// created before anything is read, so secrets found while loading are masked
@@ -165,6 +164,8 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	t.TopfConfig = topfConfig
 	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: secretsResolver}
 	t.secretsProvider = newSecretsProvider(topfConfig, secretsResolver)
+	t.resolver = schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, secretsResolver,
+		schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger))
 
 	return t, nil
 }

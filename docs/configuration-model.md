@@ -65,7 +65,7 @@ TOPF reads all non-template files (including `topf.yaml` itself) through a two-s
 
 Nodes provider output is passed through vals as well; SOPS does not apply.
 
-Patch templates (`.yaml.tpl`) are not SOPS-decrypted; SOPS-encrypted templates are rejected. They are rendered first, then the output is passed through vals, so references can be built dynamically (e.g. `ref+sops://secrets.yaml#/{{ .Node.Host }}/token`). To use secrets in templates, use data in a SOPS-encrypted `topf.yaml` or vals references.
+Templates (`.tpl`) are not SOPS-decrypted; SOPS-encrypted templates are rejected. They are rendered first, then the output is passed through vals, so references can be built dynamically (e.g. `ref+sops://secrets.yaml#/{{ .Node.Host }}/token`). To use secrets in templates, use data in a SOPS-encrypted `topf.yaml` or vals references.
 
 This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via [vals](https://github.com/helmfile/vals).
 
