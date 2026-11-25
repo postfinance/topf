@@ -135,4 +135,27 @@ func TestEvalContent(t *testing.T) {
 			t.Errorf("secret = %q, want %q", secrets[0], "deep-secret")
 		}
 	})
+
+	t.Run("top-level list", func(t *testing.T) {
+		dir := t.TempDir()
+
+		secretFile := filepath.Join(dir, "listsecret")
+		if err := os.WriteFile(secretFile, []byte("list-secret"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		input := []byte(fmt.Sprintf("- host: n1\n  data:\n    token: ref+file://%s\n", secretFile))
+		content, secrets, err := EvalContent(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !strings.Contains(string(content), "token: list-secret") {
+			t.Errorf("list content not resolved, got: %s", content)
+		}
+
+		if len(secrets) != 1 || secrets[0] != "list-secret" {
+			t.Errorf("secrets = %v, want [list-secret]", secrets)
+		}
+	})
 }

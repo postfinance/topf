@@ -13,6 +13,7 @@ import (
 
 	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/cosi-project/runtime/pkg/safe"
+	"github.com/postfinance/topf/internal/tmpl"
 	"github.com/postfinance/topf/pkg/config"
 	"github.com/siderolabs/talos/pkg/machinery/cel"
 	"github.com/siderolabs/talos/pkg/machinery/cel/celenv"
@@ -104,11 +105,11 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 
 	// it's possible that the schematic extension is not present
 	// in which case we have to assume the default one
-	n.runningSchematic = DefaultSchematic
+	n.runtimeData.SchematicID = DefaultSchematic
 
 	for extension := range extensions.All() {
 		if extension.TypedSpec().Metadata.Name == "schematic" {
-			n.runningSchematic = extension.TypedSpec().Metadata.Version
+			n.runtimeData.SchematicID = extension.TypedSpec().Metadata.Version
 		}
 	}
 
@@ -120,14 +121,8 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 
 	for v := range versions.All() {
 		if v.Metadata().Type() == runtime.VersionType {
-			n.runningVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
+			n.runtimeData.TalosVersion = strings.TrimPrefix(v.TypedSpec().Version, "v")
 		}
-	}
-
-	n.Node.RuntimeData = config.RuntimeData{
-		TalosVersion: n.runningVersion,
-		SchematicID:  n.runningSchematic,
-		Stage:        n.MachineStatus.Stage.String(),
 	}
 
 	return nil
@@ -136,29 +131,14 @@ func (n *Node) collectNodeInfo(ctx context.Context) error {
 func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	t.Logger().With(node.Attrs()).Debug("generating configuration bundle")
 
-	cfg := t.Config()
-
-	patchContext := &config.PatchContext{
-		ClusterName:       cfg.ClusterName,
-		ClusterEndpoint:   cfg.ClusterEndpoint.String(),
-		KubernetesVersion: cfg.KubernetesVersion,
-		TalosVersion:      cfg.TalosVersion,
-		SchematicID:       cmp.Or(node.Node.SchematicID, cfg.SchematicID, DefaultSchematic),
-		Node:              node.Node,
-		Data:              cfg.Data,
-		PatchesDir:        t.patchesDir,
-		DecryptCache:      t.decryptCache,
-	}
-
-	resolvedSchematic, err := t.resolver.Resolve(ctx, cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory), patchContext.SchematicID, patchContext)
+	resolvedSchematic, err := t.resolveSchematic(ctx, node)
 	if err != nil {
 		return fmt.Errorf("failed to resolve schematic ID: %w", err)
 	}
 
 	node.resolvedSchematic = resolvedSchematic
-	patchContext.SchematicID = resolvedSchematic
 
-	patches, patchSecrets, err := patchContext.Load()
+	patches, err := t.patches.Load(t.templateContext(node))
 	if err != nil {
 		return fmt.Errorf("couldn't load patches: %w", err)
 	}
@@ -174,8 +154,6 @@ func (t *topf) generateNodeConfig(ctx context.Context, node *Node) error {
 	}
 
 	patches = append([]configpatcher.Patch{installPatch}, patches...)
-
-	t.AddSecretsToMask(patchSecrets)
 
 	secretsBundle, err := t.Secrets()
 	if err != nil {
@@ -263,4 +241,26 @@ func (t *topf) FilteredNodes(ctx context.Context) ([]*Node, error) {
 	wg.Wait()
 
 	return nodes, nil
+}
+
+// templateContext returns the template data for node from its current state.
+func (t *topf) templateContext(node *Node) *tmpl.Context {
+	return &tmpl.Context{
+		TopfConfig: t.Config(),
+		Node: tmpl.Node{
+			Node:                *node.Node,
+			ResolvedSchematicID: node.resolvedSchematic,
+			RuntimeData:         node.runtimeData,
+		},
+	}
+}
+
+// resolveSchematic returns the effective schematic ID of node (node -> cluster -> default)
+// with @-references resolved.
+func (t *topf) resolveSchematic(ctx context.Context, node *Node) (string, error) {
+	cfg := t.Config()
+	factory := cmp.Or(node.Node.Factory, cfg.Factory, DefaultFactory)
+	id := cmp.Or(node.Node.SchematicID, cfg.SchematicID, DefaultSchematic)
+
+	return t.resolver.Resolve(ctx, factory, id, t.templateContext(node))
 }

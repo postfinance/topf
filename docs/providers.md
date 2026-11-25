@@ -34,6 +34,7 @@ It must output a YAML list of nodes to **stdout**:
 - Exit code `0` on success, non-zero on failure
 - **stderr** is passed through to the user for diagnostics
 - The `data` field is optional and can carry arbitrary key-value pairs for use in [patch templates](configuration-model.md#templating) via `.Node.Data.<key>`
+- Values may contain [vals](https://github.com/helmfile/vals) references (e.g. `ref+vault://…`), resolved like in `topf.yaml`
 
 ### Merging
 
@@ -56,7 +57,7 @@ The secrets provider manages the Talos secrets bundle (`secrets.yaml`) which con
 
 ### Default Behavior (no provider)
 
-Without a `secretsProvider`, TOPF reads from and writes to a local `secrets.yaml` file. The location defaults to `secrets.yaml` next to the config file and can be overridden with `secretsPath`. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext. [vals](https://github.com/helmfile/vals) references in the secrets file are also resolved if present.
+Without a `secretsProvider`, TOPF reads from and writes to a local `secrets.yaml` file. The location defaults to `secrets.yaml` next to the config file and can be overridden with `secretsPath`. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not installed, or no `.sops.yaml` creation rule matches the file, it falls back to plaintext and logs a warning. Any other SOPS error (for example an unavailable key) aborts the write, so the secrets are never silently stored unencrypted. [vals](https://github.com/helmfile/vals) references in the secrets file are also resolved if present.
 
 ### Binary Contract
 

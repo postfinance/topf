@@ -97,7 +97,7 @@ schematicId: "@schematic.yaml"
 
 Topf will:
 
-1. Read the file (relative to the directory containing `topf.yaml`)
+1. Read the file (relative to the directory containing topf.yaml) with secrets resolved like patches (see Secret Resolution)
 1. If the path ends in `.tpl`, render it through Go templates with the same data available as [patch templates](configuration-model.md#templating)
 1. Compute the schematic ID locally from the canonical YAML representation
 1. Use the schematic ID for config generation and installer image URLs

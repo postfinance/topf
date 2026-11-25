@@ -16,12 +16,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/postfinance/topf/internal/decryption"
 	"github.com/postfinance/topf/internal/maskedwriter"
+	"github.com/postfinance/topf/internal/patches"
 	"github.com/postfinance/topf/internal/schematic"
+	"github.com/postfinance/topf/internal/secrets"
 	"github.com/postfinance/topf/pkg/config"
+	"github.com/postfinance/topf/pkg/providers"
 	"github.com/siderolabs/talos/pkg/machinery/client"
-	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	talossecrets "github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 )
 
 // Topf is the main interface to interact with a Topf cluster runtime
@@ -30,7 +32,7 @@ type Topf interface {
 	Config() *config.TopfConfig
 
 	// Secrets returns the lazy loaded secrets bundle
-	Secrets() (*secrets.Bundle, error)
+	Secrets() (*talossecrets.Bundle, error)
 
 	// Logger returns the configured logger
 	Logger() *slog.Logger
@@ -65,11 +67,10 @@ type Topf interface {
 	// TopfVersion returns the topf version string
 	TopfVersion() string
 
-	// ResolveSchematic resolves a schematic ID string. If the ID starts with @,
-	// it is treated as a path to a schematic file (relative to the directory
-	// containing topf.yaml) and the resolved hash is returned. Non-@-prefixed
-	// IDs are returned unchanged.
-	ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error)
+	// ResolveSchematic returns the effective schematic ID of node
+	// (node -> cluster -> default). @-prefixed references are resolved
+	// relative to the directory containing topf.yaml.
+	ResolveSchematic(ctx context.Context, node *config.Node) (string, error)
 }
 
 // RuntimeConfig contains configuration for creating a Topf runtime
@@ -121,9 +122,20 @@ func NewLogger(logLevel string, jsonLog bool) (*slog.Logger, error) {
 
 // NewTopfRuntime creates a new Topf runtime from the given configuration
 func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
-	decryptCache := decryption.NewCache()
+	t := &topf{
+		logger:  cfg.Logger,
+		confirm: cfg.Confirm,
+		version: cfg.TopfVersion,
+	}
 
-	topfConfig, secrets, err := config.LoadFromFile(cfg.ConfigPath)
+	// created before anything is read, so secrets found while loading are masked
+	if cfg.Redact {
+		t.maskedWriter = maskedwriter.New(os.Stdout, nil)
+	}
+
+	secretsResolver := secrets.NewResolver(t.AddSecretsToMask)
+
+	topfConfig, err := loadConfig(cfg.ConfigPath, secretsResolver)
 	if err != nil {
 		return nil, err
 	}
@@ -140,46 +152,37 @@ func NewTopfRuntime(cfg RuntimeConfig) (Topf, error) {
 	}
 
 	// Compile nodes filter regex; empty means all nodes
-	nodesFilter := regexp.MustCompile(".*")
+	t.nodesFilter = regexp.MustCompile(".*")
 
 	if cfg.NodesRegexFilter != "" {
-		nodesFilter, err = regexp.Compile(cfg.NodesRegexFilter)
+		t.nodesFilter, err = regexp.Compile(cfg.NodesRegexFilter)
 		if err != nil {
 			return nil, fmt.Errorf("invalid nodes selector regex: %w", err)
 		}
 	}
 
-	var mw *maskedwriter.Writer
-	if cfg.Redact {
-		mw = maskedwriter.New(os.Stdout, secrets)
-	}
+	t.TopfConfig = topfConfig
+	t.patches = &patches.Loader{Dir: topfConfig.PatchesDir, Secrets: secretsResolver}
+	t.secretsProvider = newSecretsProvider(topfConfig, secretsResolver)
+	t.resolver = schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, secretsResolver,
+		schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger))
 
-	return &topf{
-		TopfConfig:   topfConfig,
-		patchesDir:   topfConfig.PatchesDir,
-		logger:       cfg.Logger,
-		maskedWriter: mw,
-		confirm:      cfg.Confirm,
-		version:      cfg.TopfVersion,
-		resolver:     schematic.NewResolver(filepath.Dir(cfg.ConfigPath), cfg.TopfVersion, schematic.WithSubmitToFactory(cfg.SubmitToFactory), schematic.WithLogger(cfg.Logger)),
-		decryptCache: decryptCache,
-		nodesFilter:  nodesFilter,
-	}, nil
+	return t, nil
 }
 
 type topf struct {
 	*config.TopfConfig
 	mu sync.Mutex
 
-	patchesDir    string
-	secretsBundle *secrets.Bundle
-	logger        *slog.Logger
-	maskedWriter  *maskedwriter.Writer
-	confirm       bool
-	version       string
-	resolver      *schematic.Resolver
-	decryptCache  *decryption.Cache
-	nodesFilter   *regexp.Regexp
+	patches         *patches.Loader
+	secretsBundle   *talossecrets.Bundle
+	logger          *slog.Logger
+	maskedWriter    *maskedwriter.Writer
+	confirm         bool
+	version         string
+	resolver        *schematic.Resolver
+	secretsProvider providers.SecretsProvider
+	nodesFilter     *regexp.Regexp
 }
 
 func (t *topf) Config() *config.TopfConfig {
@@ -213,8 +216,8 @@ func (t *topf) Confirm() bool {
 	return t.confirm
 }
 
-func (t *topf) ResolveSchematic(ctx context.Context, factory, schematicID string, patchCtx *config.PatchContext) (string, error) {
-	return t.resolver.Resolve(ctx, factory, schematicID, patchCtx)
+func (t *topf) ResolveSchematic(ctx context.Context, node *config.Node) (string, error) {
+	return t.resolveSchematic(ctx, &Node{Node: node, t: t})
 }
 
 // ControlPlaneClient returns a Talos API client connected to a control-plane

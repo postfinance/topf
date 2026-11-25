@@ -15,8 +15,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/postfinance/topf/internal/secrets"
+	"github.com/postfinance/topf/internal/tmpl"
 	"github.com/postfinance/topf/pkg/config"
 )
+
+func newResolver(dir string, opts ...Option) *Resolver {
+	return NewResolver(dir, "test", secrets.NewResolver(nil), opts...)
+}
 
 func testFactory(srv *httptest.Server) string {
 	return strings.TrimPrefix(srv.URL, "https://")
@@ -55,7 +61,7 @@ func newMockFactoryServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
 
 func TestResolve(t *testing.T) {
 	t.Run("plainID", func(t *testing.T) {
-		r := NewResolver(".", "test")
+		r := newResolver(".")
 		got, err := r.Resolve(context.Background(), "", "abc123", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -69,7 +75,7 @@ func TestResolve(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "s.yaml"), []byte("customization: {}\n"), 0o644)
 
-		r := NewResolver(dir, "test")
+		r := newResolver(dir)
 		got, err := r.Resolve(context.Background(), "factory.talos.dev", "@s.yaml", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -91,9 +97,11 @@ func TestResolve(t *testing.T) {
 {{- end }}
 `), 0o644)
 
-		r := NewResolver(dir, "test")
-		got, err := r.Resolve(context.Background(), "", "@s.yaml.tpl", &config.PatchContext{
-			Data: map[string]any{"extensions": []string{"siderolabs/qemu-guest-agent"}},
+		r := newResolver(dir)
+		got, err := r.Resolve(context.Background(), "", "@s.yaml.tpl", &tmpl.Context{
+			TopfConfig: &config.TopfConfig{
+				Data: map[string]any{"extensions": []string{"siderolabs/qemu-guest-agent"}},
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -110,7 +118,7 @@ func TestResolve(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "s.yaml"), []byte("customization: {}"), 0o644)
 
-		r := NewResolver(dir, "test", WithHTTPClient(srv.Client()))
+		r := newResolver(dir, WithHTTPClient(srv.Client()))
 		if _, err := r.Resolve(context.Background(), testFactory(srv), "@s.yaml", nil); err != nil {
 			t.Fatal(err)
 		}
@@ -126,7 +134,7 @@ func TestResolve(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "s.yaml"), []byte("customization: {}"), 0o644)
 
-		r := NewResolver(dir, "test", WithSubmitToFactory(true), WithHTTPClient(srv.Client()))
+		r := newResolver(dir, WithSubmitToFactory(true), WithHTTPClient(srv.Client()))
 		got, err := r.Resolve(context.Background(), testFactory(srv), "@s.yaml", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -149,7 +157,7 @@ func TestResolve(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "s.yaml"), []byte("customization: {}"), 0o644)
 
-		r := NewResolver(dir, "test", WithSubmitToFactory(true), WithHTTPClient(srv.Client()))
+		r := newResolver(dir, WithSubmitToFactory(true), WithHTTPClient(srv.Client()))
 
 		var wg sync.WaitGroup
 
@@ -186,7 +194,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("fileNotFound", func(t *testing.T) {
-		r := NewResolver(".", "test")
+		r := newResolver(".")
 		if _, err := r.Resolve(context.Background(), "", "@nope.yaml", nil); err == nil {
 			t.Fatal("expected error")
 		}
@@ -196,7 +204,7 @@ func TestResolve(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "s.yaml"), []byte("bogus: true\n"), 0o644)
 
-		r := NewResolver(dir, "test")
+		r := newResolver(dir)
 		if _, err := r.Resolve(context.Background(), "", "@s.yaml", nil); err == nil {
 			t.Fatal("expected error")
 		}
