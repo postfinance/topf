@@ -28,7 +28,7 @@ archives:
 
 dockers_v2:
   - images:
-      - ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/topf
+      - ghcr.io/{{ envOrDefault "GITHUB_REPOSITORY_OWNER" "postfinance" | tolower }}/topf
     tags:
       - "v{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
