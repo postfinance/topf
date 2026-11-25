@@ -5,74 +5,88 @@
 package talosconfig
 
 import (
-	"cmp"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/postfinance/topf/internal/topf"
 	"github.com/postfinance/topf/pkg/config"
-	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
-	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
+	"github.com/siderolabs/talos/pkg/machinery/role"
 )
 
-// Generate returns a talosconfig
-func Generate(t topf.Topf) ([]byte, error) {
+// DefaultValidity is the default validity of the client certificate,
+// matching the Talos default.
+const DefaultValidity = constants.TalosAPIDefaultCertificateValidityDuration
+
+// DefaultRole is the default Talos role of the client certificate.
+const DefaultRole = role.Admin
+
+// Generate returns a talosconfig with a client certificate for the given
+// roles, valid for the given duration.
+func Generate(t topf.Topf, roles []string, validity time.Duration) ([]byte, error) {
+	if validity <= 0 {
+		return nil, fmt.Errorf("validity must be positive, got %s", validity)
+	}
+
+	roleSet, unknownRoles := role.Parse(roles)
+	if len(unknownRoles) > 0 {
+		return nil, fmt.Errorf("unknown roles: %s", strings.Join(unknownRoles, ", "))
+	}
+
+	if roleSet.Empty() {
+		return nil, errors.New("at least one role is required")
+	}
+
 	secretsBundle, err := t.Secrets()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load secrets bundle: %w", err)
 	}
 
-	configBundleOpts := []bundle.Option{
-		bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
-		bundle.WithInputOptions(
-			&bundle.InputOptions{
-				ClusterName: t.Config().ClusterName,
-				KubeVersion: strings.TrimPrefix(cmp.Or(t.Config().KubernetesVersion, constants.DefaultKubernetesVersion), "v"),
-				GenOptions: []generate.Option{
-					generate.WithSecretsBundle(secretsBundle),
-				},
-			},
-		),
-	}
-
-	configBundle, err := bundle.NewBundle(configBundleOpts...)
+	clientCert, err := secretsBundle.GenerateTalosAPIClientCertificateWithTTL(roleSet, validity)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
 
 	clusterName := t.Config().ClusterName
-	nodes := t.Config().Nodes
+	talosCfg := clientconfig.NewConfig(clusterName, nil, secretsBundle.Certs.OS.Crt, clientCert)
+	setEndpointsAndNodes(talosCfg.Contexts[clusterName], t.Config().Nodes)
 
+	return talosCfg.Bytes()
+}
+
+func setEndpointsAndNodes(talosCtx *clientconfig.Context, nodes []config.Node) {
 	// For single-node clusters, add the single node as both endpoint and node
 	if len(nodes) == 1 {
 		endpoint := nodes[0].Endpoint()
-		configBundle.TalosCfg.Contexts[clusterName].Endpoints = []string{endpoint}
-		configBundle.TalosCfg.Contexts[clusterName].Nodes = []string{endpoint}
-	} else {
-		// For multi-node clusters:
-		// - endpoints: all control-plane nodes
-		// - nodes: all nodes
-		var (
-			endpoints []string
-			allNodes  []string
-		)
+		talosCtx.Endpoints = []string{endpoint}
+		talosCtx.Nodes = []string{endpoint}
 
-		for _, node := range nodes {
-			allNodes = append(allNodes, node.Endpoint())
-			if node.Role == config.RoleControlPlane {
-				endpoints = append(endpoints, node.Endpoint())
-			}
-		}
+		return
+	}
 
-		if len(endpoints) > 0 {
-			configBundle.TalosCfg.Contexts[clusterName].Endpoints = endpoints
-		}
+	// For multi-node clusters:
+	// - endpoints: all control-plane nodes
+	// - nodes: all nodes
+	var (
+		endpoints []string
+		allNodes  []string
+	)
 
-		if len(allNodes) > 0 {
-			configBundle.TalosCfg.Contexts[clusterName].Nodes = allNodes
+	for _, node := range nodes {
+		allNodes = append(allNodes, node.Endpoint())
+		if node.Role == config.RoleControlPlane {
+			endpoints = append(endpoints, node.Endpoint())
 		}
 	}
 
-	return configBundle.TalosCfg.Bytes()
+	if len(endpoints) > 0 {
+		talosCtx.Endpoints = endpoints
+	}
+
+	if len(allNodes) > 0 {
+		talosCtx.Nodes = allNodes
+	}
 }
