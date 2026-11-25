@@ -53,66 +53,16 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	var resetNodes []*topf.Node
 
 	for _, n := range nodes {
-		logger := logger.With(n.Attrs())
-
-		if n.MachineStatus.Stage == runtime.MachineStageMaintenance {
-			logger.Info("already in maintenance mode")
-
+		switch resetNode(ctx, t, logger.With(n.Attrs()), n, opts) {
+		case outcomeSkipped:
 			result.SkipCount++
-
-			continue
-		}
-
-		nodeClient, err := n.Client(ctx)
-		if err != nil {
-			logger.Error("couldn't get client", "error", err)
-
+		case outcomeFailed:
 			result.FailCount++
+		case outcomeSuccess:
+			result.SuccessCount++
 
-			continue
+			resetNodes = append(resetNodes, n)
 		}
-		defer nodeClient.Close()
-
-		partitions := []*machine.ResetPartitionSpec{
-			{Label: "STATE", Wipe: true},
-			{Label: "EPHEMERAL", Wipe: true},
-		}
-
-		// full wipe blindly wipes all partitions
-		if opts.Full {
-			partitions = nil
-		}
-
-		// ask for user confirmation
-		if t.Confirm() {
-			message := fmt.Sprintf("Do you want to reset %s ?", n.Node.Host)
-			if interactive.ConfirmPrompt(message) == 'n' {
-				logger.Info("skipping")
-
-				result.SkipCount++
-
-				continue
-			}
-		}
-
-		_, err = nodeClient.MachineClient.Reset(ctx, &machine.ResetRequest{
-			SystemPartitionsToWipe: partitions,
-			Graceful:               opts.Graceful,
-			Reboot:                 !opts.Shutdown,
-		})
-		if err != nil {
-			logger.Error("failed to initiate reset", "error", err)
-
-			result.FailCount++
-
-			continue
-		}
-
-		logger.Info("reset initiated")
-
-		result.SuccessCount++
-
-		resetNodes = append(resetNodes, n)
 	}
 
 	logger.Info("reset completed", "result", *result)
@@ -129,6 +79,67 @@ func Execute(ctx context.Context, t topf.Topf, opts Options) error {
 	}
 
 	return failErr
+}
+
+type outcome int
+
+const (
+	outcomeSuccess outcome = iota
+	outcomeSkipped
+	outcomeFailed
+)
+
+// resetNode initiates the reset of a single node. The node client is closed
+// before returning.
+func resetNode(ctx context.Context, t topf.Topf, logger *slog.Logger, n *topf.Node, opts Options) outcome {
+	if n.MachineStatus.Stage == runtime.MachineStageMaintenance {
+		logger.Info("already in maintenance mode")
+
+		return outcomeSkipped
+	}
+
+	nodeClient, err := n.Client(ctx)
+	if err != nil {
+		logger.Error("couldn't get client", "error", err)
+
+		return outcomeFailed
+	}
+	defer nodeClient.Close()
+
+	partitions := []*machine.ResetPartitionSpec{
+		{Label: "STATE", Wipe: true},
+		{Label: "EPHEMERAL", Wipe: true},
+	}
+
+	// full wipe blindly wipes all partitions
+	if opts.Full {
+		partitions = nil
+	}
+
+	// ask for user confirmation
+	if t.Confirm() {
+		message := fmt.Sprintf("Do you want to reset %s ?", n.Node.Host)
+		if interactive.ConfirmPrompt(message) == 'n' {
+			logger.Info("skipping")
+
+			return outcomeSkipped
+		}
+	}
+
+	_, err = nodeClient.MachineClient.Reset(ctx, &machine.ResetRequest{
+		SystemPartitionsToWipe: partitions,
+		Graceful:               opts.Graceful,
+		Reboot:                 !opts.Shutdown,
+	})
+	if err != nil {
+		logger.Error("failed to initiate reset", "error", err)
+
+		return outcomeFailed
+	}
+
+	logger.Info("reset initiated")
+
+	return outcomeSuccess
 }
 
 // waitForMaintenance waits in parallel for all nodes to reach maintenance mode.
