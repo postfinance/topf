@@ -1189,10 +1189,11 @@
 <li><strong>SOPS decryption</strong> — if a file is SOPS-encrypted, it is decrypted automatically. If SOPS is not installed, unencrypted files are read as-is.</li>
 <li><strong>vals evaluation</strong> — after decryption, any <a href="https://github.com/helmfile/vals">vals</a> references (e.g. <code>ref+vault://</code>, <code>ref+file://</code>) are resolved. If no vals references are present, this step is skipped. The <code>vals</code> binary must be on <code>PATH</code> when vals references are used.</li>
 </ol>
-<p>Template files (ending with <code>.tpl</code>) skip this pipeline entirely and are rendered through <a href="#templating">Go templates</a> instead.</p>
+<p>Nodes provider output is passed through vals as well; SOPS does not apply.</p>
+<p>Templates (<code>.tpl</code>) are not SOPS-decrypted; SOPS-encrypted templates are rejected. They are rendered first, then the output is passed through vals, so references can be built dynamically (e.g. <code>ref+sops://secrets.yaml#/{{ .Node.Host }}/token</code>). To use secrets in templates, use data in a SOPS-encrypted <code>topf.yaml</code> or vals references.</p>
 <p>This is useful for keeping sensitive values (e.g. private keys, credentials, tokens) out of version control — either by encrypting the entire file with SOPS, or by referencing secrets from an external store via <a href="https://github.com/helmfile/vals">vals</a>.</p>
 <h2 id="templating">Templating</h2>
-<p>Patches ending with <code>.yaml.tpl</code> support <a href="https://pkg.go.dev/text/template">Go templating</a>. The following context fields are available:</p>
+<p>Templates (<code>.yaml.tpl</code> patches and <code>.tpl</code> schematics) receive the complete <code>topf.yaml</code> configuration plus the node being rendered. Use Go field names, not YAML keys (e.g. <code>.Node.SchematicID</code>, not <code>.Node.schematicId</code>).</p>
 <table>
 <thead>
 <tr>
@@ -1203,47 +1204,47 @@
 <tbody>
 <tr>
 <td><code>.ClusterName</code></td>
-<td>Cluster name from <code>topf.yaml</code></td>
+<td>Cluster name</td>
 </tr>
 <tr>
 <td><code>.ClusterEndpoint</code></td>
-<td>Cluster endpoint URL</td>
+<td>Cluster endpoint URL. Prints as a string; use <code>.ClusterEndpoint.String</code> with string functions or <code>eq</code>, <code>.ClusterEndpoint.Host</code> for <code>host:port</code></td>
 </tr>
 <tr>
 <td><code>.KubernetesVersion</code></td>
-<td>Kubernetes version</td>
+<td>Kubernetes version (if set)</td>
 </tr>
 <tr>
 <td><code>.TalosVersion</code></td>
-<td>Talos version (if set in <code>topf.yaml</code>)</td>
+<td>Cluster Talos version (if set)</td>
 </tr>
 <tr>
 <td><code>.SchematicID</code></td>
-<td>Schematic ID (if set in <code>topf.yaml</code>)</td>
+<td>Cluster schematic ID as written in <code>topf.yaml</code> (may be an <code>@file</code> reference or empty)</td>
+</tr>
+<tr>
+<td><code>.Factory</code>, <code>.Platform</code>, <code>.SecureBoot</code></td>
+<td>Cluster-level settings (if set)</td>
 </tr>
 <tr>
 <td><code>.Data.&lt;key&gt;</code></td>
-<td>Arbitrary global data from <code>topf.yaml</code> (see <a href="../configuration/#configuration-fields">configuration</a>)</td>
+<td>Global data</td>
 </tr>
 <tr>
-<td><code>.Node.Host</code></td>
-<td>Node hostname</td>
+<td><code>.Nodes</code></td>
+<td>All configured nodes, including provider nodes; not limited by <code>--nodes-filter</code>. Each has the configuration fields of <code>.Node</code></td>
 </tr>
 <tr>
-<td><code>.Node.Role</code></td>
-<td>Node role (<code>control-plane</code> or <code>worker</code>)</td>
+<td><code>.Node.Host</code>, <code>.Node.Role</code>, <code>.Node.IP</code>, <code>.Node.Classes</code>, <code>.Node.Data.&lt;key&gt;</code></td>
+<td>Node configuration</td>
 </tr>
 <tr>
-<td><code>.Node.IP</code></td>
-<td>Node IP address (if set)</td>
+<td><code>.Node.TalosVersion</code>, <code>.Node.SchematicID</code>, <code>.Node.Factory</code>, <code>.Node.Platform</code>, <code>.Node.SecureBoot</code></td>
+<td>Per-node overrides as written in <code>topf.yaml</code> (empty if not set)</td>
 </tr>
 <tr>
-<td><code>.Node.Classes</code></td>
-<td>Node classes (if set)</td>
-</tr>
-<tr>
-<td><code>.Node.Data.&lt;key&gt;</code></td>
-<td>Per-node data (if set)</td>
+<td><code>.Node.ResolvedSchematicID</code></td>
+<td>Effective schematic ID (node → cluster → default, <code>@file</code> resolved). Empty in schematic templates</td>
 </tr>
 <tr>
 <td><code>.Node.RuntimeData.TalosVersion</code></td>
@@ -1296,28 +1297,37 @@
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">extraArgs</span><span class="p">:</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">provider-id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">.Node.Data.uuid</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 </code></pre></div>
-<p>Use the <code>env</code> function in a multi-document template to conditionally configure a registry mirror:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if env "REGISTRY_MIRROR" -</span><span class="p p-Indicator">}}</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RegistryMirrorConfig</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">endpoints</span><span class="p">:</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">env "REGISTRY_MIRROR"</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<p>Add all control-plane hosts as certificate SANs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">machine</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">certSANs</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p p-Indicator">{{</span><span class="nv">- range .Nodes</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p p-Indicator">{{</span><span class="nv">- if eq .Role "control-plane"</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">.Host</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
 </code></pre></div>
-<p>Branch on the node's <strong>running</strong> Talos version — useful for mixed-version clusters during the Talos 1.13 → 1.14 transition, where the install disk is configured via <code>UnattendedInstallConfig</code> on &gt;= 1.14 and via the deprecated <code>.machine.install</code> on older nodes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if semverCompare "&gt;= 1.14.0-0" .Node.RuntimeData.TalosVersion -</span><span class="p p-Indicator">}}</span>
+<p>Use the <code>env</code> function in a multi-document template to conditionally configure a registry mirror:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if env "REGISTRY_MIRROR" -</span><span class="p p-Indicator">}}</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UnattendedInstallConfig</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">provisioning</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">diskSelector</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disk.dev_path == "/dev/vda"</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">wipe</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">else -</span><span class="p p-Indicator">}}</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nt">machine</span><span class="p">:</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/vda</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">end -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RegistryMirrorConfig</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">endpoints</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">env "REGISTRY_MIRROR"</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p p-Indicator">{{</span><span class="nv">- end</span><span class="w"> </span><span class="p p-Indicator">}}</span>
+</code></pre></div>
+<p>Branch on the node's <strong>running</strong> Talos version — useful for mixed-version clusters during the Talos 1.13 → 1.14 transition, where the install disk is configured via <code>UnattendedInstallConfig</code> on &gt;= 1.14 and via the deprecated <code>.machine.install</code> on older nodes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">if semverCompare "&gt;= 1.14.0-0" .Node.RuntimeData.TalosVersion -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1alpha1</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UnattendedInstallConfig</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">provisioning</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">diskSelector</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disk.dev_path == "/dev/vda"</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">wipe</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">else -</span><span class="p p-Indicator">}}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nt">machine</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">install</span><span class="p">:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dev/vda</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">end -</span><span class="p p-Indicator">}}</span>
 </code></pre></div>
 <blockquote>
 <p><strong>Note:</strong> <code>UnattendedInstallConfig</code> and <code>.machine.install</code> are mutually exclusive — Talos &gt;= 1.14 rejects a config containing both, and <code>.machine.install</code> is deprecated. Branching templates like the one above are the recommended way to express the install disk while a cluster straddles versions.</p>

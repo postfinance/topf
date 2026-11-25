@@ -1368,7 +1368,7 @@
 </code></pre></div>
 <p>Topf will:</p>
 <ol>
-<li>Read the file (relative to the directory containing <code>topf.yaml</code>)</li>
+<li>Read the file (relative to the directory containing topf.yaml) with secrets resolved like patches (see Secret Resolution)</li>
 <li>If the path ends in <code>.tpl</code>, render it through Go templates with the same data available as <a href="../configuration-model/#templating">patch templates</a></li>
 <li>Compute the schematic ID locally from the canonical YAML representation</li>
 <li>Use the schematic ID for config generation and installer image URLs</li>

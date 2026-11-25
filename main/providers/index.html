@@ -1224,6 +1224,7 @@
 <li>Exit code <code>0</code> on success, non-zero on failure</li>
 <li><strong>stderr</strong> is passed through to the user for diagnostics</li>
 <li>The <code>data</code> field is optional and can carry arbitrary key-value pairs for use in <a href="../configuration-model/#templating">patch templates</a> via <code>.Node.Data.&lt;key&gt;</code></li>
+<li>Values may contain <a href="https://github.com/helmfile/vals">vals</a> references (e.g. <code>ref+vault://…</code>), resolved like in <code>topf.yaml</code></li>
 </ul>
 <h3 id="merging">Merging</h3>
 <p>Nodes from the binary are appended to nodes defined in <code>topf.yaml</code>. All nodes (static + dynamic) are then subject to <code>--nodes-filter</code>.</p>
@@ -1238,7 +1239,7 @@
 <h2 id="secrets-provider">Secrets Provider</h2>
 <p>The secrets provider manages the Talos secrets bundle (<code>secrets.yaml</code>) which contains cluster certificates, keys, and tokens.</p>
 <h3 id="default-behavior-no-provider">Default Behavior (no provider)</h3>
-<p>Without a <code>secretsProvider</code>, TOPF reads from and writes to a local <code>secrets.yaml</code> file. The location defaults to <code>secrets.yaml</code> next to the config file and can be overridden with <code>secretsPath</code>. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not available, it falls back to plaintext. <a href="https://github.com/helmfile/vals">vals</a> references in the secrets file are also resolved if present.</p>
+<p>Without a <code>secretsProvider</code>, TOPF reads from and writes to a local <code>secrets.yaml</code> file. The location defaults to <code>secrets.yaml</code> next to the config file and can be overridden with <code>secretsPath</code>. It automatically attempts SOPS decryption on read and SOPS encryption on write. If SOPS is not installed, or no <code>.sops.yaml</code> creation rule matches the file, it falls back to plaintext and logs a warning. Any other SOPS error (for example an unavailable key) aborts the write, so the secrets are never silently stored unencrypted. <a href="https://github.com/helmfile/vals">vals</a> references in the secrets file are also resolved if present.</p>
 <h3 id="binary-contract_1">Binary Contract</h3>
 <p>When <code>secretsProvider</code> is set, the binary is invoked with two subcommands:</p>
 <p><strong>Get secrets:</strong></p>
