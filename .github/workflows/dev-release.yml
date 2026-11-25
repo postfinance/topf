@@ -41,12 +41,13 @@ jobs:
 
       - name: Push dev docker images
         run: |
-          for img in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'ghcr.io/postfinance/topf:'); do
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/topf"
+          for img in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "${image}:"); do
             arch="${img##*-}"
-            docker tag "$img" "ghcr.io/postfinance/topf:dev-${arch}"
-            docker push "ghcr.io/postfinance/topf:dev-${arch}"
+            docker tag "$img" "${image}:dev-${arch}"
+            docker push "${image}:dev-${arch}"
           done
-          docker manifest create ghcr.io/postfinance/topf:dev \
-            ghcr.io/postfinance/topf:dev-amd64 \
-            ghcr.io/postfinance/topf:dev-arm64
-          docker manifest push ghcr.io/postfinance/topf:dev
+          docker manifest create "${image}:dev" \
+            "${image}:dev-amd64" \
+            "${image}:dev-arm64"
+          docker manifest push "${image}:dev"
