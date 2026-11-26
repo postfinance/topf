@@ -1025,6 +1025,12 @@
 <h1 id="talosconfig-command">Talosconfig Command</h1>
 <p>The <code>talosconfig</code> command generates a Talos client configuration from the cluster's secrets bundle.</p>
 <h2 id="behavior">Behavior</h2>
+<p>The generated talosconfig:</p>
+<ul>
+<li>Uses a client certificate valid for <strong>1 year</strong> (configurable via <code>--validity</code>)</li>
+<li>Grants the <code>os:admin</code> role (configurable via <code>--roles</code>)</li>
+<li>Is signed by the cluster's Talos CA</li>
+</ul>
 <p>The generated talosconfig is configured differently based on cluster size:</p>
 <p><strong>Single-node cluster:</strong></p>
 <ul>
@@ -1044,6 +1050,9 @@
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>topf<span class="w"> </span>talosconfig<span class="w"> </span>&gt;<span class="w"> </span>talosconfig
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TALOSCONFIG</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/talosconfig
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>talosctl<span class="w"> </span>version
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Short-lived, read-only talosconfig</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>topf<span class="w"> </span>talosconfig<span class="w"> </span>--validity<span class="w"> </span>1h<span class="w"> </span>--roles<span class="w"> </span>os:reader<span class="w"> </span>&gt;<span class="w"> </span>talosconfig
 </code></pre></div>
 
 
