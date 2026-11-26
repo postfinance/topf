@@ -16,7 +16,7 @@ import (
 func newKubeconfigCmd() *cli.Command {
 	return &cli.Command{
 		Name:   "kubeconfig",
-		Usage:  "generate a temporary admin kubeconfig",
+		Usage:  "generate a temporary kubeconfig",
 		Before: noPositionalArgs,
 		Flags: []cli.Flag{
 			&cli.DurationFlag{
@@ -24,11 +24,21 @@ func newKubeconfigCmd() *cli.Command {
 				Usage: "validity duration of the client certificate",
 				Value: 12 * time.Hour,
 			},
+			&cli.StringFlag{
+				Name:  "user",
+				Usage: "user (CN) of the client certificate",
+				Value: kubeconfig.DefaultUser,
+			},
+			&cli.StringSliceFlag{
+				Name:  "groups",
+				Usage: "groups (O) of the client certificate (system:masters grants full admin)",
+				Value: []string{kubeconfig.DefaultGroup},
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			t := MustGetRuntime(ctx)
 
-			kubeconfigStruct, err := kubeconfig.Generate(t, cmd.Duration("validity"))
+			kubeconfigStruct, err := kubeconfig.Generate(t, cmd.String("user"), cmd.StringSlice("groups"), cmd.Duration("validity"))
 			if err != nil {
 				return fmt.Errorf("couldn't generate kubeconfig: %w", err)
 			}

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/postfinance/topf/internal/topf"
@@ -22,21 +23,35 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-// Generate creates a kubeconfig with a client certificate using the topf runtime
-func Generate(t topf.Topf, validity time.Duration) (*api.Config, error) {
+// DefaultUser is the default user (CN) of the client certificate.
+const DefaultUser = "topf"
+
+// DefaultGroup is the default group (O) of the client certificate, granting
+// full admin access.
+const DefaultGroup = "system:masters"
+
+// Generate creates a kubeconfig with a client certificate for the given user
+// and groups using the topf runtime
+func Generate(t topf.Topf, user string, groups []string, validity time.Duration) (*api.Config, error) {
+	if user == "" {
+		return nil, errors.New("user must not be empty")
+	}
+
+	groups = slices.DeleteFunc(slices.Clone(groups), func(g string) bool { return g == "" })
+
 	secretsBundle, err := t.Secrets()
 	if err != nil {
 		return nil, err
 	}
 	// Generate client certificate
-	clientCert, clientKey, err := generateClientCertificate(secretsBundle, validity)
+	clientCert, clientKey, err := generateClientCertificate(secretsBundle, user, groups, validity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
 
 	clusterName := t.Config().ClusterName
 
-	contextName := "topf@" + clusterName
+	contextName := user + "@" + clusterName
 
 	// Generate kubeconfig
 	kubeconfig := &api.Config{
@@ -66,8 +81,8 @@ func Generate(t topf.Topf, validity time.Duration) (*api.Config, error) {
 	return kubeconfig, nil
 }
 
-// generateClientCertificate creates a new admin client certificate signed by the Kubernetes CA
-func generateClientCertificate(secretsBundle *secrets.Bundle, validity time.Duration) ([]byte, []byte, error) {
+// generateClientCertificate creates a new client certificate signed by the Kubernetes CA
+func generateClientCertificate(secretsBundle *secrets.Bundle, user string, groups []string, validity time.Duration) ([]byte, []byte, error) {
 	// Generate EC private key
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -78,8 +93,8 @@ func generateClientCertificate(secretsBundle *secrets.Bundle, validity time.Dura
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "topf",
-			Organization: []string{"system:masters"},
+			CommonName:   user,
+			Organization: groups,
 		},
 		// skew into the past so the cert is valid even with some time
 		// drift between the talos node and the machine running topf
