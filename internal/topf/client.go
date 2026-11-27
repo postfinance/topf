@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/siderolabs/talos/pkg/machinery/client"
+	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/client/dialer"
-	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
-	"github.com/siderolabs/talos/pkg/machinery/config/generate"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/role"
 )
 
 // Client returns a talos API client, either insecure (if maintenance
@@ -33,36 +33,26 @@ func (n *Node) Client(ctx context.Context) (*client.Client, error) {
 			return nil, err
 		}
 
-		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, n.KubernetesVersion(), n.Node.Endpoint())
+		return createAuthenticatedClient(ctx, secrets, n.t.Config().ClusterName, n.Node.Endpoint())
 	}
 
 	return createInsecureClient(ctx, n.Node.Endpoint())
 }
 
+// authenticatedClientValidity is the validity of the client certificate used
+// by topf itself. The certificate only lives in memory for the duration of a
+// topf run, so it does not need the long-lived Talos default.
+const authenticatedClientValidity = 24 * time.Hour
+
 // createAuthenticatedClient creates a talos client using the given secrets bundle
-func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundle, clusterName, kubeVersion string, endpoints ...string) (*client.Client, error) {
-	// Generate config bundle from secrets
-	configBundleOpts := []bundle.Option{
-		bundle.WithVerbose(false), // prevent printing "generating PKI and tokens"
-		bundle.WithInputOptions(
-			&bundle.InputOptions{
-				ClusterName: clusterName,
-				Endpoint:    "", // endpoint will be set from client options
-				KubeVersion: kubeVersion,
-				GenOptions: []generate.Option{
-					generate.WithSecretsBundle(secretsBundle),
-				},
-			},
-		),
-	}
-
-	configBundle, err := bundle.NewBundle(configBundleOpts...)
+func createAuthenticatedClient(ctx context.Context, secretsBundle *secrets.Bundle, clusterName string, endpoints ...string) (*client.Client, error) {
+	clientCert, err := secretsBundle.GenerateTalosAPIClientCertificateWithTTL(role.MakeSet(role.Admin), authenticatedClientValidity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate config bundle: %w", err)
+		return nil, fmt.Errorf("failed to generate client certificate: %w", err)
 	}
 
-	// Create client from talos config
-	talosConfig := configBundle.TalosCfg
+	// endpoints are set from client options
+	talosConfig := clientconfig.NewConfig(clusterName, nil, secretsBundle.Certs.OS.Crt, clientCert)
 
 	c, err := client.New(ctx,
 		client.WithConfig(talosConfig),
