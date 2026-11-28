@@ -114,7 +114,7 @@ func labeledNodes(ctx context.Context, t topf.Topf, key, value string) (int, err
 }
 
 func kubeClient(ctx context.Context, t topf.Topf) (*kubernetes.Clientset, error) {
-	cfg, err := kubeconfig.Generate(t, 1*time.Hour)
+	cfg, err := kubeconfig.Generate(t, kubeconfig.DefaultUser, []string{kubeconfig.DefaultGroup}, 1*time.Hour)
 	if err != nil {
 		return nil, err
 	}
