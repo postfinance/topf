@@ -57,9 +57,11 @@ homebrew_casks:
 
 nfpms:
   - id: topf
-    package_name: topf
+    package_name: "{{ .ProjectName }}"
     ids: [topf]            # build id; matches the default build name
     formats:
+      - apk
+      - archlinux
       - deb
       - rpm
     vendor: PostFinance
@@ -69,7 +71,8 @@ nfpms:
     license: MIT
     section: admin         # deb only
     bindir: /usr/bin
-    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    mtime: "{{ .CommitDate }}"
+    file_name_template: "{{ .ConventionalFileName }}"
 
 changelog:
   use: github
