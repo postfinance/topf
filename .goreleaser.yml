@@ -55,6 +55,25 @@ homebrew_casks:
             run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/topf"]
           end
 
+nfpms:
+  - id: topf
+    package_name: "{{ .ProjectName }}"
+    ids: [topf]            # build id; matches the default build name
+    formats:
+      - apk
+      - archlinux
+      - deb
+      - rpm
+    vendor: PostFinance
+    maintainer: PostFinance
+    homepage: https://github.com/postfinance/topf
+    description: Talos Orchestrator by PostFinance
+    license: MIT
+    section: admin         # deb only
+    bindir: /usr/bin
+    mtime: "{{ .CommitDate }}"
+    file_name_template: "{{ .ConventionalFileName }}"
+
 changelog:
   use: github
   sort: asc
