@@ -667,6 +667,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#limited-scope-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limited-scope kubeconfigs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1002,6 +1013,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#limited-scope-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limited-scope kubeconfigs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1023,14 +1045,14 @@
 
 
 <h1 id="kubeconfig-command">Kubeconfig Command</h1>
-<p>The <code>kubeconfig</code> command generates a temporary admin kubeconfig for cluster access.</p>
+<p>The <code>kubeconfig</code> command generates a temporary kubeconfig for cluster access, with full admin access by default.</p>
 <h2 id="behavior">Behavior</h2>
 <p>The generated kubeconfig:</p>
 <ul>
 <li>Is valid for <strong>12 hours</strong> (configurable via <code>--validity</code>)</li>
-<li>Uses a client certificate with <code>system:masters</code> group (full admin access)</li>
+<li>Uses a client certificate for user <code>topf</code> (configurable via <code>--user</code>) in group <code>system:masters</code> (full admin access, configurable via <code>--groups</code>)</li>
 <li>Is signed by the cluster's Kubernetes CA</li>
-<li>Context name: <code>topf@&lt;cluster-name&gt;</code></li>
+<li>Context name: <code>&lt;user&gt;@&lt;cluster-name&gt;</code></li>
 </ul>
 <h2 id="example-usage">Example Usage</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Output kubeconfig to stdout</span>
@@ -1040,6 +1062,26 @@
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>topf<span class="w"> </span>kubeconfig<span class="w"> </span>&gt;<span class="w"> </span>kubeconfig
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/kubeconfig
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>kubectl<span class="w"> </span>get<span class="w"> </span>nodes
+</code></pre></div>
+<h2 id="limited-scope-kubeconfigs">Limited-scope kubeconfigs</h2>
+<p>topf does not create any RBAC objects. To mint a kubeconfig with limited
+access, bind a group (or user) to a role in the cluster, e.g. to the built-in
+<code>view</code> ClusterRole:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">viewers</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">view</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">viewers</span>
+</code></pre></div>
+<p>Then generate a kubeconfig for that group:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>topf<span class="w"> </span>kubeconfig<span class="w"> </span>--validity<span class="w"> </span>1h<span class="w"> </span>--user<span class="w"> </span>alice<span class="w"> </span>--groups<span class="w"> </span>viewers<span class="w"> </span>&gt;<span class="w"> </span>kubeconfig
 </code></pre></div>
 
 
